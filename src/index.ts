@@ -9,8 +9,11 @@ const PGPASS = defineSecret("PGPASS");
 const PGHOST = defineSecret("PGHOST");
 const PGDB = defineSecret("PGDB");
 const PGPORT = defineSecret("PGPORT");
+
 const MAIL_USER = defineSecret("MAIL_USER");
 const MAIL_PASS = defineSecret("MAIL_PASS");
+
+const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
 
 import cors from "cors";
 import express from "express";
@@ -19,14 +22,16 @@ import express from "express";
 import {getAuthRouter} from "./api/auth";
 import {getTaxesRouter} from "./api/taxes";
 import {getRisksRouter} from "./api/risks";
+import {getLoansRouter} from "./api/loans";
 import {getFarmersRouter} from "./api/farmers";
 import {getPaymentsRouter} from "./api/payments";
+import {getDirectorsRouter} from "./api/directors";
 import {getLogisticsRouter} from "./api/logistics";
 import {getFinancialsRouter} from "./api/financials";
 import {getBusinessesRouter} from "./api/businesses";
 import {getDeclarationsRouter} from "./api/declarations";
 import {getFarmProductsRouter} from "./api/farm_products";
-import {getDirectorsRouter} from "./api/directors";
+import {getLoanRepaymentsRouter} from "./api/loan_repayments";
 
 // Inside api onRequest block:
 export const api = onRequest(
@@ -38,14 +43,15 @@ export const api = onRequest(
       PGUSER: PGUSER.value(),
       PGPASS: PGPASS.value(),
       PGHOST: PGHOST.value(),
-      PGDB: PGDB.value(),
       PGPORT: PGPORT.value(),
+      PGDB: PGDB.value(),
+
       MAIL_USER: MAIL_USER.value(),
       MAIL_PASS: MAIL_PASS.value(),
     };
 
     // ✅ Bootstrap DB structure
-    await bootstrapDatabase(config);
+    await bootstrapDatabase(config, FORCE_BOOTSTRAP);
 
     // 🚀 Setup Express with routers
     const app = express();
@@ -58,12 +64,15 @@ export const api = onRequest(
     app.use("/risks", getRisksRouter(config));
     app.use("/farmers", getFarmersRouter(config));
     app.use("/payments", getPaymentsRouter(config));
+    app.use("/directors", getDirectorsRouter(config));
     app.use("/logistics", getLogisticsRouter(config));
     app.use("/financials", getFinancialsRouter(config));
     app.use("/businesses", getBusinessesRouter(config));
     app.use("/declarations", getDeclarationsRouter(config));
     app.use("/farm-products", getFarmProductsRouter(config));
-    app.use("/directors", getDirectorsRouter(config));
+
+    app.use("/loans", getLoansRouter(config));
+    app.use("/loan-repayments", getLoanRepaymentsRouter(config));
 
     return app(req, res); // ✅ TS: ExpressHandler compatible
   }

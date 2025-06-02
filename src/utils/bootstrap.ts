@@ -1,38 +1,41 @@
+/* eslint-disable camelcase */
 import {initDbPool, DbConfig} from "../utils/db";
 
-let isBootstrapped = false;
-
-export const bootstrapDatabase = async (config: DbConfig) => {
-  if (isBootstrapped) {
-    console.log("⚡ Skipping DB bootstrap (already bootstrapped)");
-    return;
-  }
-
+export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   const pool = initDbPool(config);
 
-  try {
-    // Ensure flags table exists
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS __migration_flags (
-        id SERIAL PRIMARY KEY,
-        tag VARCHAR(100) UNIQUE NOT NULL,
-        created_at TIMESTAMP DEFAULT now()
-      );
-    `);
-
-    const check = await pool.query(
-      "SELECT 1 FROM __migration_flags WHERE tag = 'bootstrap-v1' LIMIT 1"
+  // Always ensure flags table exists
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS __migration_flags (
+      id SERIAL PRIMARY KEY,
+      tag VARCHAR(100) UNIQUE NOT NULL,
+      created_at TIMESTAMP DEFAULT now()
     );
+  `);
 
+  const MIGRATION_TAG = "bootstrap-v1"; // can bump this later
+
+  if (!force) {
+    const check = await pool.query(
+      "SELECT 1 FROM __migration_flags WHERE tag = $1 LIMIT 1",
+      [MIGRATION_TAG]
+    );
     if ((check.rowCount ?? 0) > 0) {
-      console.log("✅ DB already bootstrapped.");
-      isBootstrapped = true;
+      console.log(
+        "✅ DB already bootstrapped. " +
+        "Use FORCE_BOOTSTRAP=true to override."
+      );
       return;
     }
+  } else {
+    console.warn("⚠️ FORCE_BOOTSTRAP=true detected: Running full schema setup");
+  }
 
-    console.log("🛠️ Bootstrapping DB tables...");
+  console.log("🛠️ Bootstrapping DB schema...");
 
-    await pool.query(`
+  // ... ✅ Run table creation scripts
+  // (Optionally you can still mark with comments like: -- New table Added)
+  await pool.query(`
       CREATE TABLE IF NOT EXISTS farmers (
         id SERIAL PRIMARY KEY,
         first_name VARCHAR(100) NOT NULL,
@@ -47,7 +50,7 @@ export const bootstrapDatabase = async (config: DbConfig) => {
       );
     `);
 
-    await pool.query(`
+  await pool.query(`
       CREATE TABLE IF NOT EXISTS directors (
         id SERIAL PRIMARY KEY,
         first_name VARCHAR(100),
@@ -62,7 +65,7 @@ export const bootstrapDatabase = async (config: DbConfig) => {
       );
     `);
 
-    await pool.query(`
+  await pool.query(`
       CREATE TABLE IF NOT EXISTS businesses (
         id SERIAL PRIMARY KEY,
         farmer_id INTEGER REFERENCES farmers(id),
@@ -76,7 +79,7 @@ export const bootstrapDatabase = async (config: DbConfig) => {
       );
     `);
 
-    await pool.query(`
+  await pool.query(`
       CREATE TABLE IF NOT EXISTS declarations (
         id SERIAL PRIMARY KEY,
         farmer_id INTEGER REFERENCES farmers(id),
@@ -89,7 +92,7 @@ export const bootstrapDatabase = async (config: DbConfig) => {
       );
     `);
 
-    await pool.query(`
+  await pool.query(`
       CREATE TABLE IF NOT EXISTS taxes (
         id SERIAL PRIMARY KEY,
         farmer_id INTEGER REFERENCES farmers(id),
@@ -99,7 +102,7 @@ export const bootstrapDatabase = async (config: DbConfig) => {
       );
     `);
 
-    await pool.query(`
+  await pool.query(`
       CREATE TABLE IF NOT EXISTS payments (
         id SERIAL PRIMARY KEY,
         declaration_id INTEGER,
@@ -115,7 +118,7 @@ export const bootstrapDatabase = async (config: DbConfig) => {
       );
     `);
 
-    await pool.query(`
+  await pool.query(`
       CREATE TABLE IF NOT EXISTS risks (
         id SERIAL PRIMARY KEY,
         farmer_id INTEGER REFERENCES farmers(id),
@@ -125,7 +128,7 @@ export const bootstrapDatabase = async (config: DbConfig) => {
       );
     `);
 
-    await pool.query(`
+  await pool.query(`
       CREATE TABLE IF NOT EXISTS financials (
         id SERIAL PRIMARY KEY,
         farmer_id INTEGER REFERENCES farmers(id),
@@ -137,7 +140,7 @@ export const bootstrapDatabase = async (config: DbConfig) => {
       );
     `);
 
-    await pool.query(`
+  await pool.query(`
       CREATE TABLE IF NOT EXISTS farm_products (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         farmer_id UUID,
@@ -149,7 +152,7 @@ export const bootstrapDatabase = async (config: DbConfig) => {
       );
     `);
 
-    await pool.query(`
+  await pool.query(`
       CREATE TABLE IF NOT EXISTS logistics (
         id SERIAL PRIMARY KEY,
         farmer_id UUID,
@@ -163,21 +166,50 @@ export const bootstrapDatabase = async (config: DbConfig) => {
       );
     `);
 
-    await pool.query(`
+  // New table Added
+  await pool.query(`
+      CREATE TABLE IF NOT EXISTS loans (
+        id SERIAL PRIMARY KEY,
+        farmer_id INTEGER REFERENCES farmers(id),
+        amount NUMERIC NOT NULL,
+        purpose TEXT,
+        -- pending | approved | rejected | repaid
+        status VARCHAR(50) DEFAULT 'pending',
+        applied_at TIMESTAMP DEFAULT now(),
+        approved_at TIMESTAMP,
+        repayment_due DATE
+      );
+    `);
+
+  // New table Added
+  await pool.query(`    
+      CREATE TABLE IF NOT EXISTS loan_repayments (
+        id SERIAL PRIMARY KEY,
+        loan_id INTEGER REFERENCES loans(id),
+        farmer_id INTEGER REFERENCES farmers(id),
+        amount NUMERIC NOT NULL,
+        payment_date DATE DEFAULT now(),
+        method VARCHAR(50),
+        reference_no VARCHAR(100)
+      );
+    `);
+
+  await pool.query(`
       INSERT INTO farmers (first_name, middle_name, last_name, email)
       VALUES ('Junior', 'Omosh', 'Omondi', 'jromosh@gmail.com')
       ON CONFLICT (email) DO NOTHING;
     `);
 
-    // ✅ Flag successful bootstrap
+  // 🧪 Insert the tag only if not forced
+  if (!force) {
     await pool.query(
-      "INSERT INTO __migration_flags (tag) VALUES ('bootstrap-v1')"
+      "INSERT INTO __migration_flags (tag) VALUES ($1)",
+      [MIGRATION_TAG]
     );
-
-    isBootstrapped = true;
-    console.log("✅ DB bootstrap complete.");
-  } catch (err) {
-    console.error("❌ DB Bootstrap Failed:", err);
-    throw err;
+    console.log("✅ Migration tag recorded.");
+  } else {
+    console.log("🚨 Skipped tag record due to forced bootstrap.");
   }
+
+  console.log("✅ Bootstrap complete.");
 };
