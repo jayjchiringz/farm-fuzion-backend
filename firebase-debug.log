@@ -1,0 +1,19 @@
+[debug] [2025-06-14T13:46:29.518Z] ----------------------------------------------------------------------
+[debug] [2025-06-14T13:46:29.523Z] Command:       C:\nvm4w\nodejs\node.exe C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2025-06-14T13:46:29.524Z] CLI Version:   14.7.0
+[debug] [2025-06-14T13:46:29.524Z] Platform:      win32
+[debug] [2025-06-14T13:46:29.524Z] Node Version:  v22.13.1
+[debug] [2025-06-14T13:46:29.524Z] Time:          Sat Jun 14 2025 16:46:29 GMT+0300 (East Africa Time)
+[debug] [2025-06-14T13:46:29.525Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-06-14T13:46:29.973Z] Field "/functions" in "firebase.json" is possibly invalid: must be object
+[debug] [2025-06-14T13:46:29.974Z] Object "/functions/0" in "firebase.json" has unknown property: {"additionalProperty":"secretEnvironmentVariables"}
+[debug] [2025-06-14T13:46:29.974Z] Field "/functions" in "firebase.json" is possibly invalid: must match a schema in anyOf
+[debug] [2025-06-14T13:46:29.986Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-06-14T13:46:29.986Z] > authorizing via signed-in user (technothrone2014@gmail.com)
+[debug] [2025-06-14T13:46:29.987Z] [iam] checking project farm-fuzion for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2025-06-14T13:46:29.989Z] Checked if tokens are valid: true, expires at: 1749909917798
+[debug] [2025-06-14T13:46:29.990Z] Checked if tokens are valid: true, expires at: 1749909917798
+[debug] [2025-06-14T13:46:29.993Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion:testIamPermissions [none]
+[debug] [2025-06-14T13:46:29.993Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion:testIamPermissions x-goog-quota-user=projects/farm-fuzion
+[debug] [2025-06-14T13:46:29.993Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
