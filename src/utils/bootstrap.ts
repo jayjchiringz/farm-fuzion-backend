@@ -200,6 +200,57 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       ON CONFLICT (email) DO NOTHING;
     `);
 
+  // New table Added
+  await pool.query(`
+  CREATE TABLE IF NOT EXISTS groups (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(50), -- SACCO, COOPERATIVE, ASSOCIATION
+    location VARCHAR(100),
+    created_at TIMESTAMP DEFAULT now()
+  );
+`);
+
+  // 🔄 Update farmers table to add group_id if not present
+  await pool.query(`
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_name='farmers' AND column_name='group_id'
+    ) THEN
+      ALTER TABLE farmers
+      ADD COLUMN group_id UUID REFERENCES groups(id);
+    END IF;
+  END$$;
+`);
+
+
+  // Ensure at least one group exists
+  const groupCheck = await pool.query("SELECT id FROM groups LIMIT 1");
+
+  let fallbackGroupId: string;
+
+  if ((groupCheck.rowCount ?? 0) > 0) {
+    fallbackGroupId = groupCheck.rows[0].id;
+  } else {
+    const newGroup = await pool.query(`
+    INSERT INTO groups (name, type, location)
+    VALUES ('Default SACCO', 'SACCO', 'Nairobi')
+    RETURNING id;
+  `);
+    fallbackGroupId = newGroup.rows[0].id;
+  }
+
+  // Safe farmer insert with guaranteed group_id
+  await pool.query(
+    `INSERT INTO farmers (first_name, middle_name, last_name, email, group_id)
+   VALUES ($1, $2, $3, $4, $5)
+   ON CONFLICT (email) DO NOTHING;`,
+    ["Junior", "Omosh", "Omondi", "jromosh@gmail.com", fallbackGroupId]
+  );
+
+
   // 🧪 Insert the tag only if not forced
   if (!force) {
     await pool.query(
