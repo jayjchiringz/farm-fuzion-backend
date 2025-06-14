@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // functions/src/index.ts
 import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
@@ -33,9 +34,7 @@ import {getBusinessesRouter} from "./api/businesses";
 import {getDeclarationsRouter} from "./api/declarations";
 import {getFarmProductsRouter} from "./api/farm_products";
 import {getLoanRepaymentsRouter} from "./api/loan_repayments";
-import {config} from "dotenv";
 // Removed incorrect import and usage of firebase-admin app
-
 // Inside api onRequest block:
 export const api = onRequest(
   {
