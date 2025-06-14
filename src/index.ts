@@ -2,6 +2,7 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import {bootstrapDatabase} from "./utils/bootstrap";
+import {getGroupsRouter} from "./api/groups";
 
 // 🔐 Secrets
 const PGUSER = defineSecret("PGUSER");
@@ -32,6 +33,8 @@ import {getBusinessesRouter} from "./api/businesses";
 import {getDeclarationsRouter} from "./api/declarations";
 import {getFarmProductsRouter} from "./api/farm_products";
 import {getLoanRepaymentsRouter} from "./api/loan_repayments";
+import {config} from "dotenv";
+// Removed incorrect import and usage of firebase-admin app
 
 // Inside api onRequest block:
 export const api = onRequest(
@@ -72,7 +75,13 @@ export const api = onRequest(
     app.use("/farm-products", getFarmProductsRouter(config));
 
     app.use("/loans", getLoansRouter(config));
+    app.use("/farm-products", getFarmProductsRouter(config));
+
+    app.use("/loans", getLoansRouter(config));
     app.use("/loan-repayments", getLoanRepaymentsRouter(config));
+
+    // Register /api/groups route
+    app.use("/api/groups", getGroupsRouter(config));
 
     return app(req, res); // ✅ TS: ExpressHandler compatible
   }
