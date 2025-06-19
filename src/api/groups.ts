@@ -25,5 +25,28 @@ export const getGroupsRouter = (config: {
     }
   });
 
+  // 👥 Get farmers by group ID
+  router.get("/:groupId/farmers", async (req, res) => {
+    const {groupId} = req.params;
+
+    try {
+      const result = await pool.query(
+        `SELECT 
+            f.*, 
+            g.name AS group_name 
+         FROM farmers f
+         LEFT JOIN groups g ON f.group_id = g.id
+         WHERE f.group_id = $1
+         ORDER BY f.last_name ASC`,
+        [groupId]
+      );
+
+      res.json(result.rows);
+    } catch (err) {
+      console.error("❌ Failed to fetch group farmers:", err);
+      res.status(500).json({error: "Failed to load farmers in group"});
+    }
+  });
+
   return router;
 };

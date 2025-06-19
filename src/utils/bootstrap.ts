@@ -194,12 +194,6 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       );
     `);
 
-  await pool.query(`
-      INSERT INTO farmers (first_name, middle_name, last_name, email)
-      VALUES ('Junior', 'Omosh', 'Omondi', 'jromosh@gmail.com')
-      ON CONFLICT (email) DO NOTHING;
-    `);
-
   // New table Added
   await pool.query(`
   CREATE TABLE IF NOT EXISTS groups (
@@ -241,6 +235,44 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
     fallbackGroupId = newGroup.rows[0].id;
   }
+
+  // ✅ Create KYC Documents Table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS kyc_documents (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      farmer_id INTEGER REFERENCES farmers(id),
+      group_id UUID REFERENCES groups(id),
+      doc_type VARCHAR(100),
+      doc_url TEXT,
+      uploaded_at TIMESTAMP DEFAULT now()
+    );
+  `);
+
+  // 🩹 Update farmers: add profile picture if not exists
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='farmers' AND column_name='profile_picture'
+      ) THEN
+        ALTER TABLE farmers ADD COLUMN profile_picture TEXT;
+      END IF;
+    END$$;
+  `);
+
+  // 🩹 Update groups: add description if not exists
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='groups' AND column_name='description'
+      ) THEN
+        ALTER TABLE groups ADD COLUMN description TEXT;
+      END IF;
+    END$$;
+  `);
 
   // Safe farmer insert with guaranteed group_id
   await pool.query(
