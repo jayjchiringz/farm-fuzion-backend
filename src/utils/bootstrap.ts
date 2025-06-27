@@ -34,7 +34,6 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   console.log("🛠️ Bootstrapping DB schema...");
 
   // ... ✅ Run table creation scripts
-  // (Optionally you can still mark with comments like: -- New table Added)
   await pool.query(`
       CREATE TABLE IF NOT EXISTS farmers (
         id SERIAL PRIMARY KEY,
@@ -166,7 +165,6 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       );
     `);
 
-  // New table Added
   await pool.query(`
       CREATE TABLE IF NOT EXISTS loans (
         id SERIAL PRIMARY KEY,
@@ -181,7 +179,6 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       );
     `);
 
-  // New table Added
   await pool.query(`    
       CREATE TABLE IF NOT EXISTS loan_repayments (
         id SERIAL PRIMARY KEY,
@@ -194,31 +191,39 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       );
     `);
 
-  // New table Added
   await pool.query(`
-  CREATE TABLE IF NOT EXISTS groups (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    type VARCHAR(50), -- SACCO, COOPERATIVE, ASSOCIATION
-    location VARCHAR(100),
-    created_at TIMESTAMP DEFAULT now()
-  );
-`);
+      CREATE TABLE IF NOT EXISTS groups (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        type VARCHAR(50), -- SACCO, COOPERATIVE, ASSOCIATION
+        location VARCHAR(100),
+        created_at TIMESTAMP DEFAULT now()
+      );
+    `);
 
-  // 🔄 Update farmers table to add group_id if not present
   await pool.query(`
-  DO $$
-  BEGIN
-    IF NOT EXISTS (
-      SELECT 1 FROM information_schema.columns 
-      WHERE table_name='farmers' AND column_name='group_id'
-    ) THEN
-      ALTER TABLE farmers
-      ADD COLUMN group_id UUID REFERENCES groups(id);
-    END IF;
-  END$$;
-`);
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name='farmers' AND column_name='group_id'
+        ) THEN
+          ALTER TABLE farmers
+          ADD COLUMN group_id UUID REFERENCES groups(id);
+        END IF;
+      END$$;
+    `);
 
+  // ✅ Create Users Table (Central Auth)
+  await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('admin', 'sacco', 'farmer')),
+        group_id UUID REFERENCES groups(id),
+        created_at TIMESTAMP DEFAULT now()
+      );
+    `);
 
   // Ensure at least one group exists
   const groupCheck = await pool.query("SELECT id FROM groups LIMIT 1");
@@ -236,7 +241,13 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     fallbackGroupId = newGroup.rows[0].id;
   }
 
-  // ✅ Create KYC Documents Table
+  await pool.query(
+    `INSERT INTO users (email, role, group_id)
+    VALUES ('admin@farmfuzion.org', 'sacco', $1)
+    ON CONFLICT (email) DO NOTHING;`,
+    [fallbackGroupId]
+  );
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS kyc_documents (
       id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -275,13 +286,12 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   // Safe farmer insert with guaranteed group_id
-  await pool.query(
-    `INSERT INTO farmers (first_name, middle_name, last_name, email, group_id)
-   VALUES ($1, $2, $3, $4, $5)
-   ON CONFLICT (email) DO NOTHING;`,
-    ["Junior", "Omosh", "Omondi", "jromosh@gmail.com", fallbackGroupId]
+  await pool.query(`
+    INSERT INTO farmers (first_name, middle_name, last_name, email, group_id)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (email) DO NOTHING;`,
+  ["Junior", "Omosh", "Omondi", "jromosh@gmail.com", fallbackGroupId]
   );
-
 
   // 🧪 Insert the tag only if not forced
   if (!force) {
