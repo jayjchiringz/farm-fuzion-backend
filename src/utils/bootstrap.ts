@@ -13,7 +13,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
-  const MIGRATION_TAG = "bootstrap-v1"; // can bump this later
+  const MIGRATION_TAG = "bootstrap-v2"; // can bump this later
 
   if (!force) {
     const check = await pool.query(
