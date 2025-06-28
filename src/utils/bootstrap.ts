@@ -202,6 +202,13 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     `);
 
   await pool.query(`
+      ALTER TABLE groups
+        ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending',
+        ADD COLUMN IF NOT EXISTS remarks TEXT;
+    `);
+
+
+  await pool.query(`
       DO $$
       BEGIN
         IF NOT EXISTS (
