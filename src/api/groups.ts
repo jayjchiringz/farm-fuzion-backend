@@ -1,7 +1,7 @@
 // functions/src/api/groups.ts
 import express from "express";
 import {initDbPool} from "../utils/db";
-
+// import {Request, Response} from "express";
 export const getGroupsRouter = (config: {
   PGUSER: string;
   PGPASS: string;
@@ -45,6 +45,67 @@ export const getGroupsRouter = (config: {
     } catch (err) {
       console.error("❌ Failed to fetch group farmers:", err);
       res.status(500).json({error: "Failed to load farmers in group"});
+    }
+  });
+
+  router.post("/register", async (req, res) => {
+    const {name, type, location, description} = req.body;
+
+    if (!name || !type || !location) {
+      res
+        .status(400)
+        .json({error: "Name, type, and location are required."});
+      return;
+    }
+
+    try {
+      const result = await pool.query(
+        `INSERT INTO groups (name, type, location, description, status)
+        VALUES ($1, $2, $3, $4, 'pending')
+        RETURNING id`,
+        [name, type, location, description || null]
+      );
+
+      res.status(201).json({
+        id: result.rows[0].id,
+        message: "SACCO registration submitted for approval.",
+      });
+    } catch (err) {
+      console.error("❌ Failed to register group:", err);
+      res.status(500).json({error: "Internal server error"});
+    }
+  });
+
+  router.patch("/:groupId/approve", async (req, res) => {
+    const {groupId} = req.params;
+
+    try {
+      await pool.query(
+        "UPDATE groups SET status = 'active', remarks = NULL WHERE id = $1",
+        [groupId]
+      );
+      res.status(200).json({message: "SACCO approved successfully."});
+    } catch (err) {
+      console.error("❌ Approval error:", err);
+      res.status(500).json({error: "Server error"});
+    }
+  });
+
+  router.patch("/:groupId/reject", async (req, res) => {
+    const {groupId} = req.params;
+    const {remarks, revertToPending} = req.body;
+
+    const status = revertToPending ? "pending" : "inactive";
+
+    try {
+      await pool.query(
+        "UPDATE groups SET status = $1, remarks = $2 WHERE id = $3",
+        [status, remarks, groupId]
+      );
+      res.status(200).json({message: `SACCO status updated to ${status}`});
+    } catch (err) {
+      console.error("❌ Rejection error:", err);
+      res.status(500).json({error: "Server error"});
     }
   });
 
