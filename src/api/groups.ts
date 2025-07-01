@@ -1,7 +1,6 @@
-// functions/src/api/groups.ts
 import express from "express";
 import {initDbPool} from "../utils/db";
-// import {Request, Response} from "express";
+
 export const getGroupsRouter = (config: {
   PGUSER: string;
   PGPASS: string;
@@ -12,11 +11,13 @@ export const getGroupsRouter = (config: {
   const pool = initDbPool(config);
   const router = express.Router();
 
-  // GET /api/groups
+  // 📦 GET all groups (excluding inactive optionally)
   router.get("/", async (_, res) => {
     try {
       const result = await pool.query(
-        "SELECT id, name, type, location FROM groups ORDER BY name ASC"
+        `SELECT id, name, type, location, status, remarks 
+         FROM groups 
+         ORDER BY name ASC`
       );
       res.json(result.rows);
     } catch (err) {
@@ -25,7 +26,7 @@ export const getGroupsRouter = (config: {
     }
   });
 
-  // 👥 Get farmers by group ID
+  // 👥 GET farmers by group ID
   router.get("/:groupId/farmers", async (req, res) => {
     const {groupId} = req.params;
 
@@ -40,7 +41,6 @@ export const getGroupsRouter = (config: {
          ORDER BY f.last_name ASC`,
         [groupId]
       );
-
       res.json(result.rows);
     } catch (err) {
       console.error("❌ Failed to fetch group farmers:", err);
@@ -48,6 +48,7 @@ export const getGroupsRouter = (config: {
     }
   });
 
+  // 📝 POST: Register new group
   router.post("/register", async (req, res) => {
     const {name, type, location, description} = req.body;
 
@@ -61,8 +62,8 @@ export const getGroupsRouter = (config: {
     try {
       const result = await pool.query(
         `INSERT INTO groups (name, type, location, description, status)
-        VALUES ($1, $2, $3, $4, 'pending')
-        RETURNING id`,
+         VALUES ($1, $2, $3, $4, 'pending')
+         RETURNING id`,
         [name, type, location, description || null]
       );
 
@@ -75,13 +76,15 @@ export const getGroupsRouter = (config: {
       res.status(500).json({error: "Internal server error"});
     }
   });
-
+  // ✅ PATCH: Approve group
   router.patch("/:groupId/approve", async (req, res) => {
     const {groupId} = req.params;
 
     try {
       await pool.query(
-        "UPDATE groups SET status = 'active', remarks = NULL WHERE id = $1",
+        `UPDATE groups 
+         SET status = 'active', remarks = NULL 
+         WHERE id = $1`,
         [groupId]
       );
       res.status(200).json({message: "SACCO approved successfully."});
@@ -91,6 +94,7 @@ export const getGroupsRouter = (config: {
     }
   });
 
+  // ❌ PATCH: Reject group
   router.patch("/:groupId/reject", async (req, res) => {
     const {groupId} = req.params;
     const {remarks, revertToPending} = req.body;
@@ -99,8 +103,10 @@ export const getGroupsRouter = (config: {
 
     try {
       await pool.query(
-        "UPDATE groups SET status = $1, remarks = $2 WHERE id = $3",
-        [status, remarks, groupId]
+        `UPDATE groups 
+         SET status = $1, remarks = $2 
+         WHERE id = $3`,
+        [status, remarks || null, groupId]
       );
       res.status(200).json({message: `SACCO status updated to ${status}`});
     } catch (err) {
