@@ -201,6 +201,64 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       );
     `);
 
+  // 🚀 1. Create group_types table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS group_types (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT UNIQUE NOT NULL,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT now(),
+      updated_at TIMESTAMP DEFAULT now()
+    );
+  `);
+
+  // 🚀 2. Populate with default values
+  await pool.query(`
+    INSERT INTO group_types (name)
+    VALUES 
+      ('SACCO'), 
+      ('COOPERATIVE'), 
+      ('ASSOCIATION'), 
+      ('YOUTH GROUP'), 
+      ('WOMEN GROUP')
+    ON CONFLICT (name) DO NOTHING;
+  `);
+
+  // 🚀 3. Add group_type_id reference to groups
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='groups' AND column_name='group_type_id'
+      ) THEN
+        ALTER TABLE groups
+        ADD COLUMN group_type_id UUID REFERENCES group_types(id);
+      END IF;
+    END$$;
+  `);
+
+  // 🚀 4. Migrate old `type` values into group_types
+  await pool.query(`
+    INSERT INTO group_types (name)
+    SELECT DISTINCT type FROM groups
+    WHERE type IS NOT NULL
+    ON CONFLICT (name) DO NOTHING;
+  `);
+
+  // 🚀 5. Update existing groups with correct group_type_id
+  await pool.query(`
+    UPDATE groups
+    SET group_type_id = gt.id
+    FROM group_types gt
+    WHERE groups.type = gt.name;
+  `);
+
+  // 🚀 6. Drop old column
+  await pool.query(`
+    ALTER TABLE groups DROP COLUMN IF EXISTS type;
+  `);
+
+
   await pool.query(`
       ALTER TABLE groups
         ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending',
