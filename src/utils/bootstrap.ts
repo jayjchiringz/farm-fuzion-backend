@@ -221,6 +221,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       END$$;
     `);
 
+
   // ✅ Create Users Table (Central Auth)
   await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -230,6 +231,13 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
         group_id UUID REFERENCES groups(id),
         created_at TIMESTAMP DEFAULT now()
       );
+    `);
+
+
+  await pool.query(`
+      INSERT INTO users (email, role)
+      VALUES ('jayjchiringz@gmail.com', 'admin')
+      ON CONFLICT (email) DO NOTHING;
     `);
 
   // Ensure at least one group exists
@@ -248,11 +256,11 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     fallbackGroupId = newGroup.rows[0].id;
   }
 
-  await pool.query(
-    `INSERT INTO users (email, role, group_id)
+  await pool.query(`
+    INSERT INTO users (email, role, group_id)
     VALUES ('admin@farmfuzion.org', 'sacco', $1)
     ON CONFLICT (email) DO NOTHING;`,
-    [fallbackGroupId]
+  [fallbackGroupId]
   );
 
   await pool.query(`
