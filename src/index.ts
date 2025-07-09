@@ -25,8 +25,6 @@ const MAIL_PASS = defineSecret("MAIL_PASS");
 
 const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
 
-// const app = express();
-
 // 🧩 Routers
 import {getKycRouter} from "./api/kyc";
 import {getAuthRouter} from "./api/auth";
@@ -65,11 +63,17 @@ export const api = onRequest(
 
     // 🚀 Create fresh express app for each request
     const app = express();
-    app.use(cors());
+
+    // ✅ Move these to the very top
+    app.use(cors(corsOptions));
+    app.options("*", cors(corsOptions)); // Important for preflight support
+
+    // 🚨 Remove this line: app.use(cors()); ❌❌
+    // it nullifies your corsOptions config if placed before!
+
     app.use(express.json());
 
-    // 📦 Register routers
-    app.use(cors(corsOptions));
+    // Register routers AFTER cors setup
     app.use("/kyc", getKycRouter(config));
     app.use("/auth", getAuthRouter(config));
     app.use("/taxes", getTaxesRouter(config));
@@ -86,7 +90,6 @@ export const api = onRequest(
     app.use("/farm-products", getFarmProductsRouter(config));
     app.use("/loan-repayments", getLoanRepaymentsRouter(config));
     app.use("/api/groups/types", getGroupTypesRouter(config));
-
     app.options("*", cors(corsOptions));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
