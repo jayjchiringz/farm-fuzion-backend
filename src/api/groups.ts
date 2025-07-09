@@ -1,3 +1,4 @@
+/* eslint-disable camelcase */
 import express from "express";
 import {initDbPool} from "../utils/db";
 
@@ -50,32 +51,33 @@ export const getGroupsRouter = (config: {
 
   // 📝 POST: Register new group
   router.post("/register", async (req, res) => {
-    const {name, type, location, description} = req.body;
+    const {name, group_type_id, location, description} = req.body;
 
-    if (!name || !type || !location) {
-      res
-        .status(400)
-        .json({error: "Name, type, and location are required."});
+    if (!name || !group_type_id || !location) {
+      res.status(400).json({
+        error: "Name, group_type_id, and location are required.",
+      });
       return;
     }
 
     try {
       const result = await pool.query(
-        `INSERT INTO groups (name, type, location, description, status)
-         VALUES ($1, $2, $3, $4, 'pending')
-         RETURNING id`,
-        [name, type, location, description || null]
+        `INSERT INTO groups (name, group_type_id, location, description, status)
+        VALUES ($1, $2, $3, $4, 'pending')
+        RETURNING id`,
+        [name, group_type_id, location, description || null]
       );
 
       res.status(201).json({
         id: result.rows[0].id,
-        message: "SACCO registration submitted for approval.",
+        message: "Group registration submitted for approval.",
       });
     } catch (err) {
       console.error("❌ Failed to register group:", err);
       res.status(500).json({error: "Internal server error"});
     }
   });
+
   // ✅ PATCH: Approve group
   router.patch("/:groupId/approve", async (req, res) => {
     const {groupId} = req.params;
@@ -112,6 +114,22 @@ export const getGroupsRouter = (config: {
     } catch (err) {
       console.error("❌ Rejection error:", err);
       res.status(500).json({error: "Server error"});
+    }
+  });
+
+  // ✅ GET: Active group types for dropdowns
+  router.get("/types", async (_, res) => {
+    try {
+      const result = await pool.query(`
+        SELECT id, name 
+        FROM group_types 
+        WHERE is_active = TRUE 
+        ORDER BY name ASC
+      `);
+      res.status(200).json(result.rows);
+    } catch (err) {
+      console.error("❌ Failed to fetch group types:", err);
+      res.status(500).json({error: "Internal server error"});
     }
   });
 
