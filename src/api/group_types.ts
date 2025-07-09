@@ -5,7 +5,7 @@ import {initDbPool} from "../utils/db";
 
 // Safe async wrapper
 const asyncHandler = (
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>
 ): RequestHandler =>
   (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
@@ -37,14 +37,17 @@ export const getGroupTypesRouter = (
   // POST: Create new group type
   router.post("/", asyncHandler(async (req, res) => {
     const {name} = req.body;
-    if (!name) return res.status(400).json({error: "Name is required."});
+    if (!name) {
+      return res.status(400).json({error: "Name is required."});
+    }
 
     await pool.query(
       `INSERT INTO group_types (name) VALUES ($1)
-        ON CONFLICT (name) DO NOTHING`,
+      ON CONFLICT (name) DO NOTHING`,
       [name]
     );
-    res.status(201).json({message: "Group type added."});
+
+    return res.status(201).json({message: "Group type added."});
   }));
 
   // PATCH: Update existing group type
@@ -52,14 +55,17 @@ export const getGroupTypesRouter = (
     const {name} = req.body;
     const {id} = req.params;
 
-    if (!name) return res.status(400).json({error: "Name is required."});
+    if (!name) {
+      return res.status(400).json({error: "Name is required."});
+    }
 
     await pool.query(
       `UPDATE group_types SET name = $1, updated_at = now()
-        WHERE id = $2`,
+      WHERE id = $2`,
       [name, id]
     );
-    res.status(200).json({message: "Group type updated."});
+
+    return res.status(200).json({message: "Group type updated."});
   }));
 
   // DELETE: Soft-delete group type
