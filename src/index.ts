@@ -86,6 +86,7 @@ export const api = onRequest(
     app.use("/farm-products", getFarmProductsRouter(config));
     app.use("/loan-repayments", getLoanRepaymentsRouter(config));
     app.use("/api/groups/types", getGroupTypesRouter(config));
+
     app.options("*", cors(corsOptions));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
