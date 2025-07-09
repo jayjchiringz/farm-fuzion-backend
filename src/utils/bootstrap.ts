@@ -237,27 +237,40 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     END$$;
   `);
 
-  // 🚀 4. Migrate old `type` values into group_types
-  await pool.query(`
-    INSERT INTO group_types (name)
-    SELECT DISTINCT type FROM groups
-    WHERE type IS NOT NULL
-    ON CONFLICT (name) DO NOTHING;
+  // ✅ Check if column `type` exists before referencing it
+  const checkTypeCol = await pool.query(`
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'groups' AND column_name = 'type'
+    LIMIT 1;
   `);
 
-  // 🚀 5. Update existing groups with correct group_type_id
-  await pool.query(`
-    UPDATE groups
-    SET group_type_id = gt.id
-    FROM group_types gt
-    WHERE groups.type = gt.name;
-  `);
+  if ((checkTypeCol.rowCount ?? 0) > 0) {
+    console.log("📦 Migrating legacy group.type values...");
 
-  // 🚀 6. Drop old column
-  await pool.query(`
-    ALTER TABLE groups DROP COLUMN IF EXISTS type;
-  `);
+    // 🚀 4. Migrate old `type` values into group_types
+    await pool.query(`
+      INSERT INTO group_types (name)
+      SELECT DISTINCT type FROM groups
+      WHERE type IS NOT NULL
+      ON CONFLICT (name) DO NOTHING;
+    `);
 
+    // 🚀 5. Update existing groups with correct group_type_id
+    await pool.query(`
+      UPDATE groups
+      SET group_type_id = gt.id
+      FROM group_types gt
+      WHERE groups.type = gt.name;
+    `);
+
+    // 🚀 6. Drop old column
+    await pool.query(`
+      ALTER TABLE groups DROP COLUMN IF EXISTS type;
+    `);
+  } else {
+    console.log("✅ No legacy `type` column found. Skipping migration.");
+  }
 
   await pool.query(`
       ALTER TABLE groups
