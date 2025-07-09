@@ -5,6 +5,15 @@ import {getGroupTypesRouter} from "./api/group_types";
 import cors from "cors";
 import express from "express";
 
+// ✅ Configure CORS
+const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
+const corsOptions = {
+  origin: allowedOrigins,
+  methods: "GET,POST,PATCH,DELETE,OPTIONS",
+  allowedHeaders: "Content-Type,Authorization",
+  credentials: true,
+};
+
 // 🔐 Secrets
 const PGUSER = defineSecret("PGUSER");
 const PGPASS = defineSecret("PGPASS");
@@ -15,6 +24,8 @@ const MAIL_USER = defineSecret("MAIL_USER");
 const MAIL_PASS = defineSecret("MAIL_PASS");
 
 const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
+
+// const app = express();
 
 // 🧩 Routers
 import {getKycRouter} from "./api/kyc";
@@ -58,6 +69,7 @@ export const api = onRequest(
     app.use(express.json());
 
     // 📦 Register routers
+    app.use(cors(corsOptions));
     app.use("/kyc", getKycRouter(config));
     app.use("/auth", getAuthRouter(config));
     app.use("/taxes", getTaxesRouter(config));
@@ -74,6 +86,7 @@ export const api = onRequest(
     app.use("/farm-products", getFarmProductsRouter(config));
     app.use("/loan-repayments", getLoanRepaymentsRouter(config));
     app.use("/api/groups/types", getGroupTypesRouter(config));
+    app.options("*", cors(corsOptions));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await new Promise<void>(
