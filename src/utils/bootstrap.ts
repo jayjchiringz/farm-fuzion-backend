@@ -294,7 +294,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
 
   await pool.query(`
       INSERT INTO users (email, role)
-      VALUES ('abnyabera@gmail.com', 'admin')
+      VALUES ('omosh3192@gmail.com', 'admin')
       ON CONFLICT (email) DO NOTHING;
     `);
 

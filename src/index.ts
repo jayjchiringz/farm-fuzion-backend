@@ -1,6 +1,7 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import {bootstrapDatabase} from "./utils/bootstrap";
+import {getGroupTypesRouter} from "./api/group_types";
 import cors from "cors";
 import express from "express";
 
@@ -21,6 +22,7 @@ import {getAuthRouter} from "./api/auth";
 import {getTaxesRouter} from "./api/taxes";
 import {getRisksRouter} from "./api/risks";
 import {getLoansRouter} from "./api/loans";
+import {getGroupsRouter} from "./api/groups";
 import {getFarmersRouter} from "./api/farmers";
 import {getPaymentsRouter} from "./api/payments";
 import {getDirectorsRouter} from "./api/directors";
@@ -30,7 +32,6 @@ import {getBusinessesRouter} from "./api/businesses";
 import {getDeclarationsRouter} from "./api/declarations";
 import {getFarmProductsRouter} from "./api/farm_products";
 import {getLoanRepaymentsRouter} from "./api/loan_repayments";
-import {getGroupsRouter} from "./api/groups";
 
 // ✅ Define Firebase Function Handler
 export const api = onRequest(
@@ -60,20 +61,23 @@ export const api = onRequest(
     app.use("/kyc", getKycRouter(config));
     app.use("/auth", getAuthRouter(config));
     app.use("/taxes", getTaxesRouter(config));
+    app.use("/loans", getLoansRouter(config));
     app.use("/risks", getRisksRouter(config));
     app.use("/farmers", getFarmersRouter(config));
     app.use("/payments", getPaymentsRouter(config));
     app.use("/directors", getDirectorsRouter(config));
     app.use("/logistics", getLogisticsRouter(config));
+    app.use("/api/groups", getGroupsRouter(config));
     app.use("/financials", getFinancialsRouter(config));
     app.use("/businesses", getBusinessesRouter(config));
     app.use("/declarations", getDeclarationsRouter(config));
     app.use("/farm-products", getFarmProductsRouter(config));
-    app.use("/loans", getLoansRouter(config));
     app.use("/loan-repayments", getLoanRepaymentsRouter(config));
-    app.use("/api/groups", getGroupsRouter(config));
+    app.use("/api/groups/types", getGroupTypesRouter(config));
 
-    // 🔁 Forward request/response to Express app
-    return app(req, res);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await new Promise<void>(
+      (resolve) => (app as any)(req, res, () => resolve())
+    );
   }
 );
