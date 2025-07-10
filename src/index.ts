@@ -83,13 +83,17 @@ export const api = onRequest(
     app.use("/payments", getPaymentsRouter(config));
     app.use("/directors", getDirectorsRouter(config));
     app.use("/logistics", getLogisticsRouter(config));
-    app.use("/api/groups", getGroupsRouter(config));
     app.use("/financials", getFinancialsRouter(config));
     app.use("/businesses", getBusinessesRouter(config));
     app.use("/declarations", getDeclarationsRouter(config));
     app.use("/farm-products", getFarmProductsRouter(config));
     app.use("/loan-repayments", getLoanRepaymentsRouter(config));
-    app.use("/api/groups/types", getGroupTypesRouter(config));
+
+    console.log("✅ GroupsRouter mounted");
+    app.use("/api/groups", getGroupsRouter(config));
+    console.log("✅ GroupTypesRouter mounted");
+    app.use("/api/groups-types", getGroupTypesRouter(config));
+
     app.options("*", cors(corsOptions));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
