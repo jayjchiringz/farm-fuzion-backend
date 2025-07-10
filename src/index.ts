@@ -74,27 +74,67 @@ export const api = onRequest(
     app.use(express.json());
 
     // Register routers AFTER cors setup
-    app.use("/kyc", getKycRouter(config));
-    app.use("/auth", getAuthRouter(config));
-    app.use("/taxes", getTaxesRouter(config));
-    app.use("/loans", getLoansRouter(config));
-    app.use("/risks", getRisksRouter(config));
-    app.use("/farmers", getFarmersRouter(config));
-    app.use("/payments", getPaymentsRouter(config));
-    app.use("/directors", getDirectorsRouter(config));
-    app.use("/logistics", getLogisticsRouter(config));
-    app.use("/financials", getFinancialsRouter(config));
-    app.use("/businesses", getBusinessesRouter(config));
-    app.use("/declarations", getDeclarationsRouter(config));
-    app.use("/farm-products", getFarmProductsRouter(config));
-    app.use("/loan-repayments", getLoanRepaymentsRouter(config));
+    try {
+      app.use("/kyc", getKycRouter(config));
+      console.log("✅ KycRouter mounted");
 
-    console.log("✅ GroupsRouter mounted");
-    app.use("/api/groups", getGroupsRouter(config));
-    console.log("✅ GroupTypesRouter mounted");
-    app.use("/api/groups-types", getGroupTypesRouter(config));
+      app.use("/auth", getAuthRouter(config));
+      console.log("✅ AuthRouter mounted");
 
-    app.options("*", cors(corsOptions));
+      app.use("/taxes", getTaxesRouter(config));
+      console.log("✅ TaxesRouter mounted");
+
+      app.use("/loans", getLoansRouter(config));
+      console.log("✅ LoansRouter mounted");
+
+      app.use("/risks", getRisksRouter(config));
+      console.log("✅ RisksRouter mounted");
+
+      app.use("/farmers", getFarmersRouter(config));
+      console.log("✅ FarmersRouter mounted");
+
+      app.use("/payments", getPaymentsRouter(config));
+      console.log("✅ PaymentsRouter mounted");
+
+      app.use("/directors", getDirectorsRouter(config));
+      console.log("✅ DirectorsRouter mounted");
+
+      app.use("/logistics", getLogisticsRouter(config));
+      console.log("✅ LogisticsRouter mounted");
+
+      app.use("/financials", getFinancialsRouter(config));
+      console.log("✅ FinancialsRouter mounted");
+
+      app.use("/businesses", getBusinessesRouter(config));
+      console.log("✅ BusinessesRouter mounted");
+
+      app.use("/declarations", getDeclarationsRouter(config));
+      console.log("✅ DeclarationsRouter mounted");
+
+      app.use("/farm-products", getFarmProductsRouter(config));
+      console.log("✅ FarmProductsRouter mounted");
+
+      app.use("/loan-repayments", getLoanRepaymentsRouter(config));
+      console.log("✅ LoanRepaymentsRouter mounted");
+
+      app.use("/api/groups", getGroupsRouter(config));
+      console.log("✅ GroupsRouter mounted");
+
+      app.use("/api/groups-types", getGroupTypesRouter(config));
+      console.log("✅ GroupTypesRouter mounted");
+
+      app.options("*", cors(corsOptions));
+    } catch (err) {
+      console.error("❌ Router registration failed:", err);
+      if (err instanceof Error) {
+        res.status(500).json(
+          {error: "Router init failed", details: err.message});
+      } else {
+        res.status(500).json(
+          {error: "Router init failed", details: "Unknown error"});
+      }
+      return;
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await new Promise<void>(
