@@ -1,7 +1,6 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import {bootstrapDatabase} from "./utils/bootstrap";
-import {getGroupTypesRouter} from "./api/group_types";
 import cors from "cors";
 import express from "express";
 
@@ -38,6 +37,7 @@ import {getDirectorsRouter} from "./api/directors";
 import {getLogisticsRouter} from "./api/logistics";
 import {getFinancialsRouter} from "./api/financials";
 import {getBusinessesRouter} from "./api/businesses";
+import {getGroupTypesRouter} from "./api/group_types";
 import {getDeclarationsRouter} from "./api/declarations";
 import {getFarmProductsRouter} from "./api/farm_products";
 import {getLoanRepaymentsRouter} from "./api/loan_repayments";
