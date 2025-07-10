@@ -117,10 +117,10 @@ export const api = onRequest(
       app.use("/loan-repayments", getLoanRepaymentsRouter(config));
       console.log("✅ LoanRepaymentsRouter mounted");
 
-      app.use("/api/groups", getGroupsRouter(config));
+      app.use("/groups", getGroupsRouter(config));
       console.log("✅ GroupsRouter mounted");
 
-      app.use("/api/groups-types", getGroupTypesRouter(config));
+      app.use("/groups-types", getGroupTypesRouter(config));
       console.log("✅ GroupTypesRouter mounted");
 
       app.options("*", cors(corsOptions));
