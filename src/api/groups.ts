@@ -16,9 +16,16 @@ export const getGroupsRouter = (config: {
   router.get("/", async (_, res) => {
     try {
       const result = await pool.query(
-        `SELECT id, name, type, location, status, remarks 
-         FROM groups 
-         ORDER BY name ASC`
+        `SELECT 
+          g.id, 
+          g.name, 
+          gt.name AS type, 
+          g.location, 
+          g.status, 
+          g.remarks
+        FROM groups g
+        LEFT JOIN group_types gt ON g.group_type_id = gt.id
+        ORDER BY g.name ASC`
       );
       res.json(result.rows);
     } catch (err) {
