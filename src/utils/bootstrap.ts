@@ -345,6 +345,16 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+  await pool.query(` 
+    CREATE TABLE IF NOT EXISTS group_document_requirements (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+      doc_type VARCHAR(100) NOT NULL,
+      is_required BOOLEAN DEFAULT TRUE,
+      UNIQUE(group_id, doc_type)
+    );
+  `);
+
   // 🩹 Update farmers: add profile picture if not exists
   await pool.query(`
     DO $$

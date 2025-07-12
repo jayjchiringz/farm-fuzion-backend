@@ -2,6 +2,11 @@
 import express from "express";
 import {initDbPool} from "../utils/db";
 
+interface DocumentRequirement {
+  doc_type: string;
+  is_required: boolean;
+}
+
 export const getGroupsRouter = (config: {
   PGUSER: string;
   PGPASS: string;
@@ -122,6 +127,51 @@ export const getGroupsRouter = (config: {
       console.error("❌ Rejection error:", err);
       res.status(500).json({error: "Server error"});
     }
+  });
+
+  // 🚑 FIXED route — simplified structure
+  router.post("/:groupId/requirements", (req, res) => {
+    (async () => {
+      const {groupId} = req.params;
+      const raw = req.body as { requirements: DocumentRequirement[] };
+
+      if (!Array.isArray(raw.requirements)) {
+        return res.status(400).json({error: "Invalid format"});
+      }
+
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+
+        await client.query(
+          "DELETE FROM group_document_requirements WHERE group_id = $1",
+          [groupId]
+        );
+
+        for (const item of raw.requirements) {
+          await client.query(
+            `INSERT INTO group_document_requirements (
+              group_id, doc_type, is_required)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (group_id, doc_type)
+             DO UPDATE SET is_required = EXCLUDED.is_required`,
+            [groupId, item.doc_type, item.is_required]
+          );
+        }
+
+        await client.query("COMMIT");
+        return res.status(200).json({message: "Document requirements updated"});
+      } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("❌ Error saving document requirements:", err);
+        return res.status(500).json({error: "Internal server error"});
+      } finally {
+        client.release();
+      }
+    })().catch((err) => {
+      console.error("❌ Unexpected error:", err);
+      return res.status(500).json({error: "Unexpected failure"});
+    });
   });
 
   // ✅ GET: Active group types for dropdowns
