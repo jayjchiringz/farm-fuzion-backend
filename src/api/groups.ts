@@ -63,21 +63,25 @@ export const getGroupsRouter = (config: {
 
   // 📝 POST: Register new group
   router.post("/register", async (req, res) => {
-    const {name, group_type_id, location, description} = req.body;
+    const {name, group_type_id, location, description, registration_number,
+    } = req.body;
 
-    if (!name || !group_type_id || !location) {
+    if (!name || !group_type_id || !location || !registration_number) {
       res.status(400).json({
-        error: "Name, group_type_id, and location are required.",
+        error: `Name, group_type_id, location,
+          and registration_number are required.`,
       });
       return;
     }
 
     try {
       const result = await pool.query(
-        `INSERT INTO groups (name, group_type_id, location, description, status)
-        VALUES ($1, $2, $3, $4, 'pending')
+        `INSERT INTO groups
+      (name, group_type_id, location, description, registration_number, status)
+        VALUES ($1, $2, $3, $4, $5, 'pending')
         RETURNING id`,
-        [name, group_type_id, location, description || null]
+        [name, group_type_id, location, description ||
+        null, registration_number]
       );
 
       res.status(201).json({

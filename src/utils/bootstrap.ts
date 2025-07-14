@@ -401,6 +401,19 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     END$$;
   `);
 
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='groups' AND column_name='registration_number'
+      ) THEN
+        ALTER TABLE groups
+          ADD COLUMN registration_number TEXT UNIQUE NOT NULL DEFAULT '';
+      END IF;
+    END$$;
+  `);
+
   // Safe farmer insert with guaranteed group_id
   await pool.query(`
     INSERT INTO farmers (first_name, middle_name, last_name, email, group_id)
