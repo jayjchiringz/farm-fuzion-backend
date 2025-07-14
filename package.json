@@ -22,6 +22,7 @@
     "firebase-admin": "^13.3.0",
     "firebase-functions": "^6.3.2",
     "joi": "^17.13.3",
+    "multer": "^2.0.1",
     "nodemailer": "^7.0.3",
     "pg": "^8.16.0",
     "zod": "^3.24.4"
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.18",
     "@types/express": "^5.0.1",
+    "@types/multer": "^2.0.0",
     "@types/nodemailer": "^6.4.17",
     "@types/pg": "^8.15.1",
     "@typescript-eslint/eslint-plugin": "^5.12.0",

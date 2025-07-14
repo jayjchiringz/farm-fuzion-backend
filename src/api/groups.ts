@@ -1,6 +1,10 @@
 /* eslint-disable camelcase */
 import express from "express";
 import {initDbPool} from "../utils/db";
+import multer from "multer";
+import os from "os";
+import path from "node:path";
+import fs from "fs";
 
 interface DocumentRequirement {
   doc_type: string;
@@ -192,6 +196,100 @@ export const getGroupsRouter = (config: {
       console.error("❌ Failed to fetch group types:", err);
       res.status(500).json({error: "Internal server error"});
     }
+  });
+
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: (req, file, cb) => cb(null, os.tmpdir()),
+      filename: (req, file, cb) =>
+        cb(null, `${Date.now()}-${file.originalname}`),
+    }),
+    limits: {fileSize: 10 * 1024 * 1024}, // 10MB max
+  });
+
+  router.post("/register-with-docs", upload.any(), (req, res) => {
+    (async () => {
+      const fields = req.body;
+      const files = req.files as Express.Multer.File[];
+
+      const required = [
+        "name",
+        "group_type_id",
+        "location",
+        "registration_number",
+        "requirements",
+      ];
+      const missing = required.filter((key) => !fields[key]);
+      if (missing.length > 0) {
+        res.status(400).json({
+          error: `Missing fields: ${missing.join(", ")}`,
+        });
+        return;
+      }
+
+      const requirements = JSON.parse(fields.requirements);
+      const uploads = new Map(
+        files.map((f) => [
+          f.fieldname.replace("documents[", "").replace("]", ""),
+          f.path,
+        ])
+      );
+
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+
+        const groupResult = await client.query(
+          `INSERT INTO groups (
+            name, group_type_id, location, description,
+            registration_number, status)
+          VALUES ($1, $2, $3, $4, $5, 'pending')
+          RETURNING id`,
+          [
+            fields.name,
+            fields.group_type_id,
+            fields.location,
+            fields.description || null,
+            fields.registration_number,
+          ]
+        );
+
+        const groupId = groupResult.rows[0].id;
+
+        for (const doc of requirements) {
+          await client.query(
+            `INSERT INTO group_document_requirements (
+              group_id, doc_type, is_required)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (group_id, doc_type)
+            DO UPDATE SET is_required = EXCLUDED.is_required`,
+            [groupId, doc.doc_type, doc.is_required]
+          );
+
+          if (doc.is_required && uploads.has(doc.doc_type)) {
+            const filePath = uploads.get(doc.doc_type);
+            console.log(`✅ Uploaded for ${doc.doc_type}: ${filePath}`);
+
+            // Upload to bucket/storage here...
+          }
+        }
+
+        await client.query("COMMIT");
+        res.status(201).json({
+          id: groupId,
+          message: "Group registered with documents.",
+        });
+      } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("❌ Error during multipart group registration:", err);
+        res.status(500).json({error: "Failed to register group"});
+      } finally {
+        client.release();
+      }
+    })().catch((err) => {
+      console.error("❌ Unexpected registration error:", err);
+      res.status(500).json({error: "Unexpected error"});
+    });
   });
 
   return router;
