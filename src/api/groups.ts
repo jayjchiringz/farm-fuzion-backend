@@ -3,6 +3,8 @@ import express from "express";
 import {initDbPool} from "../utils/db";
 import multer from "multer";
 import os from "os";
+import {storage} from "../utils/firebase"; // ⬅️ add at the top of file
+import path from "path";
 
 interface DocumentRequirement {
   doc_type: string;
@@ -272,13 +274,35 @@ export const getGroupsRouter = (config: {
 
           if (doc.is_required && uploads.has(doc.doc_type)) {
             const filePath = uploads.get(doc.doc_type);
-            console.log(`✅ Uploaded for ${doc.doc_type}: ${filePath}`);
+
+            if (!filePath) {
+              console.warn(`⚠️ No file uploaded for required doc:
+                ${doc.doc_type}`
+              );
+              continue;
+            }
+            const bucket = storage.bucket();
+            const destination = `groups/
+            ${groupId}/${doc.doc_type}-${Date.now()}${path.extname(filePath)}`;
+
+            await bucket.upload(filePath, {
+              destination,
+              metadata: {
+                contentType: "application/octet-stream",
+                metadata: {
+                  firebaseStorageDownloadTokens: groupId,
+                },
+              },
+            });
+
+            console.log(`✅ File uploaded to Firebase Storage at:
+              ${destination}`);
 
             // ⚙️ Store path in DB
             await client.query(
               `INSERT INTO group_documents (group_id, doc_type, file_path)
               VALUES ($1, $2, $3)`,
-              [groupId, doc.doc_type, filePath]
+              [groupId, doc.doc_type, filePath, destination]
             );
           }
         }
