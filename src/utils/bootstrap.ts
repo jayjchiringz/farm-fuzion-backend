@@ -363,6 +363,18 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+  await pool.query(`
+    INSERT INTO group_document_types (doc_type)
+    VALUES 
+      ('Business Registration Certificate'),
+      ('KRA PIN'),
+      ('Bank Statement'),
+      ('ID/Passport of Chairperson'),
+      ('Constitution/Bylaws')
+    ON CONFLICT (doc_type) DO NOTHING
+  `);
+
+
   // 🩹 Update farmers: add profile picture if not exists
   await pool.query(`
     DO $$
