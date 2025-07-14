@@ -364,6 +364,16 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS group_documents (
+      id SERIAL PRIMARY KEY,
+      group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+      doc_type TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      uploaded_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
     INSERT INTO group_document_types (doc_type)
     VALUES 
       ('Business Registration Certificate'),

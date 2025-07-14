@@ -3,8 +3,6 @@ import express from "express";
 import {initDbPool} from "../utils/db";
 import multer from "multer";
 import os from "os";
-import path from "node:path";
-import fs from "fs";
 
 interface DocumentRequirement {
   doc_type: string;
@@ -31,9 +29,15 @@ export const getGroupsRouter = (config: {
           gt.name AS type, 
           g.location, 
           g.status, 
-          g.remarks
+          g.remarks,
+          g.registration_number, 
+          json_agg(
+            json_build_object('doc_type', d.doc_type, 'file_path', d.file_path)
+          ) AS documents
         FROM groups g
         LEFT JOIN group_types gt ON g.group_type_id = gt.id
+        LEFT JOIN group_documents d ON d.group_id = g.id
+        GROUP BY g.id, gt.name
         ORDER BY g.name ASC`
       );
       res.json(result.rows);
@@ -270,7 +274,12 @@ export const getGroupsRouter = (config: {
             const filePath = uploads.get(doc.doc_type);
             console.log(`✅ Uploaded for ${doc.doc_type}: ${filePath}`);
 
-            // Upload to bucket/storage here...
+            // ⚙️ Store path in DB
+            await client.query(
+              `INSERT INTO group_documents (group_id, doc_type, file_path)
+              VALUES ($1, $2, $3)`,
+              [groupId, doc.doc_type, filePath]
+            );
           }
         }
 
