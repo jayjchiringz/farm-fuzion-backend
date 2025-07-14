@@ -10,7 +10,7 @@
     "strict": true,
     "target": "es2017",
     "forceConsistentCasingInFileNames": true,
-    "types": ["node", "pg"]
+    "types": ["node"]
   },
   "compileOnSave": true,
   "include": ["src"]
