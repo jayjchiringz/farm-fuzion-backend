@@ -3,6 +3,7 @@ import {defineSecret} from "firebase-functions/params";
 import {bootstrapDatabase} from "./utils/bootstrap";
 import cors from "cors";
 import express from "express";
+import {getDocumentTypesRouter} from "./api/document_types";
 
 // ✅ Configure CORS
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
@@ -122,6 +123,9 @@ export const api = onRequest(
 
       app.use("/groups-types", getGroupTypesRouter(config));
       console.log("✅ GroupTypesRouter mounted");
+
+      app.use("/document-types", getDocumentTypesRouter(config));
+      console.log("✅ DocumentTypesRouter mounted");
 
       app.options("*", cors(corsOptions));
     } catch (err) {

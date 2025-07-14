@@ -355,6 +355,14 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+  await pool.query(` 
+    CREATE TABLE IF NOT EXISTS group_document_types (
+      id SERIAL PRIMARY KEY,
+      doc_type TEXT NOT NULL UNIQUE,
+      is_active BOOLEAN DEFAULT TRUE
+    );
+  `);
+
   // 🩹 Update farmers: add profile picture if not exists
   await pool.query(`
     DO $$
