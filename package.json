@@ -49,5 +49,8 @@
         "npm run build"
       ]
     }
+  },
+  "overrides": {
+    "@google-cloud/storage": "^6.12.0"
   }
 }
