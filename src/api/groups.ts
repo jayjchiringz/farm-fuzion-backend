@@ -5,6 +5,7 @@ import multer from "multer";
 import os from "os";
 import {storage} from "../utils/firebase"; // ⬅️ add at the top of file
 import path from "path";
+import cors from "cors";
 
 interface DocumentRequirement {
   doc_type: string;
@@ -213,7 +214,16 @@ export const getGroupsRouter = (config: {
     limits: {fileSize: 10 * 1024 * 1024}, // 10MB max
   });
 
-  router.post("/register-with-docs", upload.any(), (req, res) => {
+  const corsHandler = cors({
+    origin: ["https://farm-fuzion-abdf3.web.app"],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  });
+
+  router.options("/register-with-docs", corsHandler); // 💡 Handle preflight
+
+  router.post("/register-with-docs", corsHandler, upload.any(), (req, res) => {
     (async () => {
       const fields = req.body;
       const files = req.files as Express.Multer.File[];
@@ -276,14 +286,13 @@ export const getGroupsRouter = (config: {
             const filePath = uploads.get(doc.doc_type);
 
             if (!filePath) {
-              console.warn(`⚠️ No file uploaded for required doc:
-                ${doc.doc_type}`
-              );
+              console.warn(`⚠️ No filePath for ${doc.doc_type}`);
               continue;
             }
+
             const bucket = storage.bucket();
-            const destination = `groups/
-            ${groupId}/${doc.doc_type}-${Date.now()}${path.extname(filePath)}`;
+            const destination = `groups/${groupId}/${doc.doc_type}-${
+              Date.now()}${path.extname(filePath)}`;
 
             await bucket.upload(filePath, {
               destination,
@@ -298,11 +307,11 @@ export const getGroupsRouter = (config: {
             console.log(`✅ File uploaded to Firebase Storage at:
               ${destination}`);
 
-            // ⚙️ Store path in DB
+            // ✅ Store destination (NOT filePath) in DB
             await client.query(
               `INSERT INTO group_documents (group_id, doc_type, file_path)
               VALUES ($1, $2, $3)`,
-              [groupId, doc.doc_type, filePath, destination]
+              [groupId, doc.doc_type, destination]
             );
           }
         }
