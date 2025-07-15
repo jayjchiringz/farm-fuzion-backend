@@ -2,7 +2,7 @@ import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import {bootstrapDatabase} from "./utils/bootstrap";
 import cors from "cors";
-import express from "express";
+import express, {Request, Response} from "express";
 import {getDocumentTypesRouter} from "./api/document_types";
 
 // ✅ Configure CORS
@@ -48,7 +48,7 @@ export const api = onRequest(
   {
     secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS],
   },
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     const config = {
       PGUSER: PGUSER.value(),
       PGPASS: PGPASS.value(),
