@@ -37,7 +37,13 @@ export const createMainApp = () => {
     credentials: true,
   }));
 
-  app.use(express.json());
+  app.use((req, res, next) => {
+    if (req.is("application/json")) {
+      express.json()(req, res, next);
+    } else {
+      next();
+    }
+  });
 
   /*
   app.use(multer({
