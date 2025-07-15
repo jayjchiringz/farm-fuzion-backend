@@ -2,8 +2,8 @@
 
 import express from "express";
 import cors from "cors";
-import multer from "multer";
-import os from "os";
+// import multer from "multer";
+// import os from "os";
 import {bootstrapDatabase} from "./utils/bootstrap";
 
 // 🧩 Routers
@@ -39,6 +39,7 @@ export const createMainApp = () => {
 
   app.use(express.json());
 
+  /*
   app.use(multer({
     storage: multer.diskStorage({
       destination: (_, __, cb) => cb(null, os.tmpdir()),
@@ -46,6 +47,7 @@ export const createMainApp = () => {
     }),
     limits: {fileSize: 10 * 1024 * 1024},
   }).any());
+  */
 
   const config = {
     PGUSER: process.env.PGUSER!,
