@@ -5,6 +5,9 @@ import {bootstrapDatabase} from "./utils/bootstrap";
 // import cors from "cors";
 import express, {Request, Response} from "express";
 import {getDocumentTypesRouter} from "./api/document_types";
+import multer from "multer";
+import os from "os";
+// import path from "path";
 
 // ✅ Configure CORS
 // const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
@@ -82,7 +85,20 @@ export const api = onRequest(
     await bootstrapDatabase(config, FORCE_BOOTSTRAP);
 
     const app = express();
+    const upload = multer({
+      storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, os.tmpdir()),
+        filename: (req, file, cb) => cb(
+          null, `${Date.now()}-${file.originalname}`
+        ),
+      }),
+      limits: {fileSize: 10 * 1024 * 1024}, // 10MB max
+    });
+
+    // Handle JSON + multipart
+    app.use(upload.any());
     app.use(express.json());
+
 
     try {
       app.use("/kyc", getKycRouter(config));
