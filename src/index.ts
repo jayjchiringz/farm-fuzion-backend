@@ -56,6 +56,7 @@ import {getLoanRepaymentsRouter} from "./api/loan_repayments";
 export const api = onRequest(
   {
     secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS],
+    timeoutSeconds: 60, // 1 minute
   },
   async (req: Request, res: Response): Promise<void> => {
     // Apply CORS headers manually
