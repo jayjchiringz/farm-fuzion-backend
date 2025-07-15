@@ -1,20 +1,24 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import {bootstrapDatabase} from "./utils/bootstrap";
-import cors from "cors";
+// import cors from "cors";
 import express, {Request, Response} from "express";
 import {getDocumentTypesRouter} from "./api/document_types";
 
 // ✅ Configure CORS
-const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
+// const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
+
+/*
 const corsOptions = {
   origin: allowedOrigins,
   methods: "GET,POST,PATCH,DELETE,OPTIONS",
   allowedHeaders: "Content-Type,Authorization",
   credentials: true,
 };
+*/
 
-const corsMiddleware = cors(corsOptions);
+// const corsMiddleware = cors(corsOptions);
 
 // 🔐 Secrets
 const PGUSER = defineSecret("PGUSER");
@@ -51,52 +55,62 @@ export const api = onRequest(
     secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS],
   },
   async (req: Request, res: Response): Promise<void> => {
-    corsMiddleware(req, res, async () => {
-      const config = {
-        PGUSER: PGUSER.value(),
-        PGPASS: PGPASS.value(),
-        PGHOST: PGHOST.value(),
-        PGPORT: PGPORT.value(),
-        PGDB: PGDB.value(),
-        MAIL_USER: MAIL_USER.value(),
-        MAIL_PASS: MAIL_PASS.value(),
-      };
+    // Apply CORS headers manually
+    res.setHeader("Access-Control-Allow-Origin", "https://farm-fuzion-abdf3.web.app");
+    res.setHeader(
+      "Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS"
+    );
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
 
-      // 🛠️ Ensure DB is bootstrapped before processing
-      await bootstrapDatabase(config, FORCE_BOOTSTRAP);
+    // Preflight
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
 
-      // 🚀 Create fresh express app for each request
-      const app = express();
-      app.use(express.json());
+    const config = {
+      PGUSER: PGUSER.value(),
+      PGPASS: PGPASS.value(),
+      PGHOST: PGHOST.value(),
+      PGPORT: PGPORT.value(),
+      PGDB: PGDB.value(),
+      MAIL_USER: MAIL_USER.value(),
+      MAIL_PASS: MAIL_PASS.value(),
+    };
 
-      try {
-        app.use("/kyc", getKycRouter(config));
-        app.use("/auth", getAuthRouter(config));
-        app.use("/taxes", getTaxesRouter(config));
-        app.use("/loans", getLoansRouter(config));
-        app.use("/risks", getRisksRouter(config));
-        app.use("/farmers", getFarmersRouter(config));
-        app.use("/payments", getPaymentsRouter(config));
-        app.use("/directors", getDirectorsRouter(config));
-        app.use("/logistics", getLogisticsRouter(config));
-        app.use("/financials", getFinancialsRouter(config));
-        app.use("/businesses", getBusinessesRouter(config));
-        app.use("/declarations", getDeclarationsRouter(config));
-        app.use("/farm-products", getFarmProductsRouter(config));
-        app.use("/loan-repayments", getLoanRepaymentsRouter(config));
-        app.use("/groups", getGroupsRouter(config));
-        app.use("/groups-types", getGroupTypesRouter(config));
-        app.use("/document-types", getDocumentTypesRouter(config));
-      } catch (err) {
-        console.error("❌ Router registration failed:", err);
-        res.status(500).json({
-          error: "Router init failed",
-          details: err instanceof Error ? err.message : "Unknown error",
-        });
-        return;
-      }
+    await bootstrapDatabase(config, FORCE_BOOTSTRAP);
 
-      await new Promise<void>((resolve) => (app as any)(req, res, resolve));
-    });
+    const app = express();
+    app.use(express.json());
+
+    try {
+      app.use("/kyc", getKycRouter(config));
+      app.use("/auth", getAuthRouter(config));
+      app.use("/taxes", getTaxesRouter(config));
+      app.use("/loans", getLoansRouter(config));
+      app.use("/risks", getRisksRouter(config));
+      app.use("/farmers", getFarmersRouter(config));
+      app.use("/payments", getPaymentsRouter(config));
+      app.use("/directors", getDirectorsRouter(config));
+      app.use("/logistics", getLogisticsRouter(config));
+      app.use("/financials", getFinancialsRouter(config));
+      app.use("/businesses", getBusinessesRouter(config));
+      app.use("/declarations", getDeclarationsRouter(config));
+      app.use("/farm-products", getFarmProductsRouter(config));
+      app.use("/loan-repayments", getLoanRepaymentsRouter(config));
+      app.use("/groups", getGroupsRouter(config));
+      app.use("/groups-types", getGroupTypesRouter(config));
+      app.use("/document-types", getDocumentTypesRouter(config));
+    } catch (err) {
+      console.error("❌ Router registration failed:", err);
+      res.status(500).json({
+        error: "Router init failed",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
+      return;
+    }
+
+    await new Promise<void>((resolve) => (app as any)(req, res, resolve));
   }
 );
