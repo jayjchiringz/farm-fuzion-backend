@@ -11,3 +11,5 @@ export const api = onRequest(
   },
   createMainApp()
 );
+
+export {registerWithDocs} from "./registerWithDocs";

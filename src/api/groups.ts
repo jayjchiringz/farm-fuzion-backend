@@ -1,10 +1,10 @@
 /* eslint-disable camelcase */
 import express from "express";
 import {initDbPool} from "../utils/db";
-import multer from "multer";
-import os from "os";
-import {storage} from "../utils/firebase"; // ⬅️ add at the top of file
-import path from "path";
+// import multer from "multer";
+// import os from "os";
+// import {storage} from "../utils/firebase"; // ⬅️ add at the top of file
+// import path from "path";
 import cors from "cors";
 
 interface DocumentRequirement {
@@ -205,6 +205,7 @@ export const getGroupsRouter = (config: {
     }
   });
 
+  /*
   const upload = multer({
     storage: multer.diskStorage({
       destination: (req, file, cb) => cb(null, os.tmpdir()),
@@ -213,6 +214,7 @@ export const getGroupsRouter = (config: {
     }),
     limits: {fileSize: 10 * 1024 * 1024}, // 10MB max
   });
+  */
 
   const corsHandler = cors({
     origin: ["https://farm-fuzion-abdf3.web.app"],
@@ -223,6 +225,7 @@ export const getGroupsRouter = (config: {
 
   router.options("/register-with-docs", corsHandler); // 💡 Handle preflight
 
+  /*
   router.post("/register-with-docs", corsHandler, upload.any(), (req, res) => {
     (async () => {
       const fields = req.body;
@@ -344,6 +347,6 @@ export const getGroupsRouter = (config: {
       res.status(500).json({error: "Unexpected error"});
     });
   });
-
+  */
   return router;
 };
