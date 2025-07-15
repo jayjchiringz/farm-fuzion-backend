@@ -291,30 +291,41 @@ export const getGroupsRouter = (config: {
             }
 
             const bucket = storage.bucket();
-            const destination = `groups/${groupId}/${doc.doc_type}-${
-              Date.now()}${path.extname(filePath)}`;
+            const destination = `groups/${groupId}/${doc.doc_type}-${Date.now()}
+            ${path.extname(filePath)}`;
 
-            await bucket.upload(filePath, {
-              destination,
-              metadata: {
-                contentType: "application/octet-stream",
+            console.log("🔽 Incoming fields:", fields);
+            console.log("📦 Received files:", files.map((f) => ({
+              fieldname: f.fieldname,
+              path: f.path,
+              originalname: f.originalname,
+            })));
+
+            try {
+              await bucket.upload(filePath, {
+                destination,
                 metadata: {
-                  firebaseStorageDownloadTokens: groupId,
+                  contentType: "application/octet-stream",
+                  metadata: {
+                    firebaseStorageDownloadTokens: groupId,
+                  },
                 },
-              },
-            });
+              });
 
-            console.log(`✅ File uploaded to Firebase Storage at:
-              ${destination}`);
+              console.log(`✅ Uploaded ${doc.doc_type} to ${destination}`);
 
-            // ✅ Store destination (NOT filePath) in DB
-            await client.query(
-              `INSERT INTO group_documents (group_id, doc_type, file_path)
-              VALUES ($1, $2, $3)`,
-              [groupId, doc.doc_type, destination]
-            );
+              // ✅ Save destination path
+              await client.query(
+                `INSERT INTO group_documents (group_id, doc_type, file_path)
+                VALUES ($1, $2, $3)`,
+                [groupId, doc.doc_type, destination]
+              );
+            } catch (uploadErr) {
+              console.error(`❌ Error uploading ${doc.doc_type}:`, uploadErr);
+              throw new Error(`Upload failed for ${doc.doc_type}`);
+            }
           }
-        }
+        } // ✅ << THIS was missing
 
         await client.query("COMMIT");
         res.status(201).json({
