@@ -24,121 +24,105 @@ export const MAIL_PASS = defineSecret("MAIL_PASS");
 const app = express();
 app.use(cors({origin: true}));
 
-// 🔒 Important: prevent Firebase Functions body-parser interference
+// 🔒 Prevent Firebase Gen2 auto-body-parser conflict
 app.use((req, res, next) => {
   if (req.headers["content-type"]?.startsWith("multipart/form-data")) {
-    // Skip default body parsing for multer to handle raw stream
-    next();
+    next(); // allow multer to handle
   } else {
-    express.json()(req, res, next); // fallback for non-form routes if needed
+    express.json()(req, res, next); // default parser
   }
 });
 
-const upload = multer({dest: os.tmpdir()}); // Use system tmp dir
+const upload = multer({dest: os.tmpdir()}); // temp file upload directory
 
-// ✅ Enhanced POST route with multer applied inline (fixes "Unexpected end of form" on Firebase Gen2)
-app.post("/", (req, res) => {
-  const contentType = req.headers["content-type"] || "";
-  const isMultipart = contentType.includes("multipart/form-data");
+// ✅ Clean single-handler form upload (no body stream duplication!)
+app.post("/", upload.any(), async (req, res) => {
+  try {
+    console.log("📦 Incoming request...");
+    console.log("🔍 Headers:", req.headers);
+    console.log("✅ Body:", req.body);
+    console.log("✅ Files:", req.files);
 
-  const handler = isMultipart ? upload.any() : upload.none();
+    const fields = req.body;
+    const files = req.files as Express.Multer.File[];
 
-  handler(req, res, async (err: any) => {
-    if (err) {
-      console.error("❌ Multer error:", err);
-      return res.status(400).json({
-        error: "Multer processing error",
-        details: err.message,
-      });
+    const requiredFields = ["name", "group_type_id", "location", "registration_number", "requirements"];
+    const missing = requiredFields.filter((f) => !fields[f]);
+    if (missing.length) {
+      return res.status(400).json({error: `Missing fields: ${missing.join(", ")}`});
     }
 
-    try {
-      console.log("📦 Incoming request...");
-      console.log("🔍 Headers:", req.headers);
-      console.log("✅ Body:", req.body);
-      console.log("✅ Files:", req.files);
+    const requirements = JSON.parse(fields.requirements);
 
-      const fields = req.body;
-      const files = req.files as Express.Multer.File[];
+    const pool = initDbPool({
+      PGUSER: process.env.PGUSER!,
+      PGPASS: process.env.PGPASS!,
+      PGHOST: process.env.PGHOST!,
+      PGDB: process.env.PGDB!,
+      PGPORT: process.env.PGPORT!,
+    });
 
-      const requiredFields = ["name", "group_type_id", "location", "registration_number", "requirements"];
-      const missing = requiredFields.filter((f) => !fields[f]);
-      if (missing.length) {
-        return res.status(400).json({error: `Missing fields: ${missing.join(", ")}`});
-      }
+    const client = await pool.connect();
+    await client.query("BEGIN");
 
-      const requirements = JSON.parse(fields.requirements);
+    const groupResult = await client.query(
+      `INSERT INTO groups (
+        name, group_type_id, location, description,
+        registration_number, status
+      ) VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING id`,
+      [
+        fields.name,
+        fields.group_type_id,
+        fields.location,
+        fields.description || null,
+        fields.registration_number,
+      ]
+    );
 
-      const pool = initDbPool({
-        PGUSER: process.env.PGUSER!,
-        PGPASS: process.env.PGPASS!,
-        PGHOST: process.env.PGHOST!,
-        PGDB: process.env.PGDB!,
-        PGPORT: process.env.PGPORT!,
-      });
+    const groupId = groupResult.rows[0].id;
 
-      const client = await pool.connect();
-      await client.query("BEGIN");
-
-      const groupResult = await client.query(
-        `INSERT INTO groups (
-          name, group_type_id, location, description,
-          registration_number, status
-        ) VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING id`,
-        [
-          fields.name,
-          fields.group_type_id,
-          fields.location,
-          fields.description || null,
-          fields.registration_number,
-        ]
+    for (const doc of requirements) {
+      await client.query(
+        `INSERT INTO group_document_requirements (
+          group_id, doc_type, is_required
+        ) VALUES ($1, $2, $3)
+        ON CONFLICT (group_id, doc_type)
+        DO UPDATE SET is_required = EXCLUDED.is_required`,
+        [groupId, doc.doc_type.trim(), doc.is_required]
       );
 
-      const groupId = groupResult.rows[0].id;
+      const uploadedFile = files.find((f) => f.fieldname === `documents[${doc.doc_type}]`);
 
-      for (const doc of requirements) {
-        await client.query(
-          `INSERT INTO group_document_requirements (
-            group_id, doc_type, is_required
-          ) VALUES ($1, $2, $3)
-          ON CONFLICT (group_id, doc_type)
-          DO UPDATE SET is_required = EXCLUDED.is_required`,
-          [groupId, doc.doc_type.trim(), doc.is_required]
-        );
+      if (doc.is_required && uploadedFile) {
+        const bucket = storage.bucket();
+        const destination = `groups/${groupId}/${doc.doc_type}-${Date.now()}${path.extname(uploadedFile.originalname)}`;
 
-        const uploadedFile = files.find((f) => f.fieldname === `documents[${doc.doc_type}]`);
-
-        if (doc.is_required && uploadedFile) {
-          const bucket = storage.bucket();
-          const destination = `groups/${groupId}/${doc.doc_type}-${Date.now()}${path.extname(uploadedFile.originalname)}`;
-
-          await bucket.upload(uploadedFile.path, {
-            destination,
+        await bucket.upload(uploadedFile.path, {
+          destination,
+          metadata: {
+            contentType: uploadedFile.mimetype,
             metadata: {
-              contentType: uploadedFile.mimetype,
-              metadata: {
-                firebaseStorageDownloadTokens: groupId,
-              },
+              firebaseStorageDownloadTokens: groupId,
             },
-          });
+          },
+        });
 
-          await client.query(
-            `INSERT INTO group_documents (group_id, doc_type, file_path)
-             VALUES ($1, $2, $3)`,
-            [groupId, doc.doc_type.trim(), destination]
-          );
-        }
+        await client.query(
+          `INSERT INTO group_documents (group_id, doc_type, file_path)
+           VALUES ($1, $2, $3)`,
+          [groupId, doc.doc_type.trim(), destination]
+        );
       }
-
-      await client.query("COMMIT");
-      client.release();
-
-      return res.status(201).json({id: groupId, message: "Group registered with documents."});
-    } catch (err: any) {
-      console.error("❌ registerWithDocs handler error:", err);
-      return res.status(500).json({error: "Internal server error", details: err.message});
     }
-  });
+
+    await client.query("COMMIT");
+    client.release();
+
+    return res.status(201).json({id: groupId, message: "Group registered with documents."});
+  } catch (err: any) {
+    console.error("❌ registerWithDocs handler error:", err);
+    return res.status(500).json({error: "Internal server error", details: err.message});
+  }
 });
 
 app.use((err: any, req: express.Request, res: express.Response) => {
