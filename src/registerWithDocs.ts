@@ -73,11 +73,11 @@ app.post("/", (req, res) => {
       const requirements = JSON.parse(fields.requirements);
 
       const pool = initDbPool({
-        PGUSER: process.env.PGUSER!,
-        PGPASS: process.env.PGPASS!,
-        PGHOST: process.env.PGHOST!,
-        PGDB: process.env.PGDB!,
-        PGPORT: process.env.PGPORT!,
+        PGUSER: PGUSER.value(),
+        PGPASS: PGPASS.value(),
+        PGHOST: PGHOST.value(),
+        PGDB: PGDB.value(),
+        PGPORT: PGPORT.value(),
       });
 
       const client = await pool.connect();
