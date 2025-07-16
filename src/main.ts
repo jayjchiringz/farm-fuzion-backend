@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import express from "express";
@@ -51,38 +52,48 @@ export const createMainApp = (secrets: {
     }
   });
 
-  const config = {
-    PGUSER: secrets.PGUSER.value(),
-    PGPASS: secrets.PGPASS.value(),
-    PGHOST: secrets.PGHOST.value(),
-    PGDB: secrets.PGDB.value(),
-    PGPORT: secrets.PGPORT.value(),
-    MAIL_USER: secrets.MAIL_USER.value(),
-    MAIL_PASS: secrets.MAIL_PASS.value(),
-  };
+  // ✅ Instead — extract inside bootstrapDatabase at runtime
+  app.use(async (req, res, next) => {
+    try {
+      const config = {
+        PGUSER: secrets.PGUSER.value(),
+        PGPASS: secrets.PGPASS.value(),
+        PGHOST: secrets.PGHOST.value(),
+        PGDB: secrets.PGDB.value(),
+        PGPORT: secrets.PGPORT.value(),
+        MAIL_USER: secrets.MAIL_USER.value(),
+        MAIL_PASS: secrets.MAIL_PASS.value(),
+      };
 
-  const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
+      const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
+      await bootstrapDatabase(config, FORCE_BOOTSTRAP);
 
-  bootstrapDatabase(config, FORCE_BOOTSTRAP).then(() =>
-    console.log("✅ DB Bootstrap complete.")
-  );
+      // ✅ Attach config to req so other routers can use it
+      (req as any).dbConfig = config;
 
-  app.use("/groups", getGroupsRouter(config));
-  app.use("/auth", getAuthRouter(config));
-  app.use("/taxes", getTaxesRouter(config));
-  app.use("/loans", getLoansRouter(config));
-  app.use("/risks", getRisksRouter(config));
-  app.use("/farmers", getFarmersRouter(config));
-  app.use("/payments", getPaymentsRouter(config));
-  app.use("/directors", getDirectorsRouter(config));
-  app.use("/logistics", getLogisticsRouter(config));
-  app.use("/financials", getFinancialsRouter(config));
-  app.use("/businesses", getBusinessesRouter(config));
-  app.use("/declarations", getDeclarationsRouter(config));
-  app.use("/farm-products", getFarmProductsRouter(config));
-  app.use("/loan-repayments", getLoanRepaymentsRouter(config));
-  app.use("/groups-types", getGroupTypesRouter(config));
-  app.use("/document-types", getDocumentTypesRouter(config));
+      next();
+    } catch (err) {
+      console.error("❌ Bootstrap error:", err);
+      res.status(500).json({error: "Bootstrap failed"});
+    }
+  });
+
+  app.use("/groups", (req, res, next) => getGroupsRouter((req as any).dbConfig)(req, res, next));
+  app.use("/auth", (req, res, next) => getAuthRouter((req as any).dbConfig)(req, res, next));
+  app.use("/taxes", (req, res, next) => getTaxesRouter((req as any).dbConfig)(req, res, next));
+  app.use("/loans", (req, res, next) => getLoansRouter((req as any).dbConfig)(req, res, next));
+  app.use("/risks", (req, res, next) => getRisksRouter((req as any).dbConfig)(req, res, next));
+  app.use("/farmers", (req, res, next) => getFarmersRouter((req as any).dbConfig)(req, res, next));
+  app.use("/payments", (req, res, next) => getPaymentsRouter((req as any).dbConfig)(req, res, next));
+  app.use("/directors", (req, res, next) => getDirectorsRouter((req as any).dbConfig)(req, res, next));
+  app.use("/logistics", (req, res, next) => getLogisticsRouter((req as any).dbConfig)(req, res, next));
+  app.use("/financials", (req, res, next) => getFinancialsRouter((req as any).dbConfig)(req, res, next));
+  app.use("/businesses", (req, res, next) => getBusinessesRouter((req as any).dbConfig)(req, res, next));
+  app.use("/declarations", (req, res, next) => getDeclarationsRouter((req as any).dbConfig)(req, res, next));
+  app.use("/farm-products", (req, res, next) => getFarmProductsRouter((req as any).dbConfig)(req, res, next));
+  app.use("/loan-repayments", (req, res, next) => getLoanRepaymentsRouter((req as any).dbConfig)(req, res, next));
+  app.use("/groups-types", (req, res, next) => getGroupTypesRouter((req as any).dbConfig)(req, res, next));
+  app.use("/document-types", (req, res, next) => getDocumentTypesRouter((req as any).dbConfig)(req, res, next));
 
   return app;
 };
