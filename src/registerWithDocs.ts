@@ -38,16 +38,18 @@ const upload = multer({dest: os.tmpdir()}); // Use system tmp dir
 
 // ✅ Enhanced POST route with multer applied inline (fixes "Unexpected end of form" on Firebase Gen2)
 app.post("/", (req, res) => {
-  console.log("📦 Incoming multipart request...");
-  console.log("🔍 headers", req.headers);
-
   upload.any()(req, res, async (err) => {
     if (err) {
       console.error("❌ Multer error:", err);
-      return res.status(500).json({error: "Multer processing error", details: err.message});
+      return res.status(400).json({
+        error: "Multer processing error",
+        details: err.message,
+      });
     }
 
     try {
+      console.log("📦 Incoming multipart request...");
+      console.log("🔍 headers", req.headers);
       console.log("✅ req.body", req.body);
       console.log("✅ req.files", req.files);
 
@@ -128,12 +130,11 @@ app.post("/", (req, res) => {
 
       return res.status(201).json({id: groupId, message: "Group registered with documents."});
     } catch (err: any) {
-      console.error("❌ registerWithDocs error:", err);
+      console.error("❌ registerWithDocs handler error:", err);
       return res.status(500).json({error: "Internal server error", details: err.message});
     }
   });
 });
-
 
 app.use((err: any, req: express.Request, res: express.Response) => {
   console.error("🔥 Global error handler:", err);
