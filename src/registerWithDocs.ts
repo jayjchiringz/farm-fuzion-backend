@@ -33,7 +33,13 @@ app.use((req, res, next) => {
 });
 
 // ⚙️ Multer config
-const upload = multer({dest: os.tmpdir()});
+const upload = multer({
+  dest: os.tmpdir(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit (adjust if needed)
+  },
+});
+
 
 // ✅ Main POST route with early multer handling
 app.post("/", upload.any(), async (req: Request, res: Response) => {
