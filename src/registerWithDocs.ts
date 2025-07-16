@@ -38,7 +38,13 @@ const upload = multer({dest: os.tmpdir()}); // Use system tmp dir
 
 // ✅ Enhanced POST route with multer + error safety
 app.post("/", upload.any(), async (req, res) => {
+  console.log("📦 Incoming multipart request...");
+  console.log("🔍 headers", req.headers);
+
   try {
+    console.log("✅ req.body", req.body);
+    console.log("✅ req.files", req.files);
+
     const fields = req.body;
     const files = req.files as Express.Multer.File[];
 
@@ -121,6 +127,10 @@ app.post("/", upload.any(), async (req, res) => {
   }
 });
 
+app.use((err: any, req: express.Request, res: express.Response) => {
+  console.error("🔥 Global error handler:", err);
+  res.status(500).json({error: "Unhandled middleware error", details: err.message});
+});
 
 export const registerWithDocs = onRequest(
   {
