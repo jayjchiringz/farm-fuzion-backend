@@ -24,6 +24,16 @@ export const MAIL_PASS = defineSecret("MAIL_PASS");
 const app = express();
 app.use(cors({origin: true}));
 
+// 🔒 Important: prevent Firebase Functions body-parser interference
+app.use((req, res, next) => {
+  if (req.headers["content-type"]?.startsWith("multipart/form-data")) {
+    // Skip default body parsing for multer to handle raw stream
+    next();
+  } else {
+    express.json()(req, res, next); // fallback for non-form routes if needed
+  }
+});
+
 const upload = multer({dest: os.tmpdir()}); // Use system tmp dir
 
 // ✅ Enhanced POST route with multer + error safety
