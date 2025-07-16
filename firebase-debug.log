@@ -1,0 +1,37 @@
+[debug] [2025-07-16T02:01:51.084Z] ----------------------------------------------------------------------
+[debug] [2025-07-16T02:01:51.090Z] Command:       C:\nvm4w\nodejs\node.exe C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2025-07-16T02:01:51.090Z] CLI Version:   14.7.0
+[debug] [2025-07-16T02:01:51.091Z] Platform:      win32
+[debug] [2025-07-16T02:01:51.091Z] Node Version:  v22.13.1
+[debug] [2025-07-16T02:01:51.091Z] Time:          Wed Jul 16 2025 05:01:51 GMT+0300 (East Africa Time)
+[debug] [2025-07-16T02:01:51.091Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-07-16T02:01:51.514Z] Field "/functions" in "firebase.json" is possibly invalid: must be object
+[debug] [2025-07-16T02:01:51.515Z] Object "/functions/0" in "firebase.json" has unknown property: {"additionalProperty":"secretEnvironmentVariables"}
+[debug] [2025-07-16T02:01:51.516Z] Field "/functions" in "firebase.json" is possibly invalid: must match a schema in anyOf
+[debug] [2025-07-16T02:01:51.528Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-07-16T02:01:51.528Z] > authorizing via signed-in user (caxshuganda@gmail.com)
+[debug] [2025-07-16T02:01:51.528Z] [iam] checking project farm-fuzion-abdf3 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2025-07-16T02:01:51.530Z] Checked if tokens are valid: true, expires at: 1752633346682
+[debug] [2025-07-16T02:01:51.531Z] Checked if tokens are valid: true, expires at: 1752633346682
+[debug] [2025-07-16T02:01:51.533Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions [none]
+[debug] [2025-07-16T02:01:51.533Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions x-goog-quota-user=projects/farm-fuzion-abdf3
+[debug] [2025-07-16T02:01:51.533Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-07-16T02:02:05.919Z] *** [apiv2] error from fetch(https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions, {"headers":{},"method":"POST","body":"{\"permissions\":[\"cloudfunctions.functions.create\",\"cloudfunctions.functions.delete\",\"cloudfunctions.functions.get\",\"cloudfunctions.functions.list\",\"cloudfunctions.functions.update\",\"cloudfunctions.operations.get\",\"firebase.projects.get\"]}"}): FetchError: request to https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions failed, reason: socket hang up
+[debug] [2025-07-16T02:02:05.919Z] [iam] error while checking permissions, command may fail: Failed to make request to https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions
+[debug] [2025-07-16T02:02:05.919Z] Checked if tokens are valid: true, expires at: 1752633346682
+[debug] [2025-07-16T02:02:05.919Z] Checked if tokens are valid: true, expires at: 1752633346682
+[debug] [2025-07-16T02:02:05.919Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2025-07-16T02:02:05.919Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-07-16T02:02:09.485Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2025-07-16T02:02:09.485Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'farm-fuzion-abdf3'...
+[info] 
+[info] i  deploying functions 
+[info] Running command: npm --prefix functions run build
+[info] +  functions: Finished running predeploy script. 
+[debug] [2025-07-16T02:02:25.462Z] Checked if tokens are valid: true, expires at: 1752633346682
+[debug] [2025-07-16T02:02:25.462Z] Checked if tokens are valid: true, expires at: 1752633346682
+[debug] [2025-07-16T02:02:25.462Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/farm-fuzion-abdf3/services/cloudresourcemanager.googleapis.com [none]
+[debug] [2025-07-16T02:02:25.462Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/farm-fuzion-abdf3/services/cloudresourcemanager.googleapis.com x-goog-quota-user=projects/farm-fuzion-abdf3
