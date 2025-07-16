@@ -38,7 +38,12 @@ const upload = multer({dest: os.tmpdir()}); // Use system tmp dir
 
 // ✅ Enhanced POST route with multer applied inline (fixes "Unexpected end of form" on Firebase Gen2)
 app.post("/", (req, res) => {
-  upload.any()(req, res, async (err) => {
+  const contentType = req.headers["content-type"] || "";
+  const isMultipart = contentType.includes("multipart/form-data");
+
+  const handler = isMultipart ? upload.any() : upload.none();
+
+  handler(req, res, async (err: any) => {
     if (err) {
       console.error("❌ Multer error:", err);
       return res.status(400).json({
@@ -48,10 +53,10 @@ app.post("/", (req, res) => {
     }
 
     try {
-      console.log("📦 Incoming multipart request...");
-      console.log("🔍 headers", req.headers);
-      console.log("✅ req.body", req.body);
-      console.log("✅ req.files", req.files);
+      console.log("📦 Incoming request...");
+      console.log("🔍 Headers:", req.headers);
+      console.log("✅ Body:", req.body);
+      console.log("✅ Files:", req.files);
 
       const fields = req.body;
       const files = req.files as Express.Multer.File[];
