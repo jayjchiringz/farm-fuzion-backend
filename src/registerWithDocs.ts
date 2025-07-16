@@ -5,11 +5,13 @@ import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import express from "express";
 import cors from "cors";
-import multer from "multer";
 import os from "os";
 import path from "path";
 import {storage} from "./utils/firebase";
 import {initDbPool} from "./utils/db";
+import Busboy from "busboy";
+import {v4 as uuidv4} from "uuid";
+import fs from "fs";
 
 // 🔐 Secrets
 export const PGUSER = defineSecret("PGUSER");
@@ -20,71 +22,55 @@ export const PGPORT = defineSecret("PGPORT");
 export const MAIL_USER = defineSecret("MAIL_USER");
 export const MAIL_PASS = defineSecret("MAIL_PASS");
 
-// 🧠 Multer setup
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: (_, __, cb) => cb(null, os.tmpdir()),
-    filename: (_, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
-  }),
-  limits: {fileSize: 10 * 1024 * 1024}, // 10MB
-});
-
 // 🚀 App setup
 const app = express();
 app.use(cors({origin: true}));
 
-// 🛡️ Prevent pre-parsing JSON for multipart/form-data
-app.use((req, res, next) => {
-  if (req.method === "POST" && req.is("multipart/form-data")) {
-    return next();
-  }
-  express.json()(req, res, next);
-});
-
 // ✅ Enhanced POST route with multer + error safety
 app.post("/", (req, res) => {
-  upload.any()(req, res, async (err) => {
-    if (err) {
-      console.error("❌ Multer error:", err);
-      return res.status(400).json({
-        error: "File upload error",
-        details: err.message,
-      });
-    }
+  const busboy = Busboy({headers: req.headers});
+  const fields: Record<string, string> = {};
+  const files: Record<string, string> = {};
 
-    const fields = req.body;
-    const files = req.files as Express.Multer.File[];
+  const tmpdir = os.tmpdir();
+  const uploads: Promise<void>[] = [];
 
-    console.log("📥 Received fields:", fields);
-    console.log("📎 Received files:", files.map((f) => ({
-      fieldname: f.fieldname,
-      originalname: f.originalname,
-      size: f.size,
-      mimetype: f.mimetype,
-    })));
+  busboy.on("file", (fieldname: string, file: NodeJS.ReadableStream, info) => {
+    const {filename} = info;
+    const tmpPath = path.join(tmpdir, `${uuidv4()}-${filename}`);
+    files[fieldname] = tmpPath;
 
+    const writeStream = fs.createWriteStream(tmpPath);
+    file.pipe(writeStream);
+
+    const uploadFinished = new Promise<void>((resolve, reject) => {
+      file.on("end", resolve);
+      file.on("error", reject);
+    });
+
+    uploads.push(uploadFinished);
+  });
+
+  busboy.on("field", (fieldname: string | number, val: string) => {
+    fields[fieldname] = val;
+  });
+
+  busboy.on("error", (err: { message: any; }) => {
+    console.error("❌ Busboy error:", err);
+    res.status(400).json({error: "File upload error", details: err.message});
+  });
+
+  busboy.on("finish", async () => {
     try {
-      const requiredFields = [
-        "name",
-        "group_type_id",
-        "location",
-        "registration_number",
-        "requirements",
-      ];
-      const missing = requiredFields.filter((key) => !fields[key]);
-      if (missing.length > 0) {
-        return res.status(400).json({
-          error: `Missing fields: ${missing.join(", ")}`,
-        });
+      await Promise.all(uploads);
+
+      const requiredFields = ["name", "group_type_id", "location", "registration_number", "requirements"];
+      const missing = requiredFields.filter((f) => !fields[f]);
+      if (missing.length) {
+        return res.status(400).json({error: `Missing fields: ${missing.join(", ")}`});
       }
 
       const requirements = JSON.parse(fields.requirements);
-      const uploads = new Map(
-        files.map((f) => [
-          f.fieldname.replace("documents[", "").replace("]", "").trim(),
-          f.path,
-        ])
-      );
 
       const pool = initDbPool({
         PGUSER: process.env.PGUSER!,
@@ -114,11 +100,6 @@ app.post("/", (req, res) => {
       const groupId = groupResult.rows[0].id;
 
       for (const doc of requirements) {
-        if (typeof doc.doc_type !== "string" || typeof doc.is_required !== "boolean") {
-          console.warn("⚠️ Skipping invalid requirement:", doc);
-          continue;
-        }
-
         await client.query(
           `INSERT INTO group_document_requirements (
             group_id, doc_type, is_required
@@ -128,14 +109,11 @@ app.post("/", (req, res) => {
           [groupId, doc.doc_type.trim(), doc.is_required]
         );
 
-        if (doc.is_required && uploads.has(doc.doc_type.trim())) {
-          const filePath = uploads.get(doc.doc_type.trim());
-          if (!filePath) continue;
-
+        const tmpFilePath = files[`documents[${doc.doc_type}]`];
+        if (doc.is_required && tmpFilePath) {
           const bucket = storage.bucket();
-          const destination = `groups/${groupId}/${doc.doc_type}-${Date.now()}${path.extname(filePath)}`;
-
-          await bucket.upload(filePath, {
+          const destination = `groups/${groupId}/${doc.doc_type}-${Date.now()}${path.extname(tmpFilePath)}`;
+          await bucket.upload(tmpFilePath, {
             destination,
             metadata: {
               contentType: "application/octet-stream",
@@ -156,18 +134,16 @@ app.post("/", (req, res) => {
       await client.query("COMMIT");
       client.release();
 
-      return res.status(201).json({
-        id: groupId,
-        message: "Group registered with documents.",
-      });
-    } catch (err) {
+      return res.status(201).json({id: groupId, message: "Group registered with documents."});
+    } catch (err: any) {
       console.error("❌ registerWithDocs error:", err);
-      return res.status(500).json({error: "Failed to register group"});
+      return res.status(500).json({error: "Internal server error", details: err.message});
     }
   });
+
+  req.pipe(busboy);
 });
 
-// ✅ Export function with increased memory
 export const registerWithDocs = onRequest(
   {
     secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS],
