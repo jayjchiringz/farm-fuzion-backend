@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import express from "express";
 import cors from "cors";
@@ -23,10 +24,18 @@ import {getDocumentTypesRouter} from "./api/document_types";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
-export const createMainApp = () => {
+// 💡 FIXED: Use `typeof PGUSER` etc. from caller scope
+export const createMainApp = (secrets: {
+  PGUSER: any;
+  PGPASS: any;
+  PGHOST: any;
+  PGDB: any;
+  PGPORT: any;
+  MAIL_USER: any;
+  MAIL_PASS: any;
+}) => {
   const app = express();
 
-  // ✅ Middleware
   app.use(cors({
     origin: allowedOrigins,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
@@ -43,13 +52,13 @@ export const createMainApp = () => {
   });
 
   const config = {
-    PGUSER: process.env.PGUSER!,
-    PGPASS: process.env.PGPASS!,
-    PGHOST: process.env.PGHOST!,
-    PGDB: process.env.PGDB!,
-    PGPORT: process.env.PGPORT!,
-    MAIL_USER: process.env.MAIL_USER!,
-    MAIL_PASS: process.env.MAIL_PASS!,
+    PGUSER: secrets.PGUSER.value(),
+    PGPASS: secrets.PGPASS.value(),
+    PGHOST: secrets.PGHOST.value(),
+    PGDB: secrets.PGDB.value(),
+    PGPORT: secrets.PGPORT.value(),
+    MAIL_USER: secrets.MAIL_USER.value(),
+    MAIL_PASS: secrets.MAIL_PASS.value(),
   };
 
   const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
@@ -58,7 +67,6 @@ export const createMainApp = () => {
     console.log("✅ DB Bootstrap complete.")
   );
 
-  // ✅ Routes
   app.use("/groups", getGroupsRouter(config));
   app.use("/auth", getAuthRouter(config));
   app.use("/taxes", getTaxesRouter(config));
