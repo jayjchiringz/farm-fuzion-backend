@@ -1,10 +1,6 @@
 /* eslint-disable camelcase */
 import express from "express";
 import {initDbPool} from "../utils/db";
-// import multer from "multer";
-// import os from "os";
-// import {storage} from "../utils/firebase"; // ⬅️ add at the top of file
-// import path from "path";
 import cors from "cors";
 
 interface DocumentRequirement {
@@ -205,17 +201,6 @@ export const getGroupsRouter = (config: {
     }
   });
 
-  /*
-  const upload = multer({
-    storage: multer.diskStorage({
-      destination: (req, file, cb) => cb(null, os.tmpdir()),
-      filename: (req, file, cb) =>
-        cb(null, `${Date.now()}-${file.originalname}`),
-    }),
-    limits: {fileSize: 10 * 1024 * 1024}, // 10MB max
-  });
-  */
-
   const corsHandler = cors({
     origin: ["https://farm-fuzion-abdf3.web.app"],
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
@@ -224,129 +209,5 @@ export const getGroupsRouter = (config: {
   });
 
   router.options("/register-with-docs", corsHandler); // 💡 Handle preflight
-
-  /*
-  router.post("/register-with-docs", corsHandler, upload.any(), (req, res) => {
-    (async () => {
-      const fields = req.body;
-      const files = req.files as Express.Multer.File[];
-
-      const required = [
-        "name",
-        "group_type_id",
-        "location",
-        "registration_number",
-        "requirements",
-      ];
-      const missing = required.filter((key) => !fields[key]);
-      if (missing.length > 0) {
-        res.status(400).json({
-          error: `Missing fields: ${missing.join(", ")}`,
-        });
-        return;
-      }
-
-      const requirements = JSON.parse(fields.requirements);
-      const uploads = new Map(
-        files.map((f) => [
-          f.fieldname.replace("documents[", "").replace("]", ""),
-          f.path,
-        ])
-      );
-
-      const client = await pool.connect();
-      try {
-        await client.query("BEGIN");
-
-        const groupResult = await client.query(
-          `INSERT INTO groups (
-            name, group_type_id, location, description,
-            registration_number, status)
-          VALUES ($1, $2, $3, $4, $5, 'pending')
-          RETURNING id`,
-          [
-            fields.name,
-            fields.group_type_id,
-            fields.location,
-            fields.description || null,
-            fields.registration_number,
-          ]
-        );
-
-        const groupId = groupResult.rows[0].id;
-
-        for (const doc of requirements) {
-          await client.query(
-            `INSERT INTO group_document_requirements (
-              group_id, doc_type, is_required)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (group_id, doc_type)
-            DO UPDATE SET is_required = EXCLUDED.is_required`,
-            [groupId, doc.doc_type, doc.is_required]
-          );
-
-          if (doc.is_required && uploads.has(doc.doc_type)) {
-            const filePath = uploads.get(doc.doc_type);
-
-            if (!filePath) {
-              console.warn(`⚠️ No filePath for ${doc.doc_type}`);
-              continue;
-            }
-
-            const bucket = storage.bucket();
-            const destination = `groups/${groupId}/${doc.doc_type}-${Date.now()}
-            ${path.extname(filePath)}`;
-
-            console.log("🔽 Incoming fields:", fields);
-            console.log("📦 Received files:", files.map((f) => ({
-              fieldname: f.fieldname,
-              path: f.path,
-              originalname: f.originalname,
-            })));
-
-            try {
-              await bucket.upload(filePath, {
-                destination,
-                metadata: {
-                  contentType: "application/octet-stream",
-                  metadata: {
-                    firebaseStorageDownloadTokens: groupId,
-                  },
-                },
-              });
-
-              console.log(`✅ Uploaded ${doc.doc_type} to ${destination}`);
-
-              // ✅ Save destination path
-              await client.query(
-                `INSERT INTO group_documents (group_id, doc_type, file_path)
-                VALUES ($1, $2, $3)`,
-                [groupId, doc.doc_type, destination]
-              );
-            } catch (uploadErr) {
-              console.error(`❌ Error uploading ${doc.doc_type}:`, uploadErr);
-              throw new Error(`Upload failed for ${doc.doc_type}`);
-            }
-          }
-        } // ✅ << THIS was missing
-
-        await client.query("COMMIT");
-        res.status(201).json({
-          id: groupId,
-          message: "Group registered with documents.",
-        });
-      } catch (err) {
-        await client.query("ROLLBACK");
-        console.error("❌ Error during multipart group registration:", err);
-        res.status(500).json({error: "Failed to register group"});
-      } finally {
-        client.release();
-      }
-    })().catch((err) => {
-      console.error("❌ Unexpected registration error:", err);
-      res.status(500).json({error: "Unexpected error"});
-    });
-  });
-  */
   return router;
 };

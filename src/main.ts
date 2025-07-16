@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-
 import express from "express";
 import cors from "cors";
-// import multer from "multer";
-// import os from "os";
 import {bootstrapDatabase} from "./utils/bootstrap";
 
 // 🧩 Routers
@@ -44,16 +41,6 @@ export const createMainApp = () => {
       next();
     }
   });
-
-  /*
-  app.use(multer({
-    storage: multer.diskStorage({
-      destination: (_, __, cb) => cb(null, os.tmpdir()),
-      filename: (_, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
-    }),
-    limits: {fileSize: 10 * 1024 * 1024},
-  }).any());
-  */
 
   const config = {
     PGUSER: process.env.PGUSER!,
