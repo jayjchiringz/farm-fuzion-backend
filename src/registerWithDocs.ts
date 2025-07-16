@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import {onRequest} from "firebase-functions/v2/https";
@@ -43,6 +44,14 @@ app.post("/", (req, res) => {
 
     const fields = req.body;
     const files = req.files as Express.Multer.File[];
+
+    console.log("📥 Received fields:", fields);
+    console.log("📎 Received files:", files.map((f) => ({
+      fieldname: f.fieldname,
+      originalname: f.originalname,
+      size: f.size,
+      mimetype: f.mimetype,
+    })));
 
     try {
       const requiredFields = [
@@ -110,8 +119,7 @@ app.post("/", (req, res) => {
           if (!filePath) continue;
 
           const bucket = storage.bucket();
-          const destination = `groups/${groupId}/
-          ${doc.doc_type}-${Date.now()}${path.extname(filePath)}`;
+          const destination = `groups/${groupId}/${doc.doc_type}-${Date.now()}${path.extname(filePath)}`;
 
           await bucket.upload(filePath, {
             destination,
