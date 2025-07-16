@@ -11,6 +11,8 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 import Busboy from "busboy";
+import {finished} from "stream/promises";
+
 
 // 🔐 Secrets
 export const PGUSER = defineSecret("PGUSER");
@@ -34,6 +36,7 @@ app.post("/", async (req: Request, res: Response) => {
     originalname: string;
     mimetype: string;
   }[] = [];
+  const fileWrites: Promise<void>[] = [];
 
   try {
     busboy.on("field", (name, val) => {
@@ -45,7 +48,17 @@ app.post("/", async (req: Request, res: Response) => {
       const tmpPath = path.join(os.tmpdir(), `${Date.now()}-${filename}`);
       const writeStream = fs.createWriteStream(tmpPath);
       file.pipe(writeStream);
-      files.push({fieldname, path: tmpPath, originalname: filename, mimetype: mimeType});
+
+      files.push({
+        fieldname,
+        path: tmpPath,
+        originalname: filename,
+        mimetype: mimeType,
+      });
+
+      // 🔐 Ensure the file is fully written
+      const finishedWriting = finished(writeStream);
+      fileWrites.push(finishedWriting);
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -54,7 +67,10 @@ app.post("/", async (req: Request, res: Response) => {
       req.pipe(busboy);
     });
 
-    // ✅ All fields/files collected here
+    // ✋ Wait for all file writes to complete
+    await Promise.all(fileWrites);
+
+    // ✅ All fields/files collected and flushed
     const required = ["name", "group_type_id", "location", "registration_number", "requirements"];
     const missing = required.filter((f) => !fields[f]);
     if (missing.length) {
@@ -62,6 +78,7 @@ app.post("/", async (req: Request, res: Response) => {
     }
 
     const requirements = JSON.parse(fields.requirements);
+
     const pool = initDbPool({
       PGUSER: process.env.PGUSER!,
       PGPASS: process.env.PGPASS!,
@@ -130,6 +147,7 @@ app.post("/", async (req: Request, res: Response) => {
     return res.status(500).json({error: "Internal server error", details: err.message || err.toString()});
   }
 });
+
 
 // 🧯 Global error fallback
 app.use((err: any, req: Request, res: Response) => {
