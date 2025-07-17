@@ -46,13 +46,14 @@ export const getFarmersRouter = (config: {
       address,
       mobile,
       email,
+      group_id,
     } = req.body;
 
     try {
       const result = await pool.query(
         `INSERT INTO farmers (
           first_name, middle_name, last_name, dob, id_passport_no,
-          location, address, mobile, email
+          location, address, mobile, email, group_id
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
         RETURNING id`,
@@ -66,6 +67,7 @@ export const getFarmersRouter = (config: {
           address,
           mobile,
           email,
+          group_id,
         ]
       );
       res.status(201).json({id: result.rows[0].id});
