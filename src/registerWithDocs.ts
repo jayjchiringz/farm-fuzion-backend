@@ -10,7 +10,7 @@ import {initDbPool} from "./utils/db";
 import path from "path";
 import fs from "fs";
 import os from "os";
-import Busboy from "busboy";
+import * as Busboy from "busboy";
 import {finished} from "stream/promises";
 
 // 🔐 Secrets
@@ -36,28 +36,29 @@ app.post("/", async (req: Request, res: Response) => {
   }[] = [];
 
   try {
-    // 👇 Wrap the Busboy stream parsing inside a Promise
+    console.log("🛰️ Incoming request headers:", req.headers);
+
     await new Promise<void>((resolve, reject) => {
-      const busboy = Busboy({headers: req.headers});
+      const busboy = Busboy.default({headers: req.headers});
       const fileWrites: Promise<void>[] = [];
 
-      busboy.on("field", (name, val) => {
+      busboy.on("field", (name: string, val: string) => {
+        console.log(`📩 Received field: ${name} =`, val);
         fields[name] = val;
       });
 
-      busboy.on("file", (fieldname, file, info) => {
-        const {filename, mimeType} = info;
-        const tmpPath = path.join(os.tmpdir(), `${Date.now()}-${filename}`);
+      busboy.on("file", (fieldname: string, file: NodeJS.ReadableStream, info: { filename: string; mimeType: string }) => {
+        console.log(`📦 Received file: ${fieldname} → ${info.filename} (${info.mimeType})`);
+        const tmpPath = path.join(os.tmpdir(), `${Date.now()}-${info.filename}`);
         const writeStream = fs.createWriteStream(tmpPath);
         file.pipe(writeStream);
 
-        // 🔐 Wait until the write completes before proceeding
         const writeFinished = finished(writeStream).then(() => {
           files.push({
             fieldname,
             path: tmpPath,
-            originalname: filename,
-            mimetype: mimeType,
+            originalname: info.filename,
+            mimetype: info.mimeType,
           });
         });
 
@@ -65,19 +66,24 @@ app.post("/", async (req: Request, res: Response) => {
       });
 
       busboy.on("finish", async () => {
+        console.log("✅ Busboy finished parsing.");
         try {
           await Promise.all(fileWrites);
           resolve();
         } catch (err) {
+          console.error("❌ File write error:", err);
           reject(err);
         }
       });
 
-      busboy.on("error", reject);
+      busboy.on("error", (err: any) => {
+        console.error("❌ Busboy error:", err);
+        reject(err);
+      });
+
       req.pipe(busboy);
     });
 
-    // ✅ Continue with the original validation + DB logic...
     const required = ["name", "group_type_id", "location", "registration_number", "requirements"];
     const missing = required.filter((f) => !fields[f]);
     if (missing.length) {
@@ -152,9 +158,13 @@ app.post("/", async (req: Request, res: Response) => {
     return res.status(201).json({id: groupId, message: "Group registered with documents."});
   } catch (err: any) {
     console.error("❌ registerWithDocs error:", err);
-    return res.status(500).json({error: "Internal server error", details: err.message || err.toString()});
+    return res.status(500).json({
+      error: "Internal server error",
+      details: err.message || err.toString(),
+    });
   }
 });
+
 
 // 🧯 Global error fallback
 app.use((err: any, req: Request, res: Response) => {
