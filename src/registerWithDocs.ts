@@ -22,10 +22,11 @@ export const PGPORT = defineSecret("PGPORT");
 export const MAIL_USER = defineSecret("MAIL_USER");
 export const MAIL_PASS = defineSecret("MAIL_PASS");
 
-// 🚀 App setup
+// 🚀 Express app setup
 const app = express();
 app.use(cors({origin: true}));
 
+// 🌐 POST endpoint: Handle multipart form data
 app.post("/", async (req: Request, res: Response) => {
   const fields: Record<string, any> = {};
   const files: {
@@ -38,17 +39,17 @@ app.post("/", async (req: Request, res: Response) => {
   try {
     console.log("🛰️ Incoming request headers:", req.headers);
 
+    // 📦 Parse incoming multipart form
     await new Promise<void>((resolve, reject) => {
       const busboy = Busboy.default({headers: req.headers});
       const fileWrites: Promise<void>[] = [];
 
       busboy.on("field", (name: string, val: string) => {
-        console.log(`📩 Received field: ${name} =`, val);
+        console.log(`📩 Field: ${name} = ${val}`);
         fields[name] = val;
       });
 
-      busboy.on("file", (fieldname: string, file: NodeJS.ReadableStream, info: { filename: string; mimeType: string }) => {
-        console.log(`📦 Received file: ${fieldname} → ${info.filename} (${info.mimeType})`);
+      busboy.on("file", (fieldname, file, info) => {
         const tmpPath = path.join(os.tmpdir(), `${Date.now()}-${info.filename}`);
         const writeStream = fs.createWriteStream(tmpPath);
         file.pipe(writeStream);
@@ -66,17 +67,16 @@ app.post("/", async (req: Request, res: Response) => {
       });
 
       busboy.on("finish", async () => {
-        console.log("✅ Busboy finished parsing.");
         try {
           await Promise.all(fileWrites);
+          console.log("✅ Form parsing complete.");
           resolve();
         } catch (err) {
-          console.error("❌ File write error:", err);
           reject(err);
         }
       });
 
-      busboy.on("error", (err: any) => {
+      busboy.on("error", (err) => {
         console.error("❌ Busboy error:", err);
         reject(err);
       });
@@ -84,14 +84,29 @@ app.post("/", async (req: Request, res: Response) => {
       req.pipe(busboy);
     });
 
+    // ✅ Required field validation
     const required = ["name", "group_type_id", "location", "registration_number", "requirements"];
     const missing = required.filter((f) => !fields[f]);
     if (missing.length) {
       return res.status(400).json({error: `Missing fields: ${missing.join(", ")}`});
     }
 
-    const requirements = JSON.parse(fields.requirements);
+    // 🔎 Safe parsing of JSON string requirements
+    let requirements: any[] = [];
+    try {
+      requirements = typeof fields.requirements === "string" ?
+        JSON.parse(fields.requirements) :
+        fields.requirements;
 
+      if (!Array.isArray(requirements)) {
+        throw new Error("Parsed 'requirements' is not an array");
+      }
+    } catch (err) {
+      console.error("❌ Failed to parse requirements:", fields.requirements);
+      return res.status(400).json({error: "Invalid 'requirements' JSON format"});
+    }
+
+    // 🛠️ Database setup
     const pool = initDbPool({
       PGUSER: process.env.PGUSER!,
       PGPASS: process.env.PGPASS!,
@@ -103,6 +118,7 @@ app.post("/", async (req: Request, res: Response) => {
     const client = await pool.connect();
     await client.query("BEGIN");
 
+    // 📥 Insert group
     const groupResult = await client.query(
       `INSERT INTO groups (
         name, group_type_id, location, description,
@@ -119,6 +135,7 @@ app.post("/", async (req: Request, res: Response) => {
 
     const groupId = groupResult.rows[0].id;
 
+    // 📄 Insert requirements & upload matching files
     for (const doc of requirements) {
       await client.query(
         `INSERT INTO group_document_requirements (
@@ -130,10 +147,16 @@ app.post("/", async (req: Request, res: Response) => {
       );
 
       const sanitizeKey = (key: string) => key.toLowerCase().replace(/[^a-z0-9]/gi, "_");
-      const uploadedFile = files.find((f) => f.fieldname === `documents[${sanitizeKey(doc.doc_type)}]`);
+      const uploadedFile = files.find(
+        (f) => f.fieldname === `documents[${sanitizeKey(doc.doc_type)}]`
+      );
+
       if (doc.is_required && uploadedFile) {
         const bucket = storage.bucket();
-        const destination = `groups/${groupId}/${doc.doc_type}-${Date.now()}${path.extname(uploadedFile.originalname)}`;
+        const destination = `groups/${groupId}/${doc.doc_type}-${Date.now()}${path.extname(
+          uploadedFile.originalname
+        )}`;
+
         await bucket.upload(uploadedFile.path, {
           destination,
           metadata: {
@@ -164,7 +187,6 @@ app.post("/", async (req: Request, res: Response) => {
     });
   }
 });
-
 
 // 🧯 Global error fallback
 app.use((err: any, req: Request, res: Response) => {
