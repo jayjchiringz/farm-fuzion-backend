@@ -123,7 +123,8 @@ app.post("/", async (req: Request, res: Response) => {
         [groupId, doc.doc_type.trim(), doc.is_required]
       );
 
-      const uploadedFile = files.find((f) => f.fieldname === `documents[${doc.doc_type}]`);
+      const sanitizeKey = (key: string) => key.toLowerCase().replace(/[^a-z0-9]/gi, "_");
+      const uploadedFile = files.find((f) => f.fieldname === `documents[${sanitizeKey(doc.doc_type)}]`);
       if (doc.is_required && uploadedFile) {
         const bucket = storage.bucket();
         const destination = `groups/${groupId}/${doc.doc_type}-${Date.now()}${path.extname(uploadedFile.originalname)}`;
