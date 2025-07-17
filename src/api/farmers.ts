@@ -87,5 +87,26 @@ export const getFarmersRouter = (config: {
     }
   });
 
+  router.patch("/:id/group", async (req, res) => {
+    const {group_id} = req.body;
+    const farmerId = req.params.id;
+
+    if (!group_id) {
+      res.status(400).json({error: "Missing group_id"});
+      return;
+    }
+
+    try {
+      await pool.query(
+        "UPDATE farmers SET group_id = $1 WHERE id = $2",
+        [group_id, farmerId]
+      );
+      return res.sendStatus(200);
+    } catch (err) {
+      console.error("Error updating farmer group:", err);
+      return res.status(500).json({error: "Internal server error"});
+    }
+  });
+
   return router;
 };
