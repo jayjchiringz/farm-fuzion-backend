@@ -292,7 +292,6 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       END$$;
     `);
 
-
   // ✅ Create Users Table (Central Auth)
   await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -303,7 +302,6 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
         created_at TIMESTAMP DEFAULT now()
       );
     `);
-
 
   await pool.query(`
       INSERT INTO users (email, role)
