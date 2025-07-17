@@ -1,0 +1,159 @@
+[debug] [2025-07-17T19:07:24.212Z] ----------------------------------------------------------------------
+[debug] [2025-07-17T19:07:24.239Z] Command:       C:\nvm4w\nodejs\node.exe C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2025-07-17T19:07:24.242Z] CLI Version:   14.11.0
+[debug] [2025-07-17T19:07:24.243Z] Platform:      win32
+[debug] [2025-07-17T19:07:24.244Z] Node Version:  v22.13.1
+[debug] [2025-07-17T19:07:24.247Z] Time:          Thu Jul 17 2025 22:07:24 GMT+0300 (East Africa Time)
+[debug] [2025-07-17T19:07:24.248Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-07-17T19:07:26.020Z] Field "/functions" in "firebase.json" is possibly invalid: must be object
+[debug] [2025-07-17T19:07:26.023Z] Object "/functions/0" in "firebase.json" has unknown property: {"additionalProperty":"secretEnvironmentVariables"}
+[debug] [2025-07-17T19:07:26.023Z] Field "/functions" in "firebase.json" is possibly invalid: must match a schema in anyOf
+[debug] [2025-07-17T19:07:26.065Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-07-17T19:07:26.066Z] > authorizing via signed-in user (caxshuganda@gmail.com)
+[debug] [2025-07-17T19:07:26.067Z] [iam] checking project farm-fuzion-abdf3 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2025-07-17T19:07:26.074Z] Checked if tokens are valid: false, expires at: 1752779514222
+[debug] [2025-07-17T19:07:26.075Z] Checked if tokens are valid: false, expires at: 1752779514222
+[debug] [2025-07-17T19:07:26.077Z] > refreshing access token with scopes: []
+[debug] [2025-07-17T19:07:26.089Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-07-17T19:07:26.090Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-07-17T19:07:30.319Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-07-17T19:07:30.320Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-07-17T19:07:30.354Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions [none]
+[debug] [2025-07-17T19:07:30.354Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions x-goog-quota-user=projects/farm-fuzion-abdf3
+[debug] [2025-07-17T19:07:30.355Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-07-17T19:07:33.437Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions 200
+[debug] [2025-07-17T19:07:33.438Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-07-17T19:07:33.439Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:07:33.440Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:07:33.440Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2025-07-17T19:07:33.441Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-07-17T19:07:40.904Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2025-07-17T19:07:40.905Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'farm-fuzion-abdf3'...
+[info] 
+[info] i  deploying functions 
+[info] Running command: npm --prefix functions run build
+[info] +  functions: Finished running predeploy script. 
+[debug] [2025-07-17T19:08:26.925Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:08:26.925Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:08:26.927Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3 [none]
+[debug] [2025-07-17T19:08:31.429Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3 200
+[debug] [2025-07-17T19:08:31.429Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3 {"projectNumber":"602008321992","projectId":"farm-fuzion-abdf3","lifecycleState":"ACTIVE","name":"Farm Fuzion","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-07-03T16:51:48.510092Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2025-07-17T19:08:31.439Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:08:31.439Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:08:31.440Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/adminSdkConfig [none]
+[debug] [2025-07-17T19:08:50.840Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/adminSdkConfig 200
+[debug] [2025-07-17T19:08:50.840Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/adminSdkConfig {"projectId":"farm-fuzion-abdf3","storageBucket":"farm-fuzion-abdf3.firebasestorage.app"}
+[debug] [2025-07-17T19:08:50.841Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:08:50.841Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:08:50.841Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs [none]
+[debug] [2025-07-17T19:09:04.989Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs 200
+[debug] [2025-07-17T19:09:04.990Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs {}
+[debug] [2025-07-17T19:09:04.992Z] Validating nodejs source
+[debug] [2025-07-17T19:09:15.033Z] checkFunctionsSDKVersion was unable to fetch information from NPM Error: spawnSync C:\WINDOWS\system32\cmd.exe ETIMEDOUT
+    at Object.spawnSync (node:internal/child_process:1120:20)
+    at Object.spawnSync (node:child_process:868:24)
+    at Function.spawnSync [as sync] (C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\cross-spawn\index.js:26:23)
+    at Object.getLatestSDKVersion (C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\deploy\functions\runtimes\node\versioning.js:54:25)
+    at Object.checkFunctionsSDKVersion (C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\deploy\functions\runtimes\node\versioning.js:74:32)
+    at Delegate.validate (C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\deploy\functions\runtimes\node\index.js:89:20)
+    at loadCodebases (C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\deploy\functions\prepare.js:305:31)
+    at async prepare (C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\deploy\functions\prepare.js:59:24)
+    at async chain (C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\deploy\index.js:42:9)
+    at async deploy (C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\deploy\index.js:119:5)
+[debug] [2025-07-17T19:09:15.035Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "lint": "eslint --ext .js,.ts .",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "@google-cloud/storage": "^6.12.0",
+    "@types/joi": "^17.2.2",
+    "busboy": "^1.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.18.2",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "^6.4.0",
+    "joi": "^17.13.3",
+    "multer": "^2.0.1",
+    "nodemailer": "^7.0.3",
+    "pg": "^8.16.0",
+    "raw-body": "^3.0.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/busboy": "^1.5.4",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.0.14",
+    "@types/nodemailer": "^6.4.17",
+    "@types/pg": "^8.15.1",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.12.0",
+    "@typescript-eslint/parser": "^5.12.0",
+    "eslint": "^8.9.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-import": "^2.25.4",
+    "firebase-functions-test": "^3.1.0",
+    "typescript": "^5.8.3"
+  },
+  "private": true,
+  "firebase": {
+    "functions": {
+      "predeploy": [
+        "npm run build"
+      ]
+    }
+  },
+  "overrides": {
+    "@google-cloud/storage": "^6.12.0"
+  }
+}
+[debug] [2025-07-17T19:09:15.035Z] Building nodejs source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[debug] [2025-07-17T19:09:15.038Z] Could not find functions.yaml. Must use http discovery
+[debug] [2025-07-17T19:09:15.054Z] Found firebase-functions binary at 'C:\Users\dell\OneDrive\Projects\Farm_Fuzion\FarmFuzion_Firebase_MVP_Starter\functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8959
+
+[debug] [2025-07-17T19:09:16.593Z] Got response from /__/functions.yaml {"endpoints":{"api":{"availableMemoryMb":1024,"timeoutSeconds":300,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","secretEnvironmentVariables":[{"key":"PGUSER"},{"key":"PGPASS"},{"key":"PGHOST"},{"key":"PGDB"},{"key":"PGPORT"},{"key":"MAIL_USER"},{"key":"MAIL_PASS"}],"labels":{},"httpsTrigger":{},"entryPoint":"api"},"registerWithDocs":{"availableMemoryMb":1024,"timeoutSeconds":300,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","secretEnvironmentVariables":[{"key":"PGUSER"},{"key":"PGPASS"},{"key":"PGHOST"},{"key":"PGDB"},{"key":"PGPORT"},{"key":"MAIL_USER"},{"key":"MAIL_PASS"}],"labels":{},"httpsTrigger":{},"entryPoint":"registerWithDocs"}},"specVersion":"v1alpha1","requiredAPIs":[],"extensions":{},"params":[{"type":"secret","name":"PGUSER"},{"type":"secret","name":"PGPASS"},{"type":"secret","name":"PGHOST"},{"type":"secret","name":"PGDB"},{"type":"secret","name":"PGPORT"},{"type":"secret","name":"MAIL_USER"},{"type":"secret","name":"MAIL_PASS"}]}
+[info] i  extensions: ensuring required API firebaseextensions.googleapis.com is enabled... 
+[debug] [2025-07-17T19:09:20.670Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-07-17T19:09:20.670Z] > authorizing via signed-in user (caxshuganda@gmail.com)
+[debug] [2025-07-17T19:09:20.670Z] [iam] checking project farm-fuzion-abdf3 for permissions ["firebase.projects.get","firebaseextensions.instances.list"]
+[debug] [2025-07-17T19:09:20.671Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:09:20.671Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:09:20.671Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions [none]
+[debug] [2025-07-17T19:09:20.671Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions x-goog-quota-user=projects/farm-fuzion-abdf3
+[debug] [2025-07-17T19:09:20.671Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions {"permissions":["firebase.projects.get","firebaseextensions.instances.list"]}
+[debug] [2025-07-17T19:09:30.740Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions 200
+[debug] [2025-07-17T19:09:30.740Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions {"permissions":["firebase.projects.get","firebaseextensions.instances.list"]}
+[debug] [2025-07-17T19:09:30.741Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:09:30.741Z] Checked if tokens are valid: true, expires at: 1752782849321
+[debug] [2025-07-17T19:09:30.741Z] >>> [apiv2][query] GET https://firebaseextensions.googleapis.com/v1beta/projects/farm-fuzion-abdf3/instances pageSize=100&pageToken=
+[debug] [2025-07-17T19:09:42.197Z] *** [apiv2] error from fetch(https://firebaseextensions.googleapis.com/v1beta/projects/farm-fuzion-abdf3/instances?pageSize=100&pageToken=, {"headers":{},"method":"GET"}): FetchError: request to https://firebaseextensions.googleapis.com/v1beta/projects/farm-fuzion-abdf3/instances?pageSize=100&pageToken= failed, reason: getaddrinfo ENOTFOUND firebaseextensions.googleapis.com
+[debug] [2025-07-17T19:09:47.215Z] Error: Timed out.
+    at Timeout._onTimeout (C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\utils.js:267:49)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[error] 
+[error] Error: An unexpected error has occurred.
