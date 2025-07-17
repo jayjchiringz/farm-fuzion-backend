@@ -43,6 +43,7 @@ app.post("/", async (req: Request, res: Response) => {
     });
 
     busboy.on("file", (fieldname, file, info) => {
+      console.log("⚙️ file started:", fieldname, info.filename);
       const {filename, mimeType} = info;
       const tmpPath = path.join(os.tmpdir(), `${Date.now()}-${filename}`);
       const writeStream = fs.createWriteStream(tmpPath);
