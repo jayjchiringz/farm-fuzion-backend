@@ -27,7 +27,6 @@ const app = express();
 app.use(cors({origin: true}));
 
 app.post("/", async (req: Request, res: Response) => {
-  const busboy = Busboy({headers: req.headers});
   const fields: Record<string, any> = {};
   const files: {
     fieldname: string;
@@ -35,40 +34,50 @@ app.post("/", async (req: Request, res: Response) => {
     originalname: string;
     mimetype: string;
   }[] = [];
-  const fileWrites: Promise<void>[] = [];
 
   try {
-    busboy.on("field", (name, val) => {
-      fields[name] = val;
-    });
+    // 👇 Wrap the Busboy stream parsing inside a Promise
+    await new Promise<void>((resolve, reject) => {
+      const busboy = Busboy({headers: req.headers});
+      const fileWrites: Promise<void>[] = [];
 
-    busboy.on("file", (fieldname, file, info) => {
-      console.log("⚙️ file started:", fieldname, info.filename);
-      const {filename, mimeType} = info;
-      const tmpPath = path.join(os.tmpdir(), `${Date.now()}-${filename}`);
-      const writeStream = fs.createWriteStream(tmpPath);
-      file.pipe(writeStream);
-
-      const fileWrite = finished(writeStream).then(() => {
-        files.push({
-          fieldname,
-          path: tmpPath,
-          originalname: filename,
-          mimetype: mimeType,
-        });
+      busboy.on("field", (name, val) => {
+        fields[name] = val;
       });
 
-      fileWrites.push(fileWrite);
-    });
+      busboy.on("file", (fieldname, file, info) => {
+        const {filename, mimeType} = info;
+        const tmpPath = path.join(os.tmpdir(), `${Date.now()}-${filename}`);
+        const writeStream = fs.createWriteStream(tmpPath);
+        file.pipe(writeStream);
 
-    await new Promise<void>((resolve, reject) => {
-      busboy.on("finish", resolve);
+        // 🔐 Wait until the write completes before proceeding
+        const writeFinished = finished(writeStream).then(() => {
+          files.push({
+            fieldname,
+            path: tmpPath,
+            originalname: filename,
+            mimetype: mimeType,
+          });
+        });
+
+        fileWrites.push(writeFinished);
+      });
+
+      busboy.on("finish", async () => {
+        try {
+          await Promise.all(fileWrites);
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      });
+
       busboy.on("error", reject);
       req.pipe(busboy);
     });
 
-    await Promise.all(fileWrites);
-
+    // ✅ Continue with the original validation + DB logic...
     const required = ["name", "group_type_id", "location", "registration_number", "requirements"];
     const missing = required.filter((f) => !fields[f]);
     if (missing.length) {
