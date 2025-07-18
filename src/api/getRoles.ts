@@ -1,12 +1,10 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import express from "express";
-import cors from "cors";
 import {initDbPool} from "../utils/db";
 
-// 🔐 Secrets
 const PGUSER = defineSecret("PGUSER");
 const PGPASS = defineSecret("PGPASS");
 const PGHOST = defineSecret("PGHOST");
@@ -14,23 +12,25 @@ const PGDB = defineSecret("PGDB");
 const PGPORT = defineSecret("PGPORT");
 
 const app = express();
+app.use(express.json());
 
-// ⚠️ Explicit CORS policy
-app.use(cors({
-  origin: "https://farm-fuzion-abdf3.web.app",
-}));
-
-// ✅ Manual preflight for strict security
-app.options("/", (req, res) => {
+// ✅ Handle CORS preflight for all paths
+app.options("*", (req, res) => {
   res.set("Access-Control-Allow-Origin", "https://farm-fuzion-abdf3.web.app");
   res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
-  res.status(204).send("");
+  res.set("Access-Control-Allow-Credentials", "true");
+  res.set("Access-Control-Max-Age", "3600");
+  return res.status(204).send("");
 });
 
-app.use(express.json());
-
+// ✅ GET route with proper CORS headers
 app.get("/", async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "https://farm-fuzion-abdf3.web.app");
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Credentials", "true");
+
   try {
     const pool = initDbPool({
       PGUSER: process.env.PGUSER!,
