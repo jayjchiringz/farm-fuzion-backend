@@ -15,8 +15,12 @@ const PGDB = defineSecret("PGDB");
 const PGPORT = defineSecret("PGPORT");
 
 const app = express();
-app.use(cors({origin: true}));
+
+app.use(cors({origin: true})); // keep this
 app.use(express.json());
+
+// ✅ Add this for CORS preflight (OPTIONS) support
+app.options("*", cors({origin: true}));
 
 app.get("/", async (req, res) => {
   try {
@@ -34,11 +38,12 @@ app.get("/", async (req, res) => {
       ORDER BY name ASC
     `);
 
-    res.status(200).json(result.rows);
+    return res.status(200).json(result.rows);
   } catch (err: any) {
     console.error("❌ Error fetching roles:", err);
-    res.status(500).json({
-      error: "Internal server error", details: err.message,
+    return res.status(500).json({
+      error: "Internal server error",
+      details: err.message,
     });
   }
 });
