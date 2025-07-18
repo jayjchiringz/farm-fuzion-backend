@@ -3,8 +3,10 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import express from "express";
+import cors from "cors";
 import {initDbPool} from "../utils/db";
 
+// 🔐 Secrets
 const PGUSER = defineSecret("PGUSER");
 const PGPASS = defineSecret("PGPASS");
 const PGHOST = defineSecret("PGHOST");
@@ -12,25 +14,22 @@ const PGDB = defineSecret("PGDB");
 const PGPORT = defineSecret("PGPORT");
 
 const app = express();
+
+// ✅ Proper global CORS middleware
+app.use(
+  cors({
+    origin: "https://farm-fuzion-abdf3.web.app",
+    methods: ["GET", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
+// Optional: handle large bodies if needed
 app.use(express.json());
 
-// ✅ Handle CORS preflight for all paths
-app.options("*", (req, res) => {
-  res.set("Access-Control-Allow-Origin", "https://farm-fuzion-abdf3.web.app");
-  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
-  res.set("Access-Control-Allow-Credentials", "true");
-  res.set("Access-Control-Max-Age", "3600");
-  return res.status(204).send("");
-});
-
-// ✅ GET route with proper CORS headers
+// ✅ GET route — no need to manually set headers anymore
 app.get("/", async (req, res) => {
-  res.set("Access-Control-Allow-Origin", "https://farm-fuzion-abdf3.web.app");
-  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
-  res.set("Access-Control-Allow-Credentials", "true");
-
   try {
     const pool = initDbPool({
       PGUSER: process.env.PGUSER!,
@@ -56,6 +55,7 @@ app.get("/", async (req, res) => {
   }
 });
 
+// 🚀 Export Firebase HTTPS function
 export const getRoles = onRequest(
   {
     secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT],
