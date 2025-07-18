@@ -10,4 +10,11 @@ export const FarmerSchema = z.object({
   address: z.string().min(2),
   mobile: z.string().regex(/^\+?\d{7,15}$/),
   email: z.string().email(),
+  county: z.string().optional(),
+  sub_county: z.string().optional(),
+  constituency: z.string().optional(),
+  ward: z.string().optional(),
+  sub_location: z.string().optional(),
+  village: z.string().optional(),
+  landmark: z.string().optional(),
 });

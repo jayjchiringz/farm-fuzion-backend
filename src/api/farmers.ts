@@ -42,8 +42,11 @@ export const getFarmersRouter = (config: {
       last_name,
       dob,
       id_passport_no,
-      location,
+      county,
+      constituency,
+      ward,
       address,
+      location,
       mobile,
       email,
       group_id,
@@ -64,9 +67,10 @@ export const getFarmersRouter = (config: {
       const result = await pool.query(
         `INSERT INTO farmers (
           first_name, middle_name, last_name, dob, id_passport_no,
-          location, address, mobile, email, group_id, user_id
+          county, constituency, ward, location, address, mobile, email,
+          group_id, user_id
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, $11)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
         RETURNING id`,
         [
           first_name,
@@ -74,6 +78,9 @@ export const getFarmersRouter = (config: {
           last_name,
           dob,
           id_passport_no,
+          county,
+          constituency,
+          ward,
           location,
           address,
           mobile,

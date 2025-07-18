@@ -392,6 +392,36 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name='farmers' AND column_name='county') THEN
+        ALTER TABLE farmers
+          ADD COLUMN county TEXT,
+          ADD COLUMN sub_county TEXT,
+          ADD COLUMN constituency TEXT,
+          ADD COLUMN ward TEXT,
+          ADD COLUMN sub_location TEXT,
+          ADD COLUMN village TEXT,
+          ADD COLUMN landmark TEXT;
+      END IF;
+    END$$;
+  `);
+
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name='groups' AND column_name='county') THEN  
+      ALTER TABLE groups
+        ADD COLUMN county VARCHAR,
+        ADD COLUMN constituency VARCHAR,
+        ADD COLUMN ward VARCHAR;
+      END IF;
+    END$$;
+  `);
+
+  await pool.query(`
     DO $$
     BEGIN
       IF NOT EXISTS (
