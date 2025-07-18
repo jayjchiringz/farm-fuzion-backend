@@ -22,6 +22,7 @@ import {getDeclarationsRouter} from "./api/declarations";
 import {getFarmProductsRouter} from "./api/farm_products";
 import {getLoanRepaymentsRouter} from "./api/loan_repayments";
 import {getDocumentTypesRouter} from "./api/document_types";
+import {getRolesRouter} from "./api/roles";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
@@ -82,6 +83,7 @@ export const createMainApp = (secrets: {
   app.use("/auth", (req, res, next) => getAuthRouter((req as any).dbConfig)(req, res, next));
   app.use("/taxes", (req, res, next) => getTaxesRouter((req as any).dbConfig)(req, res, next));
   app.use("/loans", (req, res, next) => getLoansRouter((req as any).dbConfig)(req, res, next));
+  app.use("/roles", (req, res, next) =>getRolesRouter((req as any).dbConfig)(req, res, next));
   app.use("/risks", (req, res, next) => getRisksRouter((req as any).dbConfig)(req, res, next));
   app.use("/farmers", (req, res, next) => getFarmersRouter((req as any).dbConfig)(req, res, next));
   app.use("/payments", (req, res, next) => getPaymentsRouter((req as any).dbConfig)(req, res, next));

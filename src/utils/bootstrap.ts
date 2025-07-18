@@ -371,6 +371,15 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+  await pool.query(` 
+    CREATE TABLE IF NOT EXISTS user_roles (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT now()
+    );
+  `);
+
   await pool.query(`
     INSERT INTO group_document_types (doc_type)
     VALUES 
