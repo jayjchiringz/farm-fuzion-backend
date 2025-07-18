@@ -50,12 +50,23 @@ export const getFarmersRouter = (config: {
     } = req.body;
 
     try {
+      // 🚀 STEP 1: Create user with role = 'farmer'
+      const userResult = await pool.query(
+        `INSERT INTO users (email, role, group_id)
+        VALUES ($1, 'farmer', $2)
+        ON CONFLICT (email) DO UPDATE SET role = 'farmer'
+        RETURNING id`,
+        [email, group_id]
+      );
+      const userId = userResult.rows[0].id;
+
+      // 🚀 STEP 2: Create farmer linked to user
       const result = await pool.query(
         `INSERT INTO farmers (
           first_name, middle_name, last_name, dob, id_passport_no,
-          location, address, mobile, email, group_id
+          location, address, mobile, email, group_id, user_id
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, $11)
         RETURNING id`,
         [
           first_name,
@@ -68,11 +79,13 @@ export const getFarmersRouter = (config: {
           mobile,
           email,
           group_id,
+          userId,
         ]
       );
+
       res.status(201).json({id: result.rows[0].id});
     } catch (err) {
-      console.error("Error creating farmer:", err);
+      console.error("❌ Error creating farmer:", err);
       res.status(500).send({error: "Internal server error"});
     }
   });

@@ -391,6 +391,17 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     ON CONFLICT (doc_type) DO NOTHING
   `);
 
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='farmers' AND column_name='user_id'
+      ) THEN
+        ALTER TABLE farmers ADD COLUMN user_id UUID REFERENCES users(id);
+      END IF;
+    END$$;
+  `);
 
   // 🩹 Update farmers: add profile picture if not exists
   await pool.query(`
