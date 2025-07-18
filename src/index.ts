@@ -17,3 +17,4 @@ export const api = onRequest(
 );
 
 export {registerWithDocs} from "./registerWithDocs";
+export {getRoles} from "./api/getRoles";
