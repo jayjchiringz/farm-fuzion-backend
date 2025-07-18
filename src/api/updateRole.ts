@@ -1,13 +1,11 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/api/getRoles.ts
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import express from "express";
 import cors from "cors";
 import {initDbPool} from "../utils/db";
 
-// 🔐 Secrets
 const PGUSER = defineSecret("PGUSER");
 const PGPASS = defineSecret("PGPASS");
 const PGHOST = defineSecret("PGHOST");
@@ -18,8 +16,15 @@ const app = express();
 app.use(cors({origin: true}));
 app.use(express.json());
 
-app.get("/", async (req, res) => {
+app.patch("/:id", async (req, res) => {
   try {
+    const {id} = req.params;
+    const {name, description} = req.body;
+
+    if (!name) {
+      return res.status(400).json({error: "Role name is required."});
+    }
+
     const pool = initDbPool({
       PGUSER: process.env.PGUSER!,
       PGPASS: process.env.PGPASS!,
@@ -28,22 +33,23 @@ app.get("/", async (req, res) => {
       PGPORT: process.env.PGPORT!,
     });
 
-    const result = await pool.query(`
-      SELECT id, name, description
-      FROM user_roles
-      ORDER BY name ASC
-    `);
+    await pool.query(
+      `UPDATE user_roles
+       SET name = $1, description = $2, created_at = now()
+       WHERE id = $3`,
+      [name, description ?? null, id]
+    );
 
-    res.status(200).json(result.rows);
+    return res.status(200).json({message: "Role updated."}); // ✅ Fixed
   } catch (err: any) {
-    console.error("❌ Error fetching roles:", err);
-    res.status(500).json({
-      error: "Internal server error", details: err.message,
-    });
+    console.error("❌ updateRole error:", err);
+    return res.status(500).json(
+      {error: "Internal server error", details: err.message}
+    );
   }
 });
 
-export const getRoles = onRequest(
+export const updateRole = onRequest(
   {
     secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT],
     timeoutSeconds: 60,
