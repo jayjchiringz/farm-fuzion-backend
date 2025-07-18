@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/api/getRoles.ts
 import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import express from "express";
@@ -16,11 +15,20 @@ const PGPORT = defineSecret("PGPORT");
 
 const app = express();
 
-app.use(cors({origin: true})); // keep this
-app.use(express.json());
+// ⚠️ Explicit CORS policy
+app.use(cors({
+  origin: "https://farm-fuzion-abdf3.web.app",
+}));
 
-// ✅ Add this for CORS preflight (OPTIONS) support
-app.options("*", cors({origin: true}));
+// ✅ Manual preflight for strict security
+app.options("/", (req, res) => {
+  res.set("Access-Control-Allow-Origin", "https://farm-fuzion-abdf3.web.app");
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.status(204).send("");
+});
+
+app.use(express.json());
 
 app.get("/", async (req, res) => {
   try {
