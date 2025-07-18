@@ -79,6 +79,11 @@ export const createMainApp = (secrets: {
     }
   });
 
+  app.get("/health", (_, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.status(200).json({status: "ok", timestamp: Date.now()});
+  });
+
   app.use("/groups", (req, res, next) => getGroupsRouter((req as any).dbConfig)(req, res, next));
   app.use("/auth", (req, res, next) => getAuthRouter((req as any).dbConfig)(req, res, next));
   app.use("/taxes", (req, res, next) => getTaxesRouter((req as any).dbConfig)(req, res, next));
