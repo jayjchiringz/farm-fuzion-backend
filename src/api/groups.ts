@@ -25,7 +25,10 @@ export const getGroupsRouter = (config: {
         `SELECT 
           g.id, 
           g.name, 
-          gt.name AS type, 
+          gt.name AS type,
+          g.county,
+          g.constituency,
+          g.ward, 
           g.location, 
           g.status, 
           g.remarks,
