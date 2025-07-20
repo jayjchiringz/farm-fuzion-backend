@@ -5,6 +5,7 @@ import express from "express";
 import cors from "cors";
 import {bootstrapDatabase} from "./utils/bootstrap";
 
+
 // 🧩 Routers
 import {getGroupsRouter} from "./api/groups";
 import {getAuthRouter} from "./api/auth";
@@ -24,6 +25,9 @@ import {getLoanRepaymentsRouter} from "./api/loan_repayments";
 import {getDocumentTypesRouter} from "./api/document_types";
 import {getStatsRouter} from "./api/stats";
 import {getMpesaRouter} from "./api/mpesa"; // ⬅️ add this at the top
+import {getWalletRouter} from "./api/wallet";
+import {getOtpRouter} from "./api/otp";
+
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
@@ -98,6 +102,8 @@ export const createMainApp = (secrets: {
   app.use("/document-types", (req, res, next) => getDocumentTypesRouter((req as any).dbConfig)(req, res, next));
   app.use("/stats", (req, res, next) => getStatsRouter((req as any).dbConfig)(req, res, next));
   app.use("/mpesa", (req, res, next) => getMpesaRouter()(req, res, next));
+  app.use("/wallet", (req, res, next) => getWalletRouter((req as any).dbConfig)(req, res, next));
+  app.use("/otp", (req, res, next) => getOtpRouter((req as any).dbConfig)(req, res, next));
 
   return app;
 };
