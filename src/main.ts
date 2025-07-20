@@ -97,7 +97,7 @@ export const createMainApp = (secrets: {
   app.use("/groups-types", (req, res, next) => getGroupTypesRouter((req as any).dbConfig)(req, res, next));
   app.use("/document-types", (req, res, next) => getDocumentTypesRouter((req as any).dbConfig)(req, res, next));
   app.use("/stats", (req, res, next) => getStatsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/mpesa", getMpesaRouter());
+  app.use("/mpesa", (req, res, next) => getMpesaRouter()(req, res, next));
 
   return app;
 };
