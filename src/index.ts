@@ -7,13 +7,6 @@ import {
   PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
 } from "./registerWithDocs";
 // MPESA-only secrets
-import {
-  MPESA_CONSUMER_KEY,
-  MPESA_CONSUMER_SECRET,
-  MPESA_SHORTCODE,
-  MPESA_PASSKEY,
-  MPESA_CALLBACK_URL,
-} from "./secrets/mpesaSecrets";
 
 // 🌐 Main aggregated Express app
 export const api = onRequest(

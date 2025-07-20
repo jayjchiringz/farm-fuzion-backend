@@ -1,0 +1,43 @@
+[debug] [2025-07-20T11:53:03.261Z] ----------------------------------------------------------------------
+[debug] [2025-07-20T11:53:03.265Z] Command:       C:\nvm4w\nodejs\node.exe C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2025-07-20T11:53:03.265Z] CLI Version:   14.11.0
+[debug] [2025-07-20T11:53:03.265Z] Platform:      win32
+[debug] [2025-07-20T11:53:03.266Z] Node Version:  v22.13.1
+[debug] [2025-07-20T11:53:03.266Z] Time:          Sun Jul 20 2025 14:53:03 GMT+0300 (East Africa Time)
+[debug] [2025-07-20T11:53:03.266Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-07-20T11:53:03.588Z] Field "/functions" in "firebase.json" is possibly invalid: must be object
+[debug] [2025-07-20T11:53:03.588Z] Object "/functions/0" in "firebase.json" has unknown property: {"additionalProperty":"secretEnvironmentVariables"}
+[debug] [2025-07-20T11:53:03.589Z] Field "/functions" in "firebase.json" is possibly invalid: must match a schema in anyOf
+[debug] [2025-07-20T11:53:03.598Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-07-20T11:53:03.598Z] > authorizing via signed-in user (caxshuganda@gmail.com)
+[debug] [2025-07-20T11:53:03.598Z] [iam] checking project farm-fuzion-abdf3 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2025-07-20T11:53:03.600Z] Checked if tokens are valid: false, expires at: 1753012557905
+[debug] [2025-07-20T11:53:03.600Z] Checked if tokens are valid: false, expires at: 1753012557905
+[debug] [2025-07-20T11:53:03.601Z] > refreshing access token with scopes: []
+[debug] [2025-07-20T11:53:03.603Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-07-20T11:53:03.603Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-07-20T11:53:04.132Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-07-20T11:53:04.132Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-07-20T11:53:04.147Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions [none]
+[debug] [2025-07-20T11:53:04.147Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions x-goog-quota-user=projects/farm-fuzion-abdf3
+[debug] [2025-07-20T11:53:04.147Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-07-20T11:53:05.878Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions 200
+[debug] [2025-07-20T11:53:05.878Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-07-20T11:53:05.879Z] Checked if tokens are valid: true, expires at: 1753015983132
+[debug] [2025-07-20T11:53:05.879Z] Checked if tokens are valid: true, expires at: 1753015983132
+[debug] [2025-07-20T11:53:05.879Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2025-07-20T11:53:05.879Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-07-20T11:53:07.556Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2025-07-20T11:53:07.556Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'farm-fuzion-abdf3'...
+[info] 
+[info] i  deploying functions 
+[info] Running command: npm --prefix functions run build
+[debug] [2025-07-20T11:53:31.470Z] Error: Timed out.
+    at Timeout._onTimeout (C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\utils.js:267:49)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+[error] 
+[error] Error: An unexpected error has occurred.
