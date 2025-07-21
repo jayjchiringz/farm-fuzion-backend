@@ -380,6 +380,49 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+  await pool.query(` 
+    CREATE TABLE IF NOT EXISTS wallet (
+      id UUID PRIMARY KEY,
+      owner_id UUID NOT NULL,
+      balance NUMERIC(12, 2) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wallet_transaction (
+      id UUID PRIMARY KEY,
+      wallet_id UUID NOT NULL REFERENCES wallet(id) ON DELETE CASCADE,
+      type VARCHAR(10) CHECK (type IN ('credit', 'debit')),
+      amount NUMERIC(12, 2) NOT NULL,
+      metadata JSONB,
+      timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS otp_codes (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      code VARCHAR(6) NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      used BOOLEAN DEFAULT FALSE
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS mpesa_transactions (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      transaction_id VARCHAR(100) NOT NULL UNIQUE,
+      amount NUMERIC(12, 2) NOT NULL,
+      phone_number VARCHAR(20) NOT NULL,
+      status VARCHAR(20) NOT NULL CHECK (
+        status IN ('pending', 'completed', 'failed')
+      ),
+      created_at TIMESTAMP DEFAULT now(),
+      updated_at TIMESTAMP DEFAULT now()
+    );
+  `);
+
   await pool.query(`
     INSERT INTO group_document_types (doc_type)
     VALUES 
