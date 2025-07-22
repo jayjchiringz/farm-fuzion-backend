@@ -6,21 +6,30 @@ import {createMainApp} from "./main";
 import {
   PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
 } from "./registerWithDocs";
-// MPESA-only secrets
 
-// 🌐 Main aggregated Express app
+// ✅ DEFERRED Express app
 export const api = onRequest(
   {
     secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS],
     timeoutSeconds: 300,
     memory: "1GiB",
   },
-  createMainApp({
-    PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
-  })
+  async (req, res) => {
+    const app = createMainApp({
+      PGUSER,
+      PGPASS,
+      PGHOST,
+      PGDB,
+      PGPORT,
+      MAIL_USER,
+      MAIL_PASS,
+    });
+
+    return app(req, res);
+  }
 );
 
-// 🔥 Individually exported Cloud Functions
+// 🔥 Individual Cloud Functions
 export {registerWithDocs} from "./registerWithDocs";
 export {getRoles} from "./api/getRoles";
 export {updateRole} from "./api/updateRole";
