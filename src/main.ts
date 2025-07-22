@@ -5,7 +5,6 @@ import express from "express";
 import cors from "cors";
 import {bootstrapDatabase} from "./utils/bootstrap";
 
-
 // 🧩 Routers
 import {getGroupsRouter} from "./api/groups";
 import {getAuthRouter} from "./api/auth";
@@ -24,14 +23,12 @@ import {getFarmProductsRouter} from "./api/farm_products";
 import {getLoanRepaymentsRouter} from "./api/loan_repayments";
 import {getDocumentTypesRouter} from "./api/document_types";
 import {getStatsRouter} from "./api/stats";
-import {getMpesaRouter} from "./api/mpesa"; // ⬅️ add this at the top
+import {getMpesaRouter} from "./api/mpesa";
 import {getWalletRouter} from "./api/wallet";
 import {getOtpRouter} from "./api/otp";
 
-
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
-// 💡 FIXED: Use `typeof PGUSER` etc. from caller scope
 export const createMainApp = (secrets: {
   PGUSER: any;
   PGPASS: any;
@@ -42,6 +39,24 @@ export const createMainApp = (secrets: {
   MAIL_PASS: any;
 }) => {
   const app = express();
+
+  // ✅ Extract config once
+  const config = {
+    PGUSER: secrets.PGUSER.value(),
+    PGPASS: secrets.PGPASS.value(),
+    PGHOST: secrets.PGHOST.value(),
+    PGDB: secrets.PGDB.value(),
+    PGPORT: secrets.PGPORT.value(),
+    MAIL_USER: secrets.MAIL_USER.value(),
+    MAIL_PASS: secrets.MAIL_PASS.value(),
+  };
+
+  const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
+
+  // ✅ Bootstrap DB once at server start
+  bootstrapDatabase(config, FORCE_BOOTSTRAP)
+    .then(() => console.log("✅ Database bootstrapped"))
+    .catch((err) => console.error("❌ Bootstrap failure (non-fatal):", err));
 
   app.use(cors({
     origin: allowedOrigins,
@@ -58,31 +73,14 @@ export const createMainApp = (secrets: {
     }
   });
 
-  // ✅ Instead — extract inside bootstrapDatabase at runtime
-  app.use(async (req, res, next) => {
-    try {
-      const config = {
-        PGUSER: secrets.PGUSER.value(),
-        PGPASS: secrets.PGPASS.value(),
-        PGHOST: secrets.PGHOST.value(),
-        PGDB: secrets.PGDB.value(),
-        PGPORT: secrets.PGPORT.value(),
-        MAIL_USER: secrets.MAIL_USER.value(),
-        MAIL_PASS: secrets.MAIL_PASS.value(),
-      };
-
-      const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
-      await bootstrapDatabase(config, FORCE_BOOTSTRAP);
-
-      // ✅ Attach config to req so other routers can use it
-      (req as any).dbConfig = config;
-
-      next();
-    } catch (err) {
-      console.error("❌ Bootstrap error:", err);
-      res.status(500).json({error: "Bootstrap failed"});
-    }
+  // ✅ Attach config for each request
+  app.use((req, _res, next) => {
+    (req as any).dbConfig = config;
+    next();
   });
+
+  // ✅ Health check route
+  app.get("/health", (_, res) => res.status(200).send("OK"));
 
   app.use("/groups", (req, res, next) => getGroupsRouter((req as any).dbConfig)(req, res, next));
   app.use("/auth", (req, res, next) => getAuthRouter((req as any).dbConfig)(req, res, next));
@@ -102,9 +100,8 @@ export const createMainApp = (secrets: {
   app.use("/document-types", (req, res, next) => getDocumentTypesRouter((req as any).dbConfig)(req, res, next));
   app.use("/stats", (req, res, next) => getStatsRouter((req as any).dbConfig)(req, res, next));
   app.use("/mpesa", (req, res, next) => getMpesaRouter()(req, res, next));
-  // app.use("/wallet", (req, res, next) => getWalletRouter((req as any).dbConfig)(req, res, next));
+  app.use("/wallet", (req, res, next) => getWalletRouter((req as any).dbConfig)(req, res, next));
   app.use("/otp", (req, res, next) => getOtpRouter((req as any).dbConfig)(req, res, next));
-  app.use("/", (req, res, next) => getWalletRouter((req as any).dbConfig)(req, res, next));
 
   return app;
 };
