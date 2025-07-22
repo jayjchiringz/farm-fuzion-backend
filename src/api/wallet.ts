@@ -7,7 +7,7 @@ export const getWalletRouter = (dbConfig: any) => {
   const pool = new Pool(dbConfig);
 
   // ✅ Get wallet balance
-  router.get("/:walletId/balance", async (req, res) => {
+  router.get("/wallet/:walletId/balance", async (req, res) => {
     const {walletId} = req.params;
     try {
       const result = await pool.query(
@@ -30,7 +30,7 @@ export const getWalletRouter = (dbConfig: any) => {
   });
 
   // ✅ Get wallet transactions
-  router.get("/:walletId/transactions", async (req, res) => {
+  router.get("/wallet/:walletId/transactions", async (req, res) => {
     const {walletId} = req.params;
     try {
       const result = await pool.query(
