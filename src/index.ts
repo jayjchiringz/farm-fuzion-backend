@@ -2,20 +2,16 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {createMainApp} from "./main";
 
-// 🔐 Shared secrets
 import {
   PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
 } from "./registerWithDocs";
 
-// ✅ DEFERRED Express app
-export const api = onRequest(
-  {
-    secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS],
-    timeoutSeconds: 300,
-    memory: "1GiB",
-  },
-  async (req, res) => {
-    const app = createMainApp({
+let app: ReturnType<typeof createMainApp> | null = null;
+
+// Boot app once
+const bootApp = async () => {
+  if (!app) {
+    app = createMainApp({
       PGUSER,
       PGPASS,
       PGHOST,
@@ -24,14 +20,17 @@ export const api = onRequest(
       MAIL_USER,
       MAIL_PASS,
     });
+  }
+};
 
-    return app(req, res);
+export const api = onRequest(
+  {
+    secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS],
+    timeoutSeconds: 300,
+    memory: "1GiB",
+  },
+  async (req, res) => {
+    await bootApp(); // wait for app to be ready
+    return app?.(req, res); // safely use app
   }
 );
-
-// 🔥 Individual Cloud Functions
-export {registerWithDocs} from "./registerWithDocs";
-export {getRoles} from "./api/getRoles";
-export {updateRole} from "./api/updateRole";
-export {deleteRole} from "./api/deleteRole";
-export {createRole} from "./api/createRole";
