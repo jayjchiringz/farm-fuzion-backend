@@ -1,13 +1,12 @@
 // src/index.ts
 import {onRequest} from "firebase-functions/v2/https";
 import {initMainApp} from "./main";
-import express from "express"; // Needed for types
+import express from "express";
 
 import {
   PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
 } from "./registerWithDocs";
 
-// Lazy-loaded cached Express instance
 let app: express.Express | null = null;
 
 export const api = onRequest(
@@ -22,13 +21,15 @@ export const api = onRequest(
         PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
       });
     }
-    return app(req, res);
+    app(req, res);
   }
 );
 
-// Individual Firebase functions
-export {registerWithDocs} from "./registerWithDocs";
-export {getRoles} from "./api/getRoles";
-export {updateRole} from "./api/updateRole";
-export {deleteRole} from "./api/deleteRole";
-export {createRole} from "./api/createRole";
+// COMMENT OUT other exports TEMPORARILY until api() works
+/*
+export { registerWithDocs } from "./registerWithDocs";
+export { getRoles } from "./api/getRoles";
+export { updateRole } from "./api/updateRole";
+export { deleteRole } from "./api/deleteRole";
+export { createRole } from "./api/createRole";
+*/
