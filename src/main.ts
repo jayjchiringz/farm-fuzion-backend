@@ -1,11 +1,8 @@
-/* eslint-disable max-len */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-import express from "express";
+import express, {Express, Request, Response, NextFunction} from "express";
 import cors from "cors";
 import {bootstrapDatabase} from "./utils/bootstrap";
 
-// 🧩 Routers
+// Routers
 import {getGroupsRouter} from "./api/groups";
 import {getAuthRouter} from "./api/auth";
 import {getTaxesRouter} from "./api/taxes";
@@ -27,20 +24,26 @@ import {getMpesaRouter} from "./api/mpesa";
 import {getWalletRouter} from "./api/wallet";
 import {getOtpRouter} from "./api/otp";
 
+// ✅ Shared config
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
-export const createMainApp = (secrets: {
-  PGUSER: any;
-  PGPASS: any;
-  PGHOST: any;
-  PGDB: any;
-  PGPORT: any;
-  MAIL_USER: any;
-  MAIL_PASS: any;
-}) => {
+export interface Secrets {
+  PGUSER: { value: () => string };
+  PGPASS: { value: () => string };
+  PGHOST: { value: () => string };
+  PGDB: { value: () => string };
+  PGPORT: { value: () => string };
+  MAIL_USER: { value: () => string };
+  MAIL_PASS: { value: () => string };
+}
+
+let cachedApp: Express | null = null;
+
+export const initMainApp = async (secrets: Secrets): Promise<Express> => {
+  if (cachedApp) return cachedApp;
+
   const app = express();
 
-  // ✅ Extract config once
   const config = {
     PGUSER: secrets.PGUSER.value(),
     PGPASS: secrets.PGPASS.value(),
@@ -53,10 +56,12 @@ export const createMainApp = (secrets: {
 
   const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
 
-  // ✅ Bootstrap DB once at server start
-  bootstrapDatabase(config, FORCE_BOOTSTRAP)
-    .then(() => console.log("✅ Database bootstrapped"))
-    .catch((err) => console.error("❌ Bootstrap failure (non-fatal):", err));
+  try {
+    await bootstrapDatabase(config, FORCE_BOOTSTRAP);
+    console.log("✅ Database bootstrapped");
+  } catch (err) {
+    console.error("❌ Bootstrap failure (non-fatal):", err);
+  }
 
   app.use(cors({
     origin: allowedOrigins,
@@ -65,43 +70,38 @@ export const createMainApp = (secrets: {
     credentials: true,
   }));
 
-  app.use((req, res, next) => {
-    if (req.is("application/json")) {
-      express.json()(req, res, next);
-    } else {
-      next();
-    }
-  });
+  app.use(express.json());
 
-  // ✅ Attach config for each request
-  app.use((req, _res, next) => {
+  // Attach db config per request
+  app.use((req: Request, _res: Response, next: NextFunction) => {
     (req as any).dbConfig = config;
     next();
   });
 
-  // ✅ Health check route
-  app.get("/health", (_, res) => res.status(200).send("OK"));
+  app.get("/health", (_req, res) => res.status(200).send("OK"));
 
-  app.use("/groups", (req, res, next) => getGroupsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/auth", (req, res, next) => getAuthRouter((req as any).dbConfig)(req, res, next));
-  app.use("/taxes", (req, res, next) => getTaxesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/loans", (req, res, next) => getLoansRouter((req as any).dbConfig)(req, res, next));
-  app.use("/risks", (req, res, next) => getRisksRouter((req as any).dbConfig)(req, res, next));
-  app.use("/farmers", (req, res, next) => getFarmersRouter((req as any).dbConfig)(req, res, next));
-  app.use("/payments", (req, res, next) => getPaymentsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/directors", (req, res, next) => getDirectorsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/logistics", (req, res, next) => getLogisticsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/financials", (req, res, next) => getFinancialsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/businesses", (req, res, next) => getBusinessesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/declarations", (req, res, next) => getDeclarationsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/farm-products", (req, res, next) => getFarmProductsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/loan-repayments", (req, res, next) => getLoanRepaymentsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/groups-types", (req, res, next) => getGroupTypesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/document-types", (req, res, next) => getDocumentTypesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/stats", (req, res, next) => getStatsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/mpesa", (req, res, next) => getMpesaRouter()(req, res, next));
-  app.use("/wallet", (req, res, next) => getWalletRouter((req as any).dbConfig)(req, res, next));
-  app.use("/otp", (req, res, next) => getOtpRouter((req as any).dbConfig)(req, res, next));
+  // Routers with injected config
+  app.use("/groups", getGroupsRouter(config));
+  app.use("/auth", getAuthRouter(config));
+  app.use("/taxes", getTaxesRouter(config));
+  app.use("/loans", getLoansRouter(config));
+  app.use("/risks", getRisksRouter(config));
+  app.use("/farmers", getFarmersRouter(config));
+  app.use("/payments", getPaymentsRouter(config));
+  app.use("/directors", getDirectorsRouter(config));
+  app.use("/logistics", getLogisticsRouter(config));
+  app.use("/financials", getFinancialsRouter(config));
+  app.use("/businesses", getBusinessesRouter(config));
+  app.use("/declarations", getDeclarationsRouter(config));
+  app.use("/farm-products", getFarmProductsRouter(config));
+  app.use("/loan-repayments", getLoanRepaymentsRouter(config));
+  app.use("/groups-types", getGroupTypesRouter(config));
+  app.use("/document-types", getDocumentTypesRouter(config));
+  app.use("/stats", getStatsRouter(config));
+  app.use("/mpesa", getMpesaRouter());
+  app.use("/wallet", getWalletRouter(config));
+  app.use("/otp", getOtpRouter(config));
 
+  cachedApp = app;
   return app;
 };

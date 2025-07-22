@@ -1,27 +1,14 @@
 // src/index.ts
 import {onRequest} from "firebase-functions/v2/https";
-import {createMainApp} from "./main";
+import {initMainApp} from "./main";
+import express from "express"; // Needed for types
 
 import {
   PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
 } from "./registerWithDocs";
 
-let app: ReturnType<typeof createMainApp> | null = null;
-
-// Boot app once
-const bootApp = async () => {
-  if (!app) {
-    app = createMainApp({
-      PGUSER,
-      PGPASS,
-      PGHOST,
-      PGDB,
-      PGPORT,
-      MAIL_USER,
-      MAIL_PASS,
-    });
-  }
-};
+// Lazy-loaded cached Express instance
+let app: express.Express | null = null;
 
 export const api = onRequest(
   {
@@ -30,7 +17,18 @@ export const api = onRequest(
     memory: "1GiB",
   },
   async (req, res) => {
-    await bootApp(); // wait for app to be ready
-    return app?.(req, res); // safely use app
+    if (!app) {
+      app = await initMainApp({
+        PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
+      });
+    }
+    return app(req, res);
   }
 );
+
+// Individual Firebase functions
+export {registerWithDocs} from "./registerWithDocs";
+export {getRoles} from "./api/getRoles";
+export {updateRole} from "./api/updateRole";
+export {deleteRole} from "./api/deleteRole";
+export {createRole} from "./api/createRole";
