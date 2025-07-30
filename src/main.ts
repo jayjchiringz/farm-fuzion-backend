@@ -23,6 +23,7 @@ import {getFarmProductsRouter} from "./api/farm_products";
 import {getLoanRepaymentsRouter} from "./api/loan_repayments";
 import {getDocumentTypesRouter} from "./api/document_types";
 import {getStatsRouter} from "./api/stats";
+import {getWalletRouter} from "./api/wallet";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
@@ -96,6 +97,7 @@ export const createMainApp = (secrets: {
   app.use("/groups-types", (req, res, next) => getGroupTypesRouter((req as any).dbConfig)(req, res, next));
   app.use("/document-types", (req, res, next) => getDocumentTypesRouter((req as any).dbConfig)(req, res, next));
   app.use("/stats", (req, res, next) => getStatsRouter((req as any).dbConfig)(req, res, next));
+  app.use("/wallet", (req, res, next) => getWalletRouter((req as any).dbConfig)(req, res, next));
 
   return app;
 };

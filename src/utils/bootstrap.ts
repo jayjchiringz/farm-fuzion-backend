@@ -381,6 +381,26 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS wallets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      farmer_id TEXT UNIQUE NOT NULL,
+      balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wallet_transactions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      farmer_id TEXT NOT NULL,
+      type VARCHAR(20) NOT NULL CHECK (type IN ('topup', 'deduction')),
+      amount NUMERIC(12,2) NOT NULL,
+      source TEXT,
+      timestamp TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
     INSERT INTO group_document_types (doc_type)
     VALUES 
       ('Business Registration Certificate'),

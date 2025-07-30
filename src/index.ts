@@ -25,4 +25,3 @@ export {getRoles} from "./api/getRoles";
 export {updateRole} from "./api/updateRole";
 export {deleteRole} from "./api/deleteRole";
 export {createRole} from "./api/createRole";
-
