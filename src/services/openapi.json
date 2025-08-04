@@ -1,0 +1,717 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Payment API Gateway",
+    "description": "# Payment Gateway API Reference\n\nThis API is part of the our ecosystem. It allows you to make payments, find out the status of transactions and much more. Here you will find the latest documentation on setting up your solution.\n\n## Available Payment Providers\n\n| Provider ID |   Provider Name         |  Country   |                 Notes                                                               |\n|-------------|-------------------------|------------|-------------------------------------------------------------------------------------|\n|     14      | Simulator               | ANY        | For testing purposes                                                                |\n\nDuring tests runs, using 14 provider ID (simulator) the callback is not returned and the transaction remains in the \"in progress\" status and if successful you will see in the response\n\n```php\n{\n  \"order_id\": \"54321\",\n  \"transaction_id\": \"12345\",\n  \"transaction_ref\": \"\",\n  \"status\": 1,\n  \"result\": {\n      \"code\": 0,\n      \"message\": \"OK\"\n  },\n  \"provider_result\": {\n      \"code\": -8888,\n      \"message\": \"Good\"\n  },\n  \"service_id\": 1,\n  \"service_version\": \"1.03/1.14|1.0/1.26|1.0/1.0|1.01/1.01|1.01/1.01||1.01/1.27\",\n  \"service_date_time\": \"2023-05-15 10:00:00.000000\",\n  \"confirm_type\": 0\n}\n\n```\n\n## Generating signature\n\nMerchant’s request and callback have to be signed to verify sent data. To generate the signature all sent parameters\nfrom the payload are included in the order they were sent. The parameter signature should be excluded, of course,\nand added to the payload after generating.\n\n*Note:* to generate a correct signature you need a secretKey received with other credentials.\n\n### PHP example\n\n```php\nfunction calculateSignature(array $data, string $secretKey, string $currentParamPrefix = '', int $depth = 16, int $currentRecursionLevel = 0 ): string\n{\n    if ($currentRecursionLevel >= $depth) {\n        throw new Exception('Recursion level exceeded');\n    }\n\n    $stringForSignature = '';\n    foreach ($data as $key => $value) {\n        if (is_array($value)) {\n                $stringForSignature .= calculateSignature(\n                $value,\n                $secretKey,\n                \"$currentParamPrefix$key.\",\n                    $depth,\n                $currentRecursionLevel + 1\n            );\n      } else if ($key !== 'signature') {\n                $stringForSignature .= \"$currentParamPrefix$key\" . $value;\n      }\n   }\n\n    if ($currentRecursionLevel == 0) {\n      return strtolower(hash_hmac('sha512', $stringForSignature, $secretKey));\n    } else {\n      return $StringForSignature;\n    }\n }\n\n$postData = [\n  'merchant_id' => 'fffed61be9780b97c5e4c65e4e07bb6b',\n  'provider_id' => 10,\n  'client_id' => '080000000',\n  'country' => 'KE',\n  'order_id' => 'order_3444298767545',\n  'amount' => 1000,\n  'currency' => 'CDF',\n  'callback_url' => 'https://my.callback.url'\n];\n\n$secretKey = \"cf11635572c1e8d77297207152dc0791ad91f22b32d23c758ce3ba2637202ad8f7290ba41f2243cccf32edde1dfb8bf0f5dea62525309e293b3adb2c76eed6a5\";\n\n$signature = calculateSignature($postData, $secretKey);\n\n$postData['signature'] = $signature;\n```\nExamples in other languages are available on request\n\n\n\n## Status Codes\n### The parameters below will be obtained by a status query\n\n  |  Code |     Name             |                 Description                                                                                                       |\n  |-------|----------------------|-----------------------------------------------------------------------------------------------------------------------------------|\n  |  -1   |  undefined           | Operation status is undefined (for example in an error situation)                                                                 |\n  |   0   |  initiated           | Operation is initiated                                                                                                            |\n  |   1   |  in progress         | Operation is in progress                                                                                                          |\n  |   2   |  success             | Operation is successful                                                                                                           |\n  |   3   |  failed              | Operation is failed                                                                                                               |\n\n\n\n## Operation Types\nDepending on the type of request you may see the following code\n### You can see this parameter in the callback\n\n  |  Code  |   Operation     |\n  |--------|-----------------|\n  |  16    |  payment_b2c    |\n  |  17    |  payment_c2b    |\n\n\n## Available currencies\n\n| Code | Name               | Locations                                                                                 |\n|------|--------------------|-------------------------------------------------------------------------------------------|\n| KES  | Kenyan shilling    | the Republic of Kenya                                                                     |\n\n\n Responses for confirmation requests have the same format as original operation responses.\n\n## Callbacks\n  C2b transaction status is sent via callback because it needs a confirmation by client done asynchronously. Usually the\n  callback should be sent in 2-3 minutes maximum. In case of missing callback there is a way to get the transaction status\n  using API method *status*. It needs a transaction ID or order ID as an parameter and returns a status of the performed\n  transaction.\n\n###  Response for callback\n  Payment gateway considers the Merchant system response as successful if HTTP 200 was received.\n\n# Payment Methods\n\n## Simulator\n  | Provider ID | Provider Name | Notes                     |\n  |-------------|---------------|---------------------------|\n  | 14          | Simulator     | For testing purposes      |\n\n  During tests runs, using 14 provider ID (simulator) the callback is not returned and the transaction remains in the \"in progress\" status and if successful you will see in the response\n  ```php\n  {\n    \"order_id\": \"54321\",\n    \"transaction_id\": \"12345\",\n    \"transaction_ref\": \"\",\n    \"status\": 1,\n    \"result\": {\n        \"code\": 0,\n        \"message\": \"OK\"\n    },\n    \"provider_result\": {\n        \"code\": -8888,\n        \"message\": \"Good\"\n    },\n    \"service_id\": 1,\n    \"service_version\": \"1.03/1.14|1.0/1.26|1.0/1.0|1.01/1.01|1.01/1.01||1.01/1.27\",\n    \"service_date_time\": \"2023-05-15 10:00:00.000000\",\n    \"confirm_type\": 0\n  }\n  ```\n\n  ## Kenya\n  | Provider ID  | Provider Name    |\n  |--------------|------------------|\n  | 43           | M-Pesa Safaricom |\n\n  254000000000 - This is the format of the phone number you have to send in the payment requests.\n\n  | c2b minimum | b2c minimum   | Maximum transaction limit|\n  |-------------|---------------|--------------------------|\n  | KES 1.00    | KES 500.00    |  KES 150000.00           |\n",
+    "version": "v5.7.2"
+  },
+  "servers": [
+    {
+      "url": "https://api.msimbo.tech/"
+    }
+  ],
+  "paths": {
+    "/{public_id}/payment_c2b": {
+      "post": {
+        "tags": [
+          "Online Payments"
+        ],
+        "summary": "Cashless payment from the customer to the merchant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Merchant public ID",
+            "example": "f54ec96649be11ebb3780242ac130002"
+          }
+        ],
+        "requestBody": {
+          "description": "Parameters to initiate a customer to the merchant payment",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "PaymentRequest",
+                "$ref": "#/components/schemas/paymentBody"
+              }
+            }
+          }
+        },
+        "callbacks": {
+          "confirmPayment": {
+            "{$request.body#/callback_url}": {
+              "post": {
+                "summary": "Asynchronous notification of the merchant about the last performed transaction",
+                "requestBody": {
+                  "required": true,
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/callbackBody"
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Successful response"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment success response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/responseBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{public_id}/payment_b2c": {
+      "post": {
+        "tags": [
+          "Online Payments"
+        ],
+        "summary": "Cashless payment from the merchant to the customer.",
+        "description": "Cashless payment from the merchant to the customer. If the confirm_type response parameter is a non-zero merchant,\nsend the second payment_b2c request with confirmation data according to the section Confirmation Types.\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Merchant public ID",
+            "example": "f54ec96649be11ebb3780242ac130002"
+          }
+        ],
+        "requestBody": {
+          "description": "Parameters to initiate the merchant to the customer payment",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "B2C Payment Request",
+                "$ref": "#/components/schemas/paymentBodyB2c"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "B2C Payment Success Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/responseBodyB2c"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{public_id}/status": {
+      "post": {
+        "tags": [
+          "Online Payments"
+        ],
+        "summary": "Request a status of the transaction performed earlier",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Merchant public ID",
+            "example": "f54ec96649be11ebb3780242ac130002"
+          }
+        ],
+        "requestBody": {
+          "description": "Get the status of the performed transaction",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/statusBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaction status success response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/responseBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "paymentBody": {
+        "type": "object",
+        "required": [
+          "merchant_id",
+          "customer_id",
+          "order_id",
+          "amount",
+          "currency",
+          "provider_id",
+          "signature"
+        ],
+        "properties": {
+          "merchant_id": {
+            "$ref": "#/components/schemas/merchantIdDef"
+          },
+          "customer_id": {
+            "$ref": "#/components/schemas/customerIdDef"
+          },
+          "order_id": {
+            "$ref": "#/components/schemas/orderIdDef"
+          },
+          "amount": {
+            "type": "string",
+            "example": "100.00",
+            "description": "Amount to pay, should be in format with two digits after point"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/currencyDef"
+          },
+          "country": {
+            "$ref": "#/components/schemas/countryDef"
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "URL to notify the merchant via callback. Recommended",
+            "example": "https://example.com/callback"
+          },
+          "provider_id": {
+            "$ref": "#/components/schemas/providerDef"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/signatureDef"
+          }
+        }
+      },
+      "paymentBodyB2c": {
+        "type": "object",
+        "required": [
+          "merchant_id",
+          "customer_id",
+          "order_id",
+          "amount",
+          "currency",
+          "provider_id",
+          "signature"
+        ],
+        "properties": {
+          "merchant_id": {
+            "$ref": "#/components/schemas/merchantIdDef"
+          },
+          "customer_id": {
+            "$ref": "#/components/schemas/customerIdDef"
+          },
+          "order_id": {
+            "$ref": "#/components/schemas/orderIdDef"
+          },
+          "amount": {
+            "type": "string",
+            "example": "100.00",
+            "description": "Amount to pay, with two digits after point"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/currencyDef"
+          },
+          "country": {
+            "$ref": "#/components/schemas/countryDef"
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "URL to notify the merchant via callback",
+            "example": "https://example.com/callback"
+          },
+          "provider_id": {
+            "$ref": "#/components/schemas/providerDef"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/signatureDef"
+          }
+        }
+      },
+      "statusBody": {
+        "type": "object",
+        "required": [
+          "merchant_id",
+          "order_id",
+          "signature"
+        ],
+        "properties": {
+          "merchant_id": {
+            "$ref": "#/components/schemas/merchantIdDef"
+          },
+          "order_id": {
+            "$ref": "#/components/schemas/orderIdDef"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/signatureDef"
+          }
+        }
+      },
+      "callbackBody": {
+        "type": "object",
+        "properties": {
+          "transaction_id": {
+            "type": "string",
+            "description": "Payment provider transaction ID",
+            "example": "1234567"
+          },
+          "order_id": {
+            "$ref": "#/components/schemas/orderIdDef"
+          },
+          "service_id": {
+            "type": "string",
+            "description": "Service ID",
+            "example": 12345
+          },
+          "service_version": {
+            "type": "string",
+            "description": "Service version",
+            "example": "5.2.0"
+          },
+          "service_date_time": {
+            "type": "string",
+            "description": "Date and time",
+            "example": "2020-11-25 10:08:32.832969"
+          },
+          "result": {
+            "type": "object",
+            "description": "Result of the operation",
+            "properties": {
+              "code": {
+                "$ref": "#/components/schemas/resultCodeDef"
+              },
+              "message": {
+                "type": "string",
+                "description": "Result message of the operation",
+                "example": "OK"
+              }
+            }
+          },
+          "signature": {
+            "$ref": "#/components/schemas/signatureDef"
+          }
+        }
+      },
+      "responseBody": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "transaction_id",
+          "transaction_ref",
+          "status",
+          "result",
+          "provider_result",
+          "confirm_type",
+          "service_id",
+          "service_version",
+          "service_date_time"
+        ],
+        "properties": {
+          "order_id": {
+            "$ref": "#/components/schemas/orderIdDef"
+          },
+          "transaction_id": {
+            "type": "string",
+            "description": "The value is generated by the Provider for each Operation. May be empty",
+            "example": "732007046722"
+          },
+          "transaction_ref": {
+            "type": "string",
+            "description": "The value is generated by the Provider for each successful Operation. May be empty",
+            "example": "MP.33234.342.CP33"
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ],
+            "description": "Status of the payment. Status descriptions can be found <a href=\"#section/Payment-Gateway-API-Reference/Status-Codes\">here</a>.\n",
+            "example": 2
+          },
+          "result": {
+            "type": "object",
+            "description": "Result of the request to Payment Gateway\n",
+            "properties": {
+              "code": {
+                "$ref": "#/components/schemas/resultCodeDef"
+              },
+              "message": {
+                "type": "string",
+                "example": "OK"
+              }
+            }
+          },
+          "provider_result": {
+            "type": "object",
+            "description": "Result of the payment from provider. Should be used as additional information. Final payment state you should get from \"status\" parameter\n",
+            "properties": {
+              "code": {
+                "$ref": "#/components/schemas/resultCodeDef"
+              },
+              "message": {
+                "type": "string",
+                "example": "OK"
+              }
+            }
+          },
+          "service_id": {
+            "type": "string",
+            "description": "Unique ID of the service in the Payment gateway",
+            "example": 1
+          },
+          "service_version": {
+            "type": "string",
+            "description": "Payment gateway service version used for operation",
+            "example": 11.1
+          },
+          "service_date_time": {
+            "type": "string",
+            "description": "Payment gateway timestamp of the operation",
+            "example": "2020-11-25 10:08:32.832969"
+          }
+        }
+      },
+      "responseBodyB2c": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "transaction_id",
+          "transaction_ref",
+          "status",
+          "result",
+          "provider_result",
+          "confirm_type",
+          "service_id",
+          "service_version",
+          "service_date_time"
+        ],
+        "properties": {
+          "order_id": {
+            "$ref": "#/components/schemas/orderIdDef"
+          },
+          "transaction_id": {
+            "type": "string",
+            "description": "The value is generated by the Provider for each Operation. May be empty",
+            "example": "532007056722"
+          },
+          "transaction_ref": {
+            "type": "string",
+            "description": "The value is generated by the Provider for each successful Operation. May be empty",
+            "example": ""
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ],
+            "description": "Status of the payment. Status descriptions can be found <a href=\"#section/Payment-Gateway-API-Reference/Status-Codes\">here</a>.\n",
+            "example": 2
+          },
+          "result": {
+            "type": "object",
+            "description": "Result of the request to Payment Gateway\n",
+            "properties": {
+              "code": {
+                "$ref": "#/components/schemas/resultCodeDef"
+              },
+              "message": {
+                "type": "string",
+                "example": "OK"
+              }
+            }
+          },
+          "provider_result": {
+            "type": "object",
+            "description": "Result of the payment from provider. Should be used as additional information. Final payment state you should get from \"status\" parameter\n",
+            "properties": {
+              "code": {
+                "$ref": "#/components/schemas/resultCodeDef"
+              },
+              "message": {
+                "type": "string",
+                "example": "OK"
+              }
+            }
+          },
+          "service_id": {
+            "type": "string",
+            "description": "Unique ID of the service in the Payment gateway",
+            "example": 11
+          },
+          "service_version": {
+            "type": "string",
+            "description": "Payment gateway service version used for operation",
+            "example": 11.1
+          },
+          "service_date_time": {
+            "type": "string",
+            "description": "Payment gateway timestamp of the operation",
+            "example": "2020-11-25 10:08:32.832969"
+          },
+          "confirm_type": {
+            "type": "string",
+            "example": 0
+          }
+        }
+      },
+      "responseBodyError": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "description": "Result of the operation",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4
+                ],
+                "description": "Result code of the operation",
+                "example": 2
+              },
+              "message": {
+                "type": "string",
+                "description": "Result message of the operation",
+                "example": "Cannot complete the transaction"
+              }
+            }
+          }
+        }
+      },
+      "signatureDef": {
+        "type": "string",
+        "description": "Merchant’s request and callback have to be signed to verify sent data. To generate the signature all sent parameters are\nincluded in the order they were sent. The parameter signature should be excluded, of course. Example can be found\n<a href=\"#section/Payment-Gateway-API-Reference/Generating-signature\">here</a>\n",
+        "example": "d7d6d76b0e22c6f9d369fa6c24f107053d12bfd24d3b154f2deb6676bf179c123134e1f20879c803be455d81cfe792f00cd8892c26ce7cf5a05beebb9c80843e"
+      },
+      "merchantIdDef": {
+        "type": "string",
+        "description": "Unique Merchant ID received during the merchant registration",
+        "example": "e0fecd91fcb24f348048193b3fb34875ba3722b4"
+      },
+      "providerDef": {
+        "type": "integer",
+        "enum": [
+          14,
+          40
+        ],
+        "description": "Provider ID. Can be one of the option from <a href=\"#section/Payment-Gateway-API-Reference/Available-Payment-Providers\">this list</a>.\n",
+        "example": 14
+      },
+      "orderIdDef": {
+        "type": "string",
+        "description": "The unique value is generated by the transaction initiator for each Operation. Max length is\n128 symbols. Allowed symbols: [a-z], [A-Z], [0-9], “_” (underscore character), “-”\n(hyphen), “:” (colon), “.” (dot). For example, GUID or TIMESTAMP can be used as\nan order_id. This parameter provides API idempotency. It means that requests with\nidentical nonce from the same transaction initiator will have identical responses and\nThe corresponding operation won’t be repeated.\n",
+        "example": "16280954971628095497"
+      },
+      "resultCodeDef": {
+        "type": "string",
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          10201
+        ],
+        "description": "Result code of the operation\n- 0 - OK - Operation is successful\n- 1 - INVALID PIN - PIN wasn’t accepted by Provider\n- 2 - PIN IS BLANK - PIN wasn’t accepted by Provider\n- 3 - INVALID PIN LENGTH - PIN wasn’t accepted by Provider.\n- 10201 - MERCHANT AUTHENTICATION ERROR - The merchant’s request wasn’t authenticated by the\n  Payment gateway security mechanism. For example, because of an incorrect signature.\n",
+        "example": 0
+      },
+      "countryDef": {
+        "type": "string",
+        "description": "Country code in ISO 3166-1 alpha-2 format as defined in the payment providers <a href=\"#section/Payment-Gateway-API-Reference/Available-Payment-Providers\"></a>",
+        "example": "KE"
+      },
+      "currencyDef": {
+        "type": "string",
+        "example": "CDF",
+        "description": "Currency code in ISO 4217 format from the <a href=\"#section/Payment-Gateway-API-Reference/Available-currencies\">list</a> of availabe currencies"
+      },
+      "paymentBodyDeposit": {
+        "type": "object",
+        "required": [
+          "merchant_id",
+          "customer_id",
+          "order_id",
+          "amount",
+          "currency",
+          "signature"
+        ],
+        "properties": {
+          "merchant_id": {
+            "$ref": "#/components/schemas/merchantIdDef"
+          },
+          "customer_id": {
+            "$ref": "#/components/schemas/customerIdDef"
+          },
+          "order_id": {
+            "$ref": "#/components/schemas/orderIdDef"
+          },
+          "amount": {
+            "type": "string",
+            "example": "100.00",
+            "description": "Amount to pay, with two digits after point"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/currencyDef"
+          },
+          "country": {
+            "$ref": "#/components/schemas/countryDef"
+          },
+          "extra": {
+            "type": "object",
+            "description": "Extra parameters specific payment method"
+          },
+          "card": {
+            "type": "object",
+            "description": "Extra parameters specific payment method, only for card providers like",
+            "properties": {
+              "pan": {
+                "type": "string",
+                "description": "Pan",
+                "example": "4242 4242 4242 4242"
+              },
+              "exp_year": {
+                "type": "string",
+                "description": "Card expiration year",
+                "example": "2024"
+              },
+              "exp_month": {
+                "type": "string",
+                "description": "Card expiration month",
+                "example": "04"
+              },
+              "cvc": {
+                "type": "string",
+                "description": "CVC/CVV code",
+                "example": "059"
+              }
+            }
+          },
+          "provider_id": {
+            "$ref": "#/components/schemas/providerIdPosDef"
+          },
+          "destination_id": {
+            "type": "string",
+            "description": "Transaction destination ID",
+            "example": "2133456"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/signatureDef"
+          }
+        }
+      },
+      "customerIdDef": {
+        "type": "string",
+        "description": "Customer ID (usually mobile phone number of the customer)",
+        "example": "0900000001"
+      },
+      "paymentBodyWithdrawal": {
+        "type": "object",
+        "required": [
+          "merchant_id",
+          "customer_id",
+          "order_id",
+          "amount",
+          "currency",
+          "signature"
+        ],
+        "properties": {
+          "merchant_id": {
+            "$ref": "#/components/schemas/merchantIdDef"
+          },
+          "customer_id": {
+            "$ref": "#/components/schemas/customerIdDef"
+          },
+          "order_id": {
+            "$ref": "#/components/schemas/orderIdDef"
+          },
+          "amount": {
+            "type": "string",
+            "example": "100.00",
+            "description": "Amount to pay, with two digits after point"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/currencyDef"
+          },
+          "country": {
+            "$ref": "#/components/schemas/countryDef"
+          },
+          "confirmation_code": {
+            "type": "string",
+            "description": "Transaction confirmation code",
+            "example": "654321"
+          },
+          "extra": {
+            "type": "object",
+            "description": "Extra parameters specific payment method"
+          },
+          "provider_id": {
+            "$ref": "#/components/schemas/providerIdPosDef"
+          },
+          "destination_id": {
+            "type": "string",
+            "description": "Transaction destination ID",
+            "example": 2133456
+          },
+          "signature": {
+            "$ref": "#/components/schemas/signatureDef"
+          }
+        }
+      },
+      "providerIdPosDef": {
+        "type": "integer",
+        "description": "ID of the payment provider. Can be 15 only",
+        "example": 15
+      }
+    }
+  }
+}
