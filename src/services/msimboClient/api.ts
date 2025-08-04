@@ -926,6 +926,15 @@ export const OnlinePaymentsApiFactory = function (configuration?: Configuration,
  * @extends {BaseAPI}
  */
 export class OnlinePaymentsApi extends BaseAPI {
+    public_idPaymentC2bPost(publicId: string, body: Omit<PaymentBody, "signature" | "merchant_id">): { data: any; } | PromiseLike<{ data: any; }> {
+        throw new Error("Method not implemented.");
+    }
+    public_idPaymentB2cPost(publicId: string, body: Omit<PaymentBodyB2c, "signature" | "merchant_id">): { data: any; } | PromiseLike<{ data: any; }> {
+        throw new Error("Method not implemented.");
+    }
+    public_idStatusPost(publicId: string, body: Omit<StatusBody, "signature" | "merchant_id">): { data: any; } | PromiseLike<{ data: any; }> {
+        throw new Error("Method not implemented.");
+    }
     /**
      * Cashless payment from the merchant to the customer. If the confirm_type response parameter is a non-zero merchant, send the second payment_b2c request with confirmation data according to the section Confirmation Types. 
      * @summary Cashless payment from the merchant to the customer.
