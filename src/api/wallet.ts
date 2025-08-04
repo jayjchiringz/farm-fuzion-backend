@@ -127,5 +127,121 @@ export const getWalletRouter = (dbConfig: any) => {
     }
   });
 
+  // 🔁 Transfer funds between farmers
+  router.post("/transfer", async (req, res) => {
+    const {farmer_id, destination, amount} = req.body;
+
+    if (!farmer_id || !destination || !amount || Number(amount) <= 0) {
+      res.status(400).json({error: "Invalid transfer request"});
+      return;
+    }
+
+    try {
+      const senderWallet = await db.oneOrNone(
+        "SELECT balance FROM wallets WHERE farmer_id = $1",
+        [farmer_id]
+      );
+
+      if (!senderWallet || Number(senderWallet.balance) < Number(amount)) {
+        res.status(400).json({error: "Insufficient balance"});
+        return;
+      }
+
+      await db.tx(async (t) => {
+        // 🧾 Log outgoing tx for sender
+        await t.none(
+          `INSERT INTO wallet_transactions
+            (farmer_id, type, amount, destination, direction, method, status)
+          VALUES ($1, 'transfer', $2, $3, 'out', 'wallet', 'completed')`,
+          [farmer_id, amount, destination]
+        );
+
+        await t.none(
+          `UPDATE wallets SET balance = balance - $1, updated_at = NOW()
+            WHERE farmer_id = $2`,
+          [amount, farmer_id]
+        );
+
+        // 🧾 Log incoming tx for receiver
+        await t.none(
+          `INSERT INTO wallet_transactions
+            (farmer_id, type, amount, source, direction, method, status)
+          VALUES ($1, 'transfer', $2, $3, 'in', 'wallet', 'completed')`,
+          [destination, amount, farmer_id]
+        );
+
+        const destWallet = await t.oneOrNone(
+          "SELECT 1 FROM wallets WHERE farmer_id = $1",
+          [destination]
+        );
+
+        if (destWallet) {
+          await t.none(
+            `UPDATE wallets SET balance = balance + $1, updated_at = NOW()
+              WHERE farmer_id = $2`,
+            [amount, destination]
+          );
+        } else {
+          await t.none(
+            "INSERT INTO wallets(farmer_id, balance) VALUES ($1, $2)",
+            [destination, amount]
+          );
+        }
+      });
+
+      res.json({success: true});
+    } catch (err) {
+      console.error("💥 Transfer error:", err);
+      res.status(500).json({error: "Transfer failed"});
+    }
+  });
+
+  // 🧾 PayBill or BuyGoods
+  router.post("/paybill", async (req, res) => {
+    const {farmer_id, destination, amount} = req.body;
+
+    if (!farmer_id || !destination || !amount || Number(amount) <= 0) {
+      res.status(400).json({error: "Invalid payment request"});
+      return;
+    }
+
+    try {
+      const current = await db.oneOrNone(
+        "SELECT balance FROM wallets WHERE farmer_id = $1",
+        [farmer_id]
+      );
+
+      if (!current || Number(current.balance) < Number(amount)) {
+        res.status(400).json({error: "Insufficient funds"});
+        return;
+      }
+
+      await db.tx(async (t) => {
+        await t.none(
+          `INSERT INTO wallet_transactions
+            (farmer_id, type, amount, destination, direction,
+            method, status, meta)
+          VALUES ($1, 'paybill', $2, $3, 'out', 'paybill', 'completed', $4)`,
+          [farmer_id, amount, destination,
+            JSON.stringify({purpose: "bill payment"}),
+          ]
+        );
+
+        await t.none(
+          `UPDATE wallets SET balance = balance - $1, updated_at = NOW()
+          WHERE farmer_id = $2`,
+          [amount, farmer_id]
+        );
+      });
+
+      res.json({success: true});
+      return;
+    } catch (err) {
+      console.error("💥 PayBill error:", err);
+      res.status(500).json({error: "PayBill failed"});
+      return;
+    }
+  });
+
   return router;
 };
