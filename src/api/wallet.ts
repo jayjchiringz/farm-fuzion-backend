@@ -282,5 +282,29 @@ export const getWalletRouter = (dbConfig: any) => {
     }
   });
 
+  // Optional: /wallet/:farmerId/summary (useful for dashboard)
+  router.get("/:farmerId/summary", async (req, res) => {
+    const {farmerId} = req.params;
+
+    try {
+      const [topups, withdrawals] = await Promise.all([
+        // eslint-disable-next-line max-len
+        db.oneOrNone(`SELECT COALESCE(SUM(amount),0) as total FROM wallet_transactions
+          WHERE farmer_id = $1 AND type = 'topup'`, [farmerId]),
+        // eslint-disable-next-line max-len
+        db.oneOrNone(`SELECT COALESCE(SUM(amount),0) as total FROM wallet_transactions
+          WHERE farmer_id = $1 AND type = 'withdraw'`, [farmerId]),
+      ]);
+
+      res.json({
+        totalTopups: topups?.total ?? 0,
+        totalWithdrawals: withdrawals?.total ?? 0,
+      });
+    } catch (err) {
+      console.error("💥 Summary error:", err);
+      res.status(500).json({error: "Unable to summarize transactions"});
+    }
+  });
+
   return router;
 };
