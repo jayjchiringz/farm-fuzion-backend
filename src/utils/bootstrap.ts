@@ -411,6 +411,34 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     ON CONFLICT (doc_type) DO NOTHING
   `);
 
+  // 🧠 Patch: Add missing columns to `wallets` and `wallet_transactions`
+  await pool.query(`
+    DO $$ BEGIN
+      -- Patch WALLET_TRANSACTIONS table
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='wallet_transactions' AND column_name='destination'
+      ) THEN
+        ALTER TABLE wallet_transactions
+          ADD COLUMN destination TEXT,
+          ADD COLUMN direction VARCHAR(10) DEFAULT 'in',
+          ADD COLUMN method VARCHAR(30),
+          ADD COLUMN status VARCHAR(20) DEFAULT 'pending',
+          ADD COLUMN meta JSONB;
+      END IF;
+
+      -- Patch WALLETS table (in case new structure evolves)
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='wallets' AND column_name='currency'
+      ) THEN
+        ALTER TABLE wallets
+          ADD COLUMN currency VARCHAR(10) DEFAULT 'KES';
+      END IF;
+    END $$;
+  `);
+
+
   await pool.query(`
     DO $$ BEGIN
       IF NOT EXISTS (
