@@ -243,5 +243,44 @@ export const getWalletRouter = (dbConfig: any) => {
     }
   });
 
+  // eslint-disable-next-line max-len
+  // GET /wallet/:farmerId/transactions?type=withdraw&start=2025-08-01&end=2025-08-31
+  router.get("/:farmerId/transactions", async (req, res) => {
+    const {farmerId} = req.params;
+    const {type, start, end} = req.query;
+
+    const conditions = ["farmer_id = $1"];
+    const params = [farmerId];
+    let i = 2;
+
+    if (type) {
+      conditions.push(`type = $${i++}`);
+      params.push(type as string);
+    }
+
+    if (start) {
+      conditions.push(`timestamp >= $${i++}`);
+      params.push(start as string);
+    }
+
+    if (end) {
+      conditions.push(`timestamp <= $${i++}`);
+      params.push(end as string);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    try {
+      const txns = await db.any(
+        `SELECT * FROM wallet_transactions ${where} ORDER BY timestamp DESC`,
+        params
+      );
+      res.json(txns);
+    } catch (err) {
+      console.error("💥 Filtered Tx fetch error:", err);
+      res.status(500).json({error: "Unable to fetch transactions"});
+    }
+  });
+
   return router;
 };
