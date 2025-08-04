@@ -3,20 +3,21 @@
 import express from "express";
 import pgPromise from "pg-promise";
 
+const pgp = pgPromise(); // ✅ Singleton
+
 export const getWalletRouter = (dbConfig: any) => {
   const router = express.Router();
   const {PGUSER, PGPASS, PGHOST, PGPORT, PGDB} = dbConfig;
 
-  const pgp = pgPromise();
   const db = pgp({
     host: PGHOST,
     port: PGPORT,
     database: PGDB,
     user: PGUSER,
     password: PGPASS,
+    ssl: {rejectUnauthorized: false}, // ✅ NeonDB requires SSL
   });
 
-  // 🟢 Get wallet balance
   router.get("/:farmerId/balance", async (req, res) => {
     const {farmerId} = req.params;
     try {
@@ -31,13 +32,12 @@ export const getWalletRouter = (dbConfig: any) => {
     }
   });
 
-  // 📄 Fetch wallet transactions
   router.get("/:farmerId/transactions", async (req, res) => {
     const {farmerId} = req.params;
     try {
       const txns = await db.any(
         `SELECT * FROM wallet_transactions
-         WHERE farmer_id = $1 ORDER BY timestamp DESC`,
+          WHERE farmer_id = $1 ORDER BY timestamp DESC`,
         [farmerId]
       );
       res.json(txns);
@@ -47,7 +47,6 @@ export const getWalletRouter = (dbConfig: any) => {
     }
   });
 
-  // 🔼 Top-up wallet
   router.post("/topup/:method", async (req, res) => {
     const {method} = req.params;
     const {farmer_id, amount} = req.body;
@@ -72,8 +71,8 @@ export const getWalletRouter = (dbConfig: any) => {
         if (walletExists) {
           await t.none(
             `UPDATE wallets
-              SET balance = balance + $1, 
-              updated_at = NOW() WHERE farmer_id = $2`,
+              SET balance = balance + $1, updated_at = NOW()
+              WHERE farmer_id = $2`,
             [amount, farmer_id]
           );
         } else {
