@@ -24,6 +24,7 @@ app.use(
     credentials: true,
   })
 );
+app.options("*", cors()); // <-- this handles preflight
 
 // Optional: handle large bodies if needed
 app.use(express.json());
