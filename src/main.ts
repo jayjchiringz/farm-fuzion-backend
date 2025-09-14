@@ -36,6 +36,9 @@ export const createMainApp = (secrets: {
   PGPORT: any;
   MAIL_USER: any;
   MAIL_PASS: any;
+  MSIMBO_MERCHANT_ID: any;
+  MSIMBO_SECRET_KEY: any;
+  MSIMBO_PUBLIC_ID: any;
 }) => {
   const app = express();
 

@@ -11,6 +11,13 @@ import {
 import axios from "axios";
 import {generateSignature} from "../utils/generateSignature";
 
+// Attach secrets to function runtime (important for Firebase deploy)
+export const msimboSecrets = [
+  "MSIMBO_MERCHANT_ID",
+  "MSIMBO_SECRET_KEY",
+  "MSIMBO_PUBLIC_ID",
+] as const;
+
 const client = new OnlinePaymentsApi(
   new Configuration({
     basePath: "https://api.msimbo.tech",

@@ -15,6 +15,10 @@ export const PGDB = defineSecret("PGDB");
 export const PGPORT = defineSecret("PGPORT");
 export const MAIL_USER = defineSecret("MAIL_USER");
 export const MAIL_PASS = defineSecret("MAIL_PASS");
+export const MSIMBO_MERCHANT_ID = defineSecret("MSIMBO_MERCHANT_ID");
+export const MSIMBO_SECRET_KEY = defineSecret("MSIMBO_SECRET_KEY");
+export const MSIMBO_PUBLIC_ID = defineSecret("MSIMBO_PUBLIC_ID");
+
 
 const app = express();
 app.use(cors({origin: true}));
@@ -95,7 +99,8 @@ app.post("/", async (req: Request, res: Response) => {
 // 🔁 Firebase Function export
 export const registerWithDocs = onRequest(
   {
-    secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS],
+    secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
+      MSIMBO_MERCHANT_ID, MSIMBO_SECRET_KEY, MSIMBO_PUBLIC_ID],
     timeoutSeconds: 300,
     memory: "1GiB",
   },

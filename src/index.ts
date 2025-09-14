@@ -5,17 +5,24 @@ import {createMainApp} from "./main";
 // 🔐 Shared secrets
 import {
   PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
+  MSIMBO_MERCHANT_ID, MSIMBO_SECRET_KEY, MSIMBO_PUBLIC_ID,
 } from "./registerWithDocs";
 
 // 🌐 Main aggregated Express app
 export const api = onRequest(
   {
-    secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS],
+    secrets: [
+      PGUSER, PGPASS, PGHOST, PGDB, PGPORT,
+      MAIL_USER, MAIL_PASS,
+      MSIMBO_MERCHANT_ID, MSIMBO_SECRET_KEY, MSIMBO_PUBLIC_ID, // 👈 add these
+    ],
     timeoutSeconds: 300,
     memory: "1GiB",
   },
   createMainApp({
-    PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
+    PGUSER, PGPASS, PGHOST, PGDB, PGPORT,
+    MAIL_USER, MAIL_PASS,
+    MSIMBO_MERCHANT_ID, MSIMBO_SECRET_KEY, MSIMBO_PUBLIC_ID,
   })
 );
 
