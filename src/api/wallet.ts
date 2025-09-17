@@ -87,6 +87,7 @@ export const getWalletRouter = (dbConfig: any) => {
     }
 
     try {
+      /* Real Msimbo call - uncomment when ready
       const result = await msimbo.c2bPayment({
         customer_id: phone_number,
         order_id: `TOPUP-${Date.now()}`,
@@ -95,26 +96,48 @@ export const getWalletRouter = (dbConfig: any) => {
         provider_id: ProviderDef.NUMBER_14, // or ProviderDef if supported
         callback_url: `${process.env.BASE_URL}/wallet/callback`,
       });
+      */
 
-      await db.none(
-        `INSERT INTO wallet_transactions
-          (farmer_id, type, amount, direction, method, status, meta)
-        VALUES ($1, 'topup', $2, 'in', $3, 'pending', $4)`,
-        [farmer_id, amt, method, JSON.stringify(result)]
-      );
+      // Mock result for testing without real payment
+      const result = {
+        transaction_id: `MOCK-${Date.now()}`,
+        order_id: `TOPUP-${Date.now()}`,
+        status: "completed",
+        message: "Simulated top-up success",
+      };
+
+      await db.tx(async (t) => {
+        // Record transaction as completed
+        await t.none(
+          `INSERT INTO wallet_transactions
+            (farmer_id, type, amount, direction, method, status, meta)
+          VALUES ($1, 'topup', $2, 'in', $3, 'completed', $4)`,
+          [farmer_id, amt, method, JSON.stringify(result)]
+        );
+
+        // Update wallet balance
+        const wallet = await t.oneOrNone(
+          "SELECT balance FROM wallets WHERE farmer_id = $1",
+          [farmer_id]
+        );
+
+        if (wallet) {
+          await t.none(
+            `UPDATE wallets SET balance = balance + $1, updated_at = NOW()
+            WHERE farmer_id = $2`,
+            [amt, farmer_id]
+          );
+        } else {
+          await t.none(
+            "INSERT INTO wallets(farmer_id, balance) VALUES ($1, $2)",
+            [farmer_id, amt]
+          );
+        }
+      });
 
       res.json({success: true, transaction: result});
     } catch (err) {
-      if (
-        typeof err === "object" &&
-        err !== null &&
-        "response" in err &&
-        (err as any).response?.data
-      ) {
-        console.error("💥 Top-up error:", (err as any).response.data);
-      } else {
-        console.error("💥 Top-up error:", err);
-      }
+      console.error("💥 Top-up error:", err);
       res.status(500).json({error: "Top-up initiation failed"});
     }
   });
