@@ -78,7 +78,7 @@ export const getWalletRouter = (dbConfig: any) => {
   // Top-up wallet via Msimbo C2B
   router.post("/topup/:method", async (req, res) => {
     const {method} = req.params;
-    const {farmer_id, amount} = req.body;
+    const {farmer_id, amount} = req.body; // farmer_id = Supabase UUID
     const amt = Number(amount);
 
     if (!farmer_id || isNaN(amt) || amt <= 0) {
@@ -87,18 +87,19 @@ export const getWalletRouter = (dbConfig: any) => {
     }
 
     try {
-      // 🔑 Fetch farmer mobile from DB
+      // 🔑 Resolve farmer by Supabase UUID (auth_id)
       const farmer = await db.oneOrNone(
-        "SELECT mobile FROM farmers WHERE id = $1",
+        "SELECT id, mobile FROM farmers WHERE auth_id = $1",
         [farmer_id]
       );
 
       if (!farmer || !farmer.mobile) {
-        res.status(400).json({error: "Farmer mobile not found"});
+        res.status(400).json({error: "Farmer not found or missing mobile"});
         return;
       }
 
-      const phone_number = farmer.mobile;
+      const farmerDbId = farmer.id; // integer PK
+      const phone_number = farmer.mobile; // mobile
 
       // Mock result for testing without real payment
       const result = {
@@ -109,30 +110,30 @@ export const getWalletRouter = (dbConfig: any) => {
       };
 
       await db.tx(async (t) => {
-        // Record transaction as completed
+        // Record transaction
         await t.none(
           `INSERT INTO wallet_transactions
             (farmer_id, type, amount, direction, method, status, meta)
           VALUES ($1, 'topup', $2, 'in', $3, 'completed', $4)`,
-          [farmer_id, amt, method, JSON.stringify(result)]
+          [farmerDbId, amt, method, JSON.stringify(result)]
         );
 
         // Update wallet balance
         const wallet = await t.oneOrNone(
           "SELECT balance FROM wallets WHERE farmer_id = $1",
-          [farmer_id]
+          [farmerDbId]
         );
 
         if (wallet) {
           await t.none(
             `UPDATE wallets SET balance = balance + $1, updated_at = NOW()
             WHERE farmer_id = $2`,
-            [amt, farmer_id]
+            [amt, farmerDbId]
           );
         } else {
           await t.none(
             "INSERT INTO wallets(farmer_id, balance) VALUES ($1, $2)",
-            [farmer_id, amt]
+            [farmerDbId, amt]
           );
         }
       });

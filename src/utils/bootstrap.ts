@@ -292,6 +292,11 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       END$$;
     `);
 
+  await pool.query(`
+      ALTER TABLE farmers
+        ADD COLUMN IF NOT EXISTS auth_id UUID UNIQUE;
+    `);
+
   // ✅ Create Users Table (Central Auth)
   await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -307,6 +312,18 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       INSERT INTO users (email, role)
       VALUES ('roman.shushakov@unipesa.com', 'admin')
       ON CONFLICT (email) DO NOTHING;
+    `);
+
+  await pool.query(`
+      UPDATE farmers SET auth_id = gen_random_uuid() WHERE auth_id IS NULL;
+    `);
+
+  await pool.query(`
+      UPDATE farmers f
+      SET auth_id = u.id
+      FROM auth.users u
+      WHERE f.email = u.email
+      AND f.auth_id IS NULL;
     `);
 
   // Ensure at least one group exists
