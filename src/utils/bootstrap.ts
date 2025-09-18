@@ -4,6 +4,10 @@ import {initDbPool, DbConfig} from "../utils/db";
 export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   const pool = initDbPool(config);
 
+  await pool.query(`
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+  `);
+
   // Always ensure flags table exists
   await pool.query(`
     CREATE TABLE IF NOT EXISTS __migration_flags (
