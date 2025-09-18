@@ -78,25 +78,27 @@ export const getWalletRouter = (dbConfig: any) => {
   // Top-up wallet via Msimbo C2B
   router.post("/topup/:method", async (req, res) => {
     const {method} = req.params;
-    const {farmer_id, amount, phone_number} = req.body;
+    const {farmer_id, amount} = req.body;
     const amt = Number(amount);
 
-    if (!farmer_id || !phone_number || isNaN(amt) || amt <= 0) {
+    if (!farmer_id || isNaN(amt) || amt <= 0) {
       res.status(400).json({error: "Invalid top-up request"});
       return;
     }
 
     try {
-      /* Real Msimbo call - uncomment when ready
-      const result = await msimbo.c2bPayment({
-        customer_id: phone_number,
-        order_id: `TOPUP-${Date.now()}`,
-        amount: amt.toFixed(2),
-        currency: "KES", // standard ISO code
-        provider_id: ProviderDef.NUMBER_14, // or ProviderDef if supported
-        callback_url: `${process.env.BASE_URL}/wallet/callback`,
-      });
-      */
+      // 🔑 Fetch farmer mobile from DB
+      const farmer = await db.oneOrNone(
+        "SELECT mobile FROM farmers WHERE id = $1",
+        [farmer_id]
+      );
+
+      if (!farmer || !farmer.mobile) {
+        res.status(400).json({error: "Farmer mobile not found"});
+        return;
+      }
+
+      const phone_number = farmer.mobile;
 
       // Mock result for testing without real payment
       const result = {
@@ -135,7 +137,7 @@ export const getWalletRouter = (dbConfig: any) => {
         }
       });
 
-      res.json({success: true, transaction: result});
+      res.json({success: true, transaction: result, phone_number});
     } catch (err) {
       console.error("💥 Top-up error:", err);
       res.status(500).json({error: "Top-up initiation failed"});
