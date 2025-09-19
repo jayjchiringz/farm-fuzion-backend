@@ -87,23 +87,21 @@ export const getWalletRouter = (dbConfig: any) => {
     }
 
     try {
-      // ✅ Fetch farmer
-      let farmer = await db.oneOrNone(
-        "SELECT id, mobile FROM farmers WHERE id = $1",
+      // 🔑 Fetch farmer by auth_id (UUID)
+      const farmer = await db.oneOrNone(
+        "SELECT id, mobile FROM farmers WHERE auth_id = $1",
         [farmer_id]
       );
 
-      // ✅ Hardcode fallback phone for demo
       if (!farmer) {
-        farmer = {id: farmer_id, mobile: "254707098495"};
-      } else if (!farmer.mobile) {
-        farmer.mobile = "254707098495"; // fallback if mobile missing
+        res.status(400).json({error: "Farmer not found"});
+        return;
       }
 
-      const farmerDbId = farmer.id;
-      const phone_number = farmer.mobile;
+      const farmerDbId = farmer.id; // integer PK
+      const phone_number = farmer.mobile || "254707098495"; // fallback
 
-      // ✅ Mock result for demo
+      // Mock result for demo
       const result = {
         transaction_id: `MOCK-${Date.now()}`,
         order_id: `TOPUP-${Date.now()}`,
@@ -120,7 +118,7 @@ export const getWalletRouter = (dbConfig: any) => {
           [farmerDbId, amt, method, JSON.stringify(result)]
         );
 
-        // Update or create wallet
+        // Update wallet balance
         const wallet = await t.oneOrNone(
           "SELECT balance FROM wallets WHERE farmer_id = $1",
           [farmerDbId]

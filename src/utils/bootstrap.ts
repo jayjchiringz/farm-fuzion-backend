@@ -268,6 +268,10 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       WHERE groups.type = gt.name;
     `);
 
+    await pool.query(`
+      UPDATE farmers SET auth_id = gen_random_uuid() WHERE auth_id IS NULL;
+    `);
+
     // 🚀 6. Drop old column
     await pool.query(`
       ALTER TABLE groups DROP COLUMN IF EXISTS type;
