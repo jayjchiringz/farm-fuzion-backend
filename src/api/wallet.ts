@@ -93,14 +93,17 @@ export const getWalletRouter = (dbConfig: any) => {
         [farmer_id]
       );
 
-      // 🚨 Hard-coded fallback for demo
+      // 🚨 Fallback: fetch the first available farmer in DB
       if (!farmer) {
         console.warn(`
-          ⚠️ Farmer not found by auth_id, using fallback demo farmer.`
+          ⚠️ Farmer not found by auth_id, using first farmer in table.`
         );
-        farmer = {id: 1, mobile: "254707098495"}; // default demo farmer row
+        farmer = await db.one(
+          `SELECT id, COALESCE(mobile, '254707098495') as mobile FROM
+          farmers ORDER BY id ASC LIMIT 1`
+        );
       } else if (!farmer.mobile) {
-        farmer.mobile = "254707098495"; // default mobile if missing
+        farmer.mobile = "254707098495"; // default if missing
       }
 
       const farmerDbId = farmer.id;
