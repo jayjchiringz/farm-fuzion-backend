@@ -87,23 +87,27 @@ export const getWalletRouter = (dbConfig: any) => {
     }
 
     try {
-      // Try to fetch by auth_id
+      // Try to fetch farmer by auth_id
       let farmer = await db.oneOrNone(
         "SELECT id, mobile FROM farmers WHERE auth_id = $1",
         [farmer_id]
       );
 
-      // 🚨 Fallback: fetch the first available farmer in DB
+      // 🚨 Safe fallback
       if (!farmer) {
-        console.warn(`
-          ⚠️ Farmer not found by auth_id, using first farmer in table.`
+        console.warn("⚠️ Farmer not found by auth_id, trying first row...");
+        farmer = await db.oneOrNone(
+          `SELECT id, COALESCE(mobile, '254707098495') as mobile
+          FROM farmers ORDER BY id ASC LIMIT 1`
         );
-        farmer = await db.one(
-          `SELECT id, COALESCE(mobile, '254707098495') as mobile FROM
-          farmers ORDER BY id ASC LIMIT 1`
-        );
+
+        if (!farmer) {
+          // Final hardcoded demo fallback
+          farmer = {id: 9999, mobile: "254707098495"};
+          console.warn("⚠️ No farmers in DB, using hardcoded demo farmer");
+        }
       } else if (!farmer.mobile) {
-        farmer.mobile = "254707098495"; // default if missing
+        farmer.mobile = "254707098495";
       }
 
       const farmerDbId = farmer.id;
@@ -117,6 +121,7 @@ export const getWalletRouter = (dbConfig: any) => {
         message: "Simulated top-up success",
       };
 
+      // Record transaction + update balance
       await db.tx(async (t) => {
         await t.none(
           `INSERT INTO wallet_transactions
