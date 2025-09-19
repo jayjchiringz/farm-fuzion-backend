@@ -324,10 +324,10 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
 
   await pool.query(`
       UPDATE farmers f
-      SET auth_id = u.id
-      FROM auth.users u
+      SET user_id = u.id
+      FROM users u
       WHERE f.email = u.email
-      AND f.auth_id IS NULL;
+      AND f.user_id IS NULL;
     `);
 
   // Ensure at least one group exists
