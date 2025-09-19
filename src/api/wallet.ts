@@ -110,7 +110,8 @@ export const getWalletRouter = (dbConfig: any) => {
         farmer.mobile = "254707098495";
       }
 
-      const farmerDbId = farmer.id;
+      // ✅ Ensure TEXT farmer_id to match wallets schema
+      const farmerDbId = String(farmer.id);
       const phone_number = farmer.mobile;
 
       // Mock result
@@ -137,7 +138,8 @@ export const getWalletRouter = (dbConfig: any) => {
 
         if (wallet) {
           await t.none(
-            `UPDATE wallets SET balance = balance + $1, updated_at = NOW()
+            `UPDATE wallets
+            SET balance = balance + $1, updated_at = NOW()
             WHERE farmer_id = $2`,
             [amt, farmerDbId]
           );
