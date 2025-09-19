@@ -75,10 +75,10 @@ export const getWalletRouter = (dbConfig: any) => {
     }
   });
 
-  // Top-up wallet via Msimbo C2B
+  // Top-up wallet via Msimbo C2B (mocked)
   router.post("/topup/:method", async (req, res) => {
     const {method} = req.params;
-    const {farmer_id, amount} = req.body; // farmer_id = Supabase UUID
+    const {farmer_id, amount} = req.body;
     const amt = Number(amount);
 
     if (!farmer_id || isNaN(amt) || amt <= 0) {
@@ -87,21 +87,23 @@ export const getWalletRouter = (dbConfig: any) => {
     }
 
     try {
-      // 🔑 Resolve farmer by Supabase UUID (auth_id)
-      const farmer = await db.oneOrNone(
-        "SELECT id, mobile FROM farmers WHERE auth_id = $1",
+      // ✅ Fetch farmer
+      let farmer = await db.oneOrNone(
+        "SELECT id, mobile FROM farmers WHERE id = $1",
         [farmer_id]
       );
 
-      if (!farmer || !farmer.mobile) {
-        res.status(400).json({error: "Farmer not found or missing mobile"});
-        return;
+      // ✅ Hardcode fallback phone for demo
+      if (!farmer) {
+        farmer = {id: farmer_id, mobile: "254707098495"};
+      } else if (!farmer.mobile) {
+        farmer.mobile = "254707098495"; // fallback if mobile missing
       }
 
-      const farmerDbId = farmer.id; // integer PK
-      const phone_number = farmer.mobile; // mobile
+      const farmerDbId = farmer.id;
+      const phone_number = farmer.mobile;
 
-      // Mock result for testing without real payment
+      // ✅ Mock result for demo
       const result = {
         transaction_id: `MOCK-${Date.now()}`,
         order_id: `TOPUP-${Date.now()}`,
@@ -118,7 +120,7 @@ export const getWalletRouter = (dbConfig: any) => {
           [farmerDbId, amt, method, JSON.stringify(result)]
         );
 
-        // Update wallet balance
+        // Update or create wallet
         const wallet = await t.oneOrNone(
           "SELECT balance FROM wallets WHERE farmer_id = $1",
           [farmerDbId]
