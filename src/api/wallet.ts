@@ -1,3 +1,4 @@
+/* eslint-disable require-jsdoc */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable camelcase */
 import express from "express";
@@ -6,6 +7,26 @@ import {MsimboService} from "../services/MsimboService";
 import {ProviderDef} from "../services/msimboClient";
 
 const pgp = pgPromise();
+
+// Helper to resolve farmerId (accepts both UUID and numeric)
+async function resolveFarmerId(db: any, farmerId: string): Promise<string> {
+  // If direct match works, return it
+  const exists = await db.oneOrNone(
+    "SELECT 1 FROM wallet_transactions WHERE farmer_id = $1 LIMIT 1",
+    [farmerId]
+  );
+  if (exists) return farmerId;
+
+  // Try mapping via farmers table (user_id/auth_id → id)
+  const farmer = await db.oneOrNone(
+    "SELECT id FROM farmers WHERE auth_id = $1 OR user_id = $1",
+    [farmerId]
+  );
+  if (farmer) return String(farmer.id);
+
+  // Fall back to raw
+  return farmerId;
+}
 
 export const getWalletRouter = (dbConfig: any) => {
   const router = express.Router();
@@ -26,10 +47,13 @@ export const getWalletRouter = (dbConfig: any) => {
   router.get("/:farmerId/balance", async (req, res) => {
     const {farmerId} = req.params;
     try {
+      const resolvedId = await resolveFarmerId(db, farmerId);
+
       const wallet = await db.oneOrNone(
         "SELECT balance FROM wallets WHERE farmer_id = $1",
-        [farmerId]
+        [resolvedId]
       );
+
       res.json({balance: wallet?.balance ?? 0});
     } catch (err) {
       console.error("💥 Balance fetch error:", err);
@@ -42,32 +66,36 @@ export const getWalletRouter = (dbConfig: any) => {
     const {farmerId} = req.params;
     const {type, start, end} = req.query;
 
-    const conditions = ["farmer_id = $1"];
-    const params: any[] = [farmerId];
-    let i = 2;
-
-    if (type) {
-      conditions.push(`type = $${i++}`);
-      params.push(type as string);
-    }
-
-    if (start) {
-      conditions.push(`timestamp >= $${i++}`);
-      params.push(start as string);
-    }
-
-    if (end) {
-      conditions.push(`timestamp <= $${i++}`);
-      params.push(end as string);
-    }
-
-    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-
     try {
+      const resolvedId = await resolveFarmerId(db, farmerId);
+
+      const conditions = ["farmer_id = $1"];
+      const params: any[] = [resolvedId];
+      let i = 2;
+
+      if (type) {
+        conditions.push(`type = $${i++}`);
+        params.push(type as string);
+      }
+
+      if (start) {
+        conditions.push(`timestamp >= $${i++}`);
+        params.push(start as string);
+      }
+
+      if (end) {
+        conditions.push(`timestamp <= $${i++}`);
+        params.push(end as string);
+      }
+
+      const where = conditions.length ?
+        `WHERE ${conditions.join(" AND ")}` : "";
+
       const txns = await db.any(
         `SELECT * FROM wallet_transactions ${where} ORDER BY timestamp DESC`,
         params
       );
+
       res.json(txns);
     } catch (err) {
       console.error("💥 Tx fetch error:", err);
@@ -338,16 +366,18 @@ export const getWalletRouter = (dbConfig: any) => {
     const {farmerId} = req.params;
 
     try {
+      const resolvedId = await resolveFarmerId(db, farmerId);
+
       const [topups, withdrawals] = await Promise.all([
         db.oneOrNone(
           `SELECT COALESCE(SUM(amount),0) as total FROM wallet_transactions
           WHERE farmer_id = $1 AND type = 'topup'`,
-          [farmerId]
+          [resolvedId]
         ),
         db.oneOrNone(
           `SELECT COALESCE(SUM(amount),0) as total FROM wallet_transactions
           WHERE farmer_id = $1 AND type = 'withdraw'`,
-          [farmerId]
+          [resolvedId]
         ),
       ]);
 
