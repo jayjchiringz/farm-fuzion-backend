@@ -463,6 +463,33 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     END $$;
   `);
 
+  await pool.query(`
+    DO $$ 
+    BEGIN
+      -- Check if the old constraint exists
+      IF EXISTS (
+        SELECT 1 
+        FROM pg_constraint 
+        WHERE conname = 'wallet_transactions_type_check'
+      ) THEN
+        ALTER TABLE wallet_transactions
+          DROP CONSTRAINT wallet_transactions_type_check;
+      END IF;
+
+      -- Recreate the correct constraint (only if missing)
+      IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_constraint 
+        WHERE conname = 'wallet_transactions_type_check'
+      ) THEN
+        ALTER TABLE wallet_transactions
+          ADD CONSTRAINT wallet_transactions_type_check
+          CHECK (type IN (
+          'topup', 'withdraw', 'transfer', 'paybill', 'deduction'
+          ));
+      END IF;
+    END $$;
+  `);
 
   await pool.query(`
     DO $$ BEGIN
