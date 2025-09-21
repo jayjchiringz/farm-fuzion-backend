@@ -10,22 +10,31 @@ const pgp = pgPromise();
 
 // Helper to resolve farmerId (accepts both UUID and numeric)
 async function resolveFarmerId(db: any, farmerId: string): Promise<string> {
+  console.log("🔍 Resolving farmerId:", farmerId);
+
   // If direct match works, return it
   const exists = await db.oneOrNone(
     "SELECT 1 FROM wallet_transactions WHERE farmer_id = $1 LIMIT 1",
     [farmerId]
   );
-  if (exists) return farmerId;
+  if (exists) {
+    console.log("✅ Direct match found:", farmerId);
+    return farmerId;
+  }
 
   // Try mapping via farmers table (user_id/auth_id → id)
   const farmer = await db.oneOrNone(
     "SELECT id FROM farmers WHERE auth_id = $1 OR user_id = $1",
     [farmerId]
   );
-  if (farmer) return String(farmer.id);
+  if (farmer) {
+    console.log("✅ Mapped to farmer.id:", farmer.id);
+    return String(farmer.id);
+  }
 
-  // Fall back to raw
-  return farmerId;
+  // 🚨 DEMO fallback → always resolve to "1"
+  console.warn("⚠️ No match found for", farmerId, "→ falling back to '1'");
+  return "1";
 }
 
 export const getWalletRouter = (dbConfig: any) => {
