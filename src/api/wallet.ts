@@ -58,12 +58,23 @@ export const getWalletRouter = (dbConfig: any) => {
     try {
       const resolvedId = await resolveFarmerId(db, farmerId);
 
-      const wallet = await db.oneOrNone(
-        "SELECT balance FROM wallets WHERE farmer_id = $1",
+      const result = await db.one(
+        `
+        SELECT 
+          COALESCE(SUM(
+            CASE 
+              WHEN direction = 'in' AND status = 'completed' THEN amount
+              WHEN direction = 'out' AND status = 'completed' THEN -amount
+              ELSE 0
+            END
+          ), 0) AS balance
+        FROM wallet_transactions
+        WHERE farmer_id = $1
+        `,
         [resolvedId]
       );
 
-      res.json({balance: wallet?.balance ?? 0});
+      res.json({balance: result.balance});
     } catch (err) {
       console.error("💥 Balance fetch error:", err);
       res.status(500).json({error: "Unable to fetch wallet balance"});
