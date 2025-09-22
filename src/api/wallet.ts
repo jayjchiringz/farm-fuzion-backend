@@ -37,7 +37,7 @@ async function resolveFarmerId(db: any, farmerId: string): Promise<string> {
   return "1";
 }
 
-export const getWalletRouter = (dbConfig: any) => {
+export const getWalletRouter = async (dbConfig: any) => {
   const router = express.Router();
   const {PGUSER, PGPASS, PGHOST, PGPORT, PGDB} = dbConfig;
 
@@ -116,8 +116,11 @@ export const getWalletRouter = (dbConfig: any) => {
         params
       );
 
+      console.log("📦 Raw txns from DB:", txns); // 👈 add this
+
       res.json(
-        txns.map((t: any) => ({
+        txns.map((t: any, idx: number) => ({
+          id: t.id || `row-${idx}`, // 👈 fallback if missing
           ...t,
           amount: Number(t.amount),
         }))
