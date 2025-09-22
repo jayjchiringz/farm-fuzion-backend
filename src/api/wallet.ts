@@ -74,14 +74,14 @@ export const getWalletRouter = (dbConfig: any) => {
         [resolvedId]
       );
 
-      res.json({balance: result.balance});
+      res.json({balance: Number(result.balance)});
     } catch (err) {
       console.error("💥 Balance fetch error:", err);
       res.status(500).json({error: "Unable to fetch wallet balance"});
     }
   });
 
-  // Unified Get transactions (with optional filters)
+  // Unified Get transactions
   router.get("/:farmerId/transactions", async (req, res) => {
     const {farmerId} = req.params;
     const {type, start, end} = req.query;
@@ -108,15 +108,20 @@ export const getWalletRouter = (dbConfig: any) => {
         params.push(end as string);
       }
 
-      const where = conditions.length ?
-        `WHERE ${conditions.join(" AND ")}` : "";
+      const where = conditions.length ? `
+        WHERE ${conditions.join(" AND ")}` : "";
 
       const txns = await db.any(
         `SELECT * FROM wallet_transactions ${where} ORDER BY timestamp DESC`,
         params
       );
 
-      res.json(txns);
+      res.json(
+        txns.map((t: any) => ({
+          ...t,
+          amount: Number(t.amount),
+        }))
+      );
     } catch (err) {
       console.error("💥 Tx fetch error:", err);
       res.status(500).json({error: "Unable to fetch transactions"});
@@ -402,8 +407,8 @@ export const getWalletRouter = (dbConfig: any) => {
       ]);
 
       res.json({
-        totalTopups: topups?.total ?? 0,
-        totalWithdrawals: withdrawals?.total ?? 0,
+        totalTopups: Number(topups?.total ?? 0),
+        totalWithdrawals: Number(withdrawals?.total ?? 0),
       });
     } catch (err) {
       console.error("💥 Summary error:", err);
