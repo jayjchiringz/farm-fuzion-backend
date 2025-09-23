@@ -179,6 +179,7 @@ export const getWalletRouter = async (dbConfig: any) => {
       };
 
       // Record transaction + update balance
+      console.log("💸 Starting top-up:", {farmerDbId, amt, method});
       await db.tx(async (t) => {
         await t.none(
           `INSERT INTO wallet_transactions
@@ -186,7 +187,7 @@ export const getWalletRouter = async (dbConfig: any) => {
           VALUES ($1, 'topup', $2, 'in', $3, 'completed', $4)`,
           [farmerDbId, amt, method, JSON.stringify(result)]
         );
-
+        console.log("✅ Transaction inserted for:", farmerDbId);
         const wallet = await t.oneOrNone(
           "SELECT balance FROM wallets WHERE farmer_id = $1",
           [farmerDbId]
@@ -199,6 +200,7 @@ export const getWalletRouter = async (dbConfig: any) => {
             WHERE farmer_id = $2`,
             [amt, farmerDbId]
           );
+          console.log("✅ Wallet updated for:", farmerDbId);
         } else {
           await t.none(
             "INSERT INTO wallets(farmer_id, balance) VALUES ($1, $2)",
@@ -243,6 +245,8 @@ export const getWalletRouter = async (dbConfig: any) => {
         provider_id: ProviderDef.NUMBER_14,
         callback_url: `${process.env.BASE_URL}/wallet/callback`,
       });
+
+      console.log("💸 Starting top-up:", {farmer_id, amt, method});
 
       await db.tx(async (t) => {
         await t.none(

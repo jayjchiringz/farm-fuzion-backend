@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 /* eslint-disable camelcase */
 import {initDbPool, DbConfig} from "../utils/db";
 
@@ -489,6 +490,34 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
           ));
       END IF;
     END $$;
+  `);
+
+  // 🧩 Extra Wallet Migrations
+  await pool.query(`
+    DO $$ BEGIN
+      -- Ensure reference_no exists
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='wallet_transactions' AND column_name='reference_no'
+      ) THEN
+        ALTER TABLE wallet_transactions ADD COLUMN reference_no TEXT;
+      END IF;
+
+      -- Ensure fee exists
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='wallet_transactions' AND column_name='fee'
+      ) THEN
+        ALTER TABLE wallet_transactions ADD COLUMN fee NUMERIC(12,2) DEFAULT 0;
+      END IF;
+    END $$;
+  `);
+
+  // ⚡ Indexes for performance
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wallets_farmer_id ON wallets(farmer_id);
+    CREATE INDEX IF NOT EXISTS idx_wallet_tx_farmer_id ON wallet_transactions(farmer_id);
+    CREATE INDEX IF NOT EXISTS idx_wallet_tx_timestamp ON wallet_transactions(timestamp DESC);
   `);
 
   await pool.query(`
