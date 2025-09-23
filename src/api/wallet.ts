@@ -143,16 +143,19 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
 
     try {
-      // ✅ Fetch farmer by primary key UUID (not auth_id)
+      // ✅ Resolve farmerId to match DB primary key
+      const resolvedId = await resolveFarmerId(db, farmer_id);
+
+      // Fetch farmer record (use resolved id)
       let farmer = await db.oneOrNone(
         `SELECT id, COALESCE(mobile, '254707098495') as mobile
         FROM farmers WHERE id = $1`,
-        [farmer_id]
+        [resolvedId]
       );
 
       if (!farmer) {
         console.warn("⚠️ Farmer not found, using demo fallback");
-        farmer = {id: "9999", mobile: "254707098495"};
+        farmer = {id: resolvedId, mobile: "254707098495"};
       }
 
       const farmerDbId = String(farmer.id);
@@ -174,7 +177,6 @@ export const getWalletRouter = async (dbConfig: any) => {
           VALUES ($1, 'topup', $2, 'in', $3, 'completed', $4)`,
           [farmerDbId, amt, method, JSON.stringify(result)]
         );
-        console.log("✅ Transaction inserted for:", farmerDbId);
 
         const wallet = await t.oneOrNone(
           "SELECT balance FROM wallets WHERE farmer_id = $1",
@@ -188,7 +190,6 @@ export const getWalletRouter = async (dbConfig: any) => {
             WHERE farmer_id = $2`,
             [amt, farmerDbId]
           );
-          console.log("✅ Wallet updated for:", farmerDbId);
         } else {
           await t.none(
             "INSERT INTO wallets(farmer_id, balance) VALUES ($1, $2)",
