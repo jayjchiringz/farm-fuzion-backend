@@ -205,7 +205,7 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
   });
 
-  // Withdraw from wallet with Msimbo
+  // Withdraw from wallet with Msimbo (mocked)
   router.post("/withdraw/:method", async (req, res) => {
     const {method} = req.params;
     const {farmer_id, amount, destination} = req.body;
@@ -230,16 +230,19 @@ export const getWalletRouter = async (dbConfig: any) => {
         return;
       }
 
-      const result = await msimbo.b2cPayment({
-        customer_id: destination,
+      // 🔹 MOCK response instead of calling msimbo.b2cPayment
+      const result = {
+        transaction_id: `MOCK-WITHDRAW-${Date.now()}`,
         order_id: `WITHDRAW-${Date.now()}`,
         amount: amt.toFixed(2),
         currency: "KES",
-        provider_id: ProviderDef.NUMBER_14,
-        callback_url: `${process.env.BASE_URL}/wallet/callback`,
-      });
+        status: "pending",
+        message: "Mocked withdrawal initiated",
+        destination,
+        method,
+      };
 
-      console.log("💸 Starting withdrawal:", {resolvedId, amt, method});
+      console.log("💸 [MOCK] Starting withdrawal:", {resolvedId, amt, method});
 
       await db.tx(async (t) => {
         await t.none(
@@ -260,16 +263,7 @@ export const getWalletRouter = async (dbConfig: any) => {
 
       res.json({success: true, transaction: result});
     } catch (err) {
-      if (
-        typeof err === "object" &&
-        err !== null &&
-        "response" in err &&
-        (err as any).response?.data
-      ) {
-        console.error("💥 Withdraw error:", (err as any).response.data);
-      } else {
-        console.error("💥 Withdraw error:", err);
-      }
+      console.error("💥 Withdraw error:", err);
       res.status(500).json({error: "Withdrawal failed"});
     }
   });
