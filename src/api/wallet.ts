@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 /* eslint-disable require-jsdoc */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable camelcase */
@@ -285,8 +286,39 @@ export const getWalletRouter = async (dbConfig: any) => {
   });
 
   // 🔁 Transfer funds between farmers
+  // a. Search for a farmer by name, phone, or ID
+  router.get("/search-farmers", async (req, res) => {
+    const {q} = req.query; // the search query
+
+    if (!q || typeof q !== "string") {
+      res.status(400).json({error: "Missing search query"});
+      return;
+    }
+
+    try {
+      const farmers = await db.any(
+        `SELECT id, first_name, middle_name, last_name, mobile
+        FROM farmers
+        WHERE id::text = $1
+            OR user_id::text = $1
+            OR auth_id::text = $1
+            OR mobile ILIKE $2
+            OR first_name ILIKE $2
+            OR middle_name ILIKE $2
+            OR last_name ILIKE $2`,
+        [q, `%${q}%`]
+      );
+
+      res.json(farmers);
+    } catch (err) {
+      console.error("💥 Search error:", err);
+      res.status(500).json({error: "Failed to search farmers"});
+    }
+  });
+
+  // b. Mocked transfer with confirmation
   router.post("/transfer", async (req, res) => {
-    const {farmer_id, destination, amount} = req.body;
+    const {farmer_id, destination, amount, confirm} = req.body;
     const amt = Number(amount);
 
     if (!farmer_id || !destination || isNaN(amt) || amt <= 0) {
@@ -295,9 +327,14 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
 
     try {
+      // ✅ Normalize both sender + recipient IDs
+      const senderId = await resolveFarmerId(db, farmer_id);
+      const recipientId = await resolveFarmerId(db, destination);
+
+      // Check sender balance
       const senderWallet = await db.oneOrNone(
         "SELECT balance FROM wallets WHERE farmer_id = $1",
-        [farmer_id]
+        [senderId]
       );
 
       if (!senderWallet || Number(senderWallet.balance) < amt) {
@@ -305,47 +342,73 @@ export const getWalletRouter = async (dbConfig: any) => {
         return;
       }
 
+      // Step 1: Preview (no confirm yet)
+      if (!confirm) {
+        const destFarmer = await db.oneOrNone(
+          `SELECT id, first_name, middle_name, last_name, mobile
+          FROM farmers WHERE id = $1`,
+          [recipientId]
+        );
+
+        if (!destFarmer) {
+          res.status(404).json({error: "Recipient not found"});
+          return;
+        }
+
+        res.json({
+          preview: true,
+          from: senderId,
+          to: destFarmer,
+          amount: amt,
+          message: `Confirm transfer of ${amt} KES to ${destFarmer.first_name} ${destFarmer.last_name} (${destFarmer.mobile})`,
+        });
+        return;
+      }
+
+      // Step 2: Execute after confirm
       await db.tx(async (t) => {
+        // sender → debit
         await t.none(
           `INSERT INTO wallet_transactions
-            (farmer_id, type, amount, destination, direction, method, status)
-          VALUES ($1, 'transfer', $2, $3, 'out', 'wallet', 'completed')`,
-          [farmer_id, amt, destination]
+            (farmer_id, type, amount, destination, direction, method, status, meta)
+          VALUES ($1, 'transfer', $2, $3, 'out', 'wallet', 'completed', $4)`,
+          [senderId, amt, recipientId, JSON.stringify({mock: true})]
         );
 
         await t.none(
           `UPDATE wallets SET balance = balance - $1, updated_at = NOW()
-            WHERE farmer_id = $2`,
-          [amt, farmer_id]
+          WHERE farmer_id = $2`,
+          [amt, senderId]
         );
 
+        // receiver → credit
         await t.none(
           `INSERT INTO wallet_transactions
-            (farmer_id, type, amount, source, direction, method, status)
-          VALUES ($1, 'transfer', $2, $3, 'in', 'wallet', 'completed')`,
-          [destination, amt, farmer_id]
+            (farmer_id, type, amount, source, direction, method, status, meta)
+          VALUES ($1, 'transfer', $2, $3, 'in', 'wallet', 'completed', $4)`,
+          [recipientId, amt, senderId, JSON.stringify({mock: true})]
         );
 
         const destWallet = await t.oneOrNone(
           "SELECT 1 FROM wallets WHERE farmer_id = $1",
-          [destination]
+          [recipientId]
         );
 
         if (destWallet) {
           await t.none(
             `UPDATE wallets SET balance = balance + $1, updated_at = NOW()
-              WHERE farmer_id = $2`,
-            [amt, destination]
+            WHERE farmer_id = $2`,
+            [amt, recipientId]
           );
         } else {
           await t.none(
             "INSERT INTO wallets(farmer_id, balance) VALUES ($1, $2)",
-            [destination, amt]
+            [recipientId, amt]
           );
         }
       });
 
-      res.json({success: true});
+      res.json({success: true, executed: true});
     } catch (err) {
       console.error("💥 Transfer error:", err);
       res.status(500).json({error: "Transfer failed"});
