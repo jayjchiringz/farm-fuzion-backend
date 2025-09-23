@@ -4,7 +4,7 @@
 import express from "express";
 import pgPromise from "pg-promise";
 import {MsimboService} from "../services/MsimboService";
-import {ProviderDef} from "../services/msimboClient";
+// import {ProviderDef} from "../services/msimboClient";
 
 const pgp = pgPromise();
 
@@ -41,7 +41,7 @@ export const getWalletRouter = async (dbConfig: any) => {
   const router = express.Router();
   const {PGUSER, PGPASS, PGHOST, PGPORT, PGDB} = dbConfig;
 
-  const msimbo = new MsimboService();
+  // const msimbo = new MsimboService();
 
   const db = pgp({
     host: PGHOST,
