@@ -217,7 +217,6 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
 
     try {
-      // ✅ resolve farmer_id to numeric
       const resolvedId = await resolveFarmerId(db, farmer_id);
 
       const balance = await db.oneOrNone(
@@ -230,7 +229,6 @@ export const getWalletRouter = async (dbConfig: any) => {
         return;
       }
 
-      // 🔹 MOCK response instead of calling msimbo.b2cPayment
       const result = {
         transaction_id: `MOCK-WITHDRAW-${Date.now()}`,
         order_id: `WITHDRAW-${Date.now()}`,
@@ -260,6 +258,23 @@ export const getWalletRouter = async (dbConfig: any) => {
           [amt, resolvedId]
         );
       });
+
+      // 🔁 Auto-trigger mock callback after 2s
+      setTimeout(async () => {
+        try {
+          await db.none(
+            `UPDATE wallet_transactions
+            SET status = 'completed', updated_at = NOW()
+            WHERE meta->>'transaction_id' = $1
+              AND meta->>'order_id' = $2
+              AND farmer_id = $3`,
+            [result.transaction_id, result.order_id, resolvedId]
+          );
+          console.log("✅ [MOCK] Withdrawal completed:", result.transaction_id);
+        } catch (err) {
+          console.error("💥 [MOCK] Callback update failed:", err);
+        }
+      }, 2000);
 
       res.json({success: true, transaction: result});
     } catch (err) {
