@@ -100,7 +100,14 @@ export const createMainApp = (secrets: {
   app.use("/groups-types", (req, res, next) => getGroupTypesRouter((req as any).dbConfig)(req, res, next));
   app.use("/document-types", (req, res, next) => getDocumentTypesRouter((req as any).dbConfig)(req, res, next));
   app.use("/stats", (req, res, next) => getStatsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/wallet", (req, res, next) => getWalletRouter((req as any).dbConfig)(req, res, next));
+  app.use("/wallet", async (req, res, next) => {
+    try {
+      const router = await getWalletRouter((req as any).dbConfig);
+      return router(req, res, next);
+    } catch (err) {
+      return next(err);
+    }
+  });
 
   return app;
 };
