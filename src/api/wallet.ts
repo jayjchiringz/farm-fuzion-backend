@@ -264,7 +264,8 @@ export const getWalletRouter = async (dbConfig: any) => {
         try {
           await db.none(
             `UPDATE wallet_transactions
-            SET status = 'completed', updated_at = NOW()
+            SET status = 'completed',
+                meta = jsonb_set(meta, '{status}', '"completed"')
             WHERE meta->>'transaction_id' = $1
               AND meta->>'order_id' = $2
               AND farmer_id = $3`,
@@ -433,7 +434,8 @@ export const getWalletRouter = async (dbConfig: any) => {
 
       await db.none(
         `UPDATE wallet_transactions
-        SET status = $1, updated_at = NOW()
+        SET status = $1,
+            meta = jsonb_set(meta, '{status}', to_jsonb($1::text))
         WHERE meta->>'transaction_id' = $2
           AND meta->>'order_id' = $3
           AND farmer_id = $4`,
