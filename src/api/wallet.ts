@@ -3,7 +3,7 @@
 /* eslint-disable camelcase */
 import express from "express";
 import pgPromise from "pg-promise";
-import {MsimboService} from "../services/MsimboService";
+// import {MsimboService} from "../services/MsimboService";
 // import {ProviderDef} from "../services/msimboClient";
 
 const pgp = pgPromise();
