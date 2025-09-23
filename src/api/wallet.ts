@@ -143,34 +143,21 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
 
     try {
-      // Try to fetch farmer by auth_id
+      // ✅ Fetch farmer by primary key UUID (not auth_id)
       let farmer = await db.oneOrNone(
-        "SELECT id, mobile FROM farmers WHERE auth_id = $1",
+        `SELECT id, COALESCE(mobile, '254707098495') as mobile
+        FROM farmers WHERE id = $1`,
         [farmer_id]
       );
 
-      // 🚨 Safe fallback
       if (!farmer) {
-        console.warn("⚠️ Farmer not found by auth_id, trying first row...");
-        farmer = await db.oneOrNone(
-          `SELECT id, COALESCE(mobile, '254707098495') as mobile
-          FROM farmers ORDER BY id ASC LIMIT 1`
-        );
-
-        if (!farmer) {
-          // Final hardcoded demo fallback
-          farmer = {id: 9999, mobile: "254707098495"};
-          console.warn("⚠️ No farmers in DB, using hardcoded demo farmer");
-        }
-      } else if (!farmer.mobile) {
-        farmer.mobile = "254707098495";
+        console.warn("⚠️ Farmer not found, using demo fallback");
+        farmer = {id: "9999", mobile: "254707098495"};
       }
 
-      // ✅ Ensure TEXT farmer_id to match wallets schema
       const farmerDbId = String(farmer.id);
       const phone_number = farmer.mobile;
 
-      // Mock result
       const result = {
         transaction_id: `MOCK-${Date.now()}`,
         order_id: `TOPUP-${Date.now()}`,
@@ -188,6 +175,7 @@ export const getWalletRouter = async (dbConfig: any) => {
           [farmerDbId, amt, method, JSON.stringify(result)]
         );
         console.log("✅ Transaction inserted for:", farmerDbId);
+
         const wallet = await t.oneOrNone(
           "SELECT balance FROM wallets WHERE farmer_id = $1",
           [farmerDbId]
