@@ -217,10 +217,14 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
 
     try {
+      // ✅ resolve farmer_id to numeric
+      const resolvedId = await resolveFarmerId(db, farmer_id);
+
       const balance = await db.oneOrNone(
         "SELECT balance FROM wallets WHERE farmer_id = $1",
-        [farmer_id]
+        [resolvedId]
       );
+
       if (!balance || Number(balance.balance) < amt) {
         res.status(400).json({error: "Insufficient funds"});
         return;
@@ -235,7 +239,7 @@ export const getWalletRouter = async (dbConfig: any) => {
         callback_url: `${process.env.BASE_URL}/wallet/callback`,
       });
 
-      console.log("💸 Starting top-up:", {farmer_id, amt, method});
+      console.log("💸 Starting withdrawal:", {resolvedId, amt, method});
 
       await db.tx(async (t) => {
         await t.none(
@@ -243,13 +247,14 @@ export const getWalletRouter = async (dbConfig: any) => {
             (farmer_id, type, amount, destination, direction, method,
             status, meta)
           VALUES ($1, 'withdraw', $2, $3, 'out', $4, 'pending', $5)`,
-          [farmer_id, amt, destination, method, JSON.stringify(result)]
+          [resolvedId, amt, destination, method, JSON.stringify(result)]
         );
 
         await t.none(
-          `UPDATE wallets SET balance = balance - $1, updated_at = NOW()
+          `UPDATE wallets
+          SET balance = balance - $1, updated_at = NOW()
           WHERE farmer_id = $2`,
-          [amt, farmer_id]
+          [amt, resolvedId]
         );
       });
 
