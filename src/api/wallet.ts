@@ -458,7 +458,7 @@ export const getWalletRouter = async (dbConfig: any) => {
         await t.none(
           `INSERT INTO wallet_transactions
             (farmer_id, type, amount, destination, direction, method, status, meta)
-          VALUES ($1, 'payment', $2, $3, 'out', 'wallet', $4, $5)`,
+          VALUES ($1, 'paybill', $2, $3, 'out', 'wallet', $4, $5)`,
           [payerId, amt, destination || merchant || service || "unknown", result.status, JSON.stringify({...meta, ...result})]
         );
 
