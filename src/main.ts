@@ -4,6 +4,7 @@
 import express from "express";
 import cors from "cors";
 import {bootstrapDatabase} from "./utils/bootstrap";
+import {setupSwagger} from "./utils/swagger";
 
 // 🧩 Routers
 import {getGroupsRouter} from "./api/groups";
@@ -41,6 +42,7 @@ export const createMainApp = (secrets: {
   MSIMBO_PUBLIC_ID: any;
 }) => {
   const app = express();
+  setupSwagger(app);
 
   app.use(cors({
     origin: allowedOrigins,
