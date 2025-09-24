@@ -10,30 +10,30 @@ import pgPromise from "pg-promise";
 const pgp = pgPromise();
 
 // Helper to resolve farmerId (accepts both UUID and numeric)
-async function resolveFarmerId(db: any, farmerId: string): Promise<string> {
-  console.log("🔍 Resolving farmerId:", farmerId);
+async function resolveFarmerId(db: any, farmerId: string | number): Promise<string> {
+  const normalized = String(farmerId);
+  console.log("🔍 Resolving farmerId:", normalized);
 
-  // If direct match works, return it
+  // If direct match works
   const exists = await db.oneOrNone(
-    "SELECT 1 FROM wallet_transactions WHERE farmer_id = $1 LIMIT 1",
-    [farmerId]
+    "SELECT 1 FROM wallet_transactions WHERE farmer_id::text = $1 LIMIT 1",
+    [normalized]
   );
   if (exists) {
-    console.log("✅ Direct match found:", farmerId);
-    return farmerId;
+    console.log("✅ Direct match found:", normalized);
+    return normalized;
   }
 
-  // Try mapping via farmers table (user_id/auth_id → id)
+  // Try mapping via farmers table
   const farmer = await db.oneOrNone(
-    "SELECT id FROM farmers WHERE auth_id = $1 OR user_id = $1",
-    [farmerId]
+    "SELECT id FROM farmers WHERE id::text = $1 OR auth_id::text = $1 OR user_id::text = $1",
+    [normalized]
   );
   if (farmer) {
     console.log("✅ Mapped to farmer.id:", farmer.id);
     return String(farmer.id);
   }
 
-  // 🚨 DEMO fallback → always resolve to "1"
   console.warn("⚠️ No match found for", farmerId, "→ falling back to '1'");
   return "1";
 }
