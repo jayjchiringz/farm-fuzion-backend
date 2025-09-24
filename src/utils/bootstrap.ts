@@ -317,9 +317,11 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       );
     `);
 
+
+  // Ensure default admin user exists
   await pool.query(`
       INSERT INTO users (email, role)
-      VALUES ('roman.shushakov@unipesa.com', 'admin')
+      VALUES ('wwasog@gmail.com', 'admin')
       ON CONFLICT (email) DO NOTHING;
     `);
 
