@@ -2,19 +2,7 @@
 import express, {Request, Response, NextFunction} from "express";
 import {z} from "zod";
 import {initDbPool} from "../utils/db";
-
-// ✅ Extended schema for product validation
-const FarmProductSchema = z.object({
-  farmer_id: z.string().uuid(),
-  product_name: z.string().min(1),
-  quantity: z.number().positive(),
-  unit: z.string().min(1),
-  harvest_date: z.string().optional(),
-  storage_location: z.string().optional(),
-  category: z.string().optional(), // e.g. produce, input, service
-  price: z.number().nonnegative().optional(),
-  status: z.enum(["available", "sold", "hidden"]).optional(),
-});
+import {FarmProductSchema, FarmProduct} from "../validation/farmProductSchema";
 
 const validateRequest = (schema: z.ZodSchema) => (
   req: Request,
@@ -40,46 +28,50 @@ export const getFarmProductsRouter = (config: {
   const router = express.Router();
 
   // ➕ Add new product
-  router.post("/", validateRequest(FarmProductSchema), async (req, res) => {
-    const {
-      farmer_id,
-      product_name,
-      quantity,
-      unit,
-      harvest_date,
-      storage_location,
-      category,
-      price,
-      status,
-    } = req.body;
+  router.post(
+    "/",
+    validateRequest(FarmProductSchema),
+    async (req: Request<object, object, FarmProduct>, res: Response) => {
+      const {
+        farmer_id,
+        product_name,
+        quantity,
+        unit,
+        harvest_date,
+        storage_location,
+        category,
+        price,
+        status,
+      } = req.body;
 
-    try {
-      const result = await pool.query(
-        `INSERT INTO farm_products 
-          (
-            farmer_id, product_name, quantity, unit, harvest_date,
-            storage_location, category, price, status, created_at, updated_at
-          )
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
-         RETURNING id`,
-        [
-          farmer_id,
-          product_name,
-          quantity,
-          unit,
-          harvest_date || null,
-          storage_location || null,
-          category || null,
-          price ?? 0,
-          status || "available",
-        ]
-      );
-      res.status(201).json({id: result.rows[0].id});
-    } catch (err) {
-      console.error("Error adding farm product:", err);
-      res.status(500).send("Internal server error");
+      try {
+        const result = await pool.query(
+          `INSERT INTO farm_products 
+            (
+              farmer_id, product_name, quantity, unit, harvest_date,
+              storage_location, category, price, status, created_at, updated_at
+            )
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
+           RETURNING id`,
+          [
+            farmer_id,
+            product_name,
+            quantity,
+            unit,
+            harvest_date || null,
+            storage_location || null,
+            category || null,
+            price ?? 0,
+            status || "available",
+          ]
+        );
+        res.status(201).json({id: result.rows[0].id});
+      } catch (err) {
+        console.error("Error adding farm product:", err);
+        res.status(500).send("Internal server error");
+      }
     }
-  });
+  );
 
   // 📦 Get all products (with optional filters)
   router.get("/", async (req, res) => {
@@ -115,7 +107,8 @@ export const getFarmProductsRouter = (config: {
       const {farmer_id} = req.params;
       const result = await pool.query(
         `SELECT * FROM farm_products WHERE farmer_id = $1
-        ORDER BY created_at DESC`, [farmer_id]
+        ORDER BY created_at DESC`,
+        [farmer_id]
       );
       res.json(result.rows);
     } catch (err) {
@@ -124,7 +117,7 @@ export const getFarmProductsRouter = (config: {
     }
   });
 
-  // ✏️ Update product (price, quantity, status, etc.)
+  // ✏️ Update product
   router.put("/:id", async (req, res) => {
     const {id} = req.params;
     const {product_name, quantity, unit, price, status, category} = req.body;
@@ -160,7 +153,9 @@ export const getFarmProductsRouter = (config: {
     const {id} = req.params;
     try {
       const result = await pool.query(
-        "DELETE FROM farm_products WHERE id = $1 RETURNING id", [id]);
+        "DELETE FROM farm_products WHERE id = $1 RETURNING id",
+        [id]
+      );
       if (result.rows.length === 0) {
         return res.status(404).json({error: "Product not found"});
       }

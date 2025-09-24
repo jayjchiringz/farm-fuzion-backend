@@ -7,9 +7,10 @@ export const FarmProductSchema = z.object({
   unit: z.string().min(1, "Unit of measurement required"),
   harvest_date: z.string().optional(), // format: YYYY-MM-DD
   storage_location: z.string().optional(),
-
-  // ✅ New fields
-  category: z.string().min(2, "Category required").optional(),
-  price: z.number().nonnegative("Price cannot be negative").optional(),
-  status: z.enum(["available", "sold", "hidden"]).optional(),
+  category: z.string().optional(), // new field
+  price: z.number().nonnegative().optional(), // new field
+  status: z.enum(["available", "sold", "reserved"]).optional(), // new field
 });
+
+// 🔥 infer TypeScript type from schema
+export type FarmProduct = z.infer<typeof FarmProductSchema>;
