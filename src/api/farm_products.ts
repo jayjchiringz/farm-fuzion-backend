@@ -1,8 +1,20 @@
 /* eslint-disable camelcase */
 import express, {Request, Response, NextFunction} from "express";
 import {z} from "zod";
-import {FarmProductSchema} from "../validation/farmProductSchema";
 import {initDbPool} from "../utils/db";
+
+// ✅ Extended schema for product validation
+const FarmProductSchema = z.object({
+  farmer_id: z.string().uuid(),
+  product_name: z.string().min(1),
+  quantity: z.number().positive(),
+  unit: z.string().min(1),
+  harvest_date: z.string().optional(),
+  storage_location: z.string().optional(),
+  category: z.string().optional(), // e.g. produce, input, service
+  price: z.number().nonnegative().optional(),
+  status: z.enum(["available", "sold", "hidden"]).optional(),
+});
 
 const validateRequest = (schema: z.ZodSchema) => (
   req: Request,
@@ -27,6 +39,7 @@ export const getFarmProductsRouter = (config: {
   const pool = initDbPool(config);
   const router = express.Router();
 
+  // ➕ Add new product
   router.post("/", validateRequest(FarmProductSchema), async (req, res) => {
     const {
       farmer_id,
@@ -35,16 +48,19 @@ export const getFarmProductsRouter = (config: {
       unit,
       harvest_date,
       storage_location,
+      category,
+      price,
+      status,
     } = req.body;
 
     try {
       const result = await pool.query(
         `INSERT INTO farm_products 
           (
-            farmer_id, product_name, quantity, unit,
-            harvest_date, storage_location
+            farmer_id, product_name, quantity, unit, harvest_date,
+            storage_location, category, price, status, created_at, updated_at
           )
-         VALUES ($1, $2, $3, $4, $5, $6)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
          RETURNING id`,
         [
           farmer_id,
@@ -53,6 +69,9 @@ export const getFarmProductsRouter = (config: {
           unit,
           harvest_date || null,
           storage_location || null,
+          category || null,
+          price ?? 0,
+          status || "available",
         ]
       );
       res.status(201).json({id: result.rows[0].id});
@@ -62,11 +81,27 @@ export const getFarmProductsRouter = (config: {
     }
   });
 
-  router.get("/", async (_, res) => {
+  // 📦 Get all products (with optional filters)
+  router.get("/", async (req, res) => {
     try {
-      const result = await pool.query(
-        "SELECT * FROM farm_products ORDER BY created_at DESC"
-      );
+      const {category, status} = req.query;
+
+      let baseQuery = "SELECT * FROM farm_products WHERE 1=1";
+      const params: unknown[] = [];
+
+      if (category) {
+        params.push(category);
+        baseQuery += ` AND category = $${params.length}`;
+      }
+
+      if (status) {
+        params.push(status);
+        baseQuery += ` AND status = $${params.length}`;
+      }
+
+      baseQuery += " ORDER BY created_at DESC";
+
+      const result = await pool.query(baseQuery, params);
       res.json(result.rows);
     } catch (err) {
       console.error("Error fetching products:", err);
@@ -74,18 +109,65 @@ export const getFarmProductsRouter = (config: {
     }
   });
 
+  // 👩‍🌾 Get farmer-specific products
   router.get("/farmer/:farmer_id", async (req, res) => {
     try {
       const {farmer_id} = req.params;
       const result = await pool.query(
-        "SELECT * FROM farm_products WHERE farmer_id = $1 " +
-        "ORDER BY created_at DESC",
-        [farmer_id]
+        `SELECT * FROM farm_products WHERE farmer_id = $1
+        ORDER BY created_at DESC`, [farmer_id]
       );
       res.json(result.rows);
     } catch (err) {
       console.error("Error fetching farmer products:", err);
       res.status(500).send("Internal server error");
+    }
+  });
+
+  // ✏️ Update product (price, quantity, status, etc.)
+  router.put("/:id", async (req, res) => {
+    const {id} = req.params;
+    const {product_name, quantity, unit, price, status, category} = req.body;
+
+    try {
+      const result = await pool.query(
+        `UPDATE farm_products
+         SET product_name = COALESCE($1, product_name),
+             quantity = COALESCE($2, quantity),
+             unit = COALESCE($3, unit),
+             price = COALESCE($4, price),
+             status = COALESCE($5, status),
+             category = COALESCE($6, category),
+             updated_at = NOW()
+         WHERE id = $7
+         RETURNING *`,
+        [product_name, quantity, unit, price, status, category, id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({error: "Product not found"});
+      }
+
+      return res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating product:", err);
+      return res.status(500).send("Internal server error");
+    }
+  });
+
+  // 🗑️ Delete product
+  router.delete("/:id", async (req, res) => {
+    const {id} = req.params;
+    try {
+      const result = await pool.query(
+        "DELETE FROM farm_products WHERE id = $1 RETURNING id", [id]);
+      if (result.rows.length === 0) {
+        return res.status(404).json({error: "Product not found"});
+      }
+      return res.json({message: "Product deleted", id});
+    } catch (err) {
+      console.error("Error deleting product:", err);
+      return res.status(500).send("Internal server error");
     }
   });
 

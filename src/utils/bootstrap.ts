@@ -157,6 +157,51 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     `);
 
   await pool.query(`
+    DO $$
+    BEGIN
+      -- Add category if missing
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='farm_products' AND column_name='category'
+      ) THEN
+        ALTER TABLE farm_products ADD COLUMN category VARCHAR(50);
+      END IF;
+
+      -- Add price if missing
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='farm_products' AND column_name='price'
+      ) THEN
+        ALTER TABLE farm_products ADD COLUMN price NUMERIC(12,2) DEFAULT 0;
+      END IF;
+
+      -- Add status if missing
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='farm_products' AND column_name='status'
+      ) THEN
+        ALTER TABLE farm_products ADD COLUMN status VARCHAR(20) DEFAULT 'available';
+      END IF;
+
+      -- Add created_at / updated_at timestamps if missing
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='farm_products' AND column_name='created_at'
+      ) THEN
+        ALTER TABLE farm_products ADD COLUMN created_at TIMESTAMPTZ DEFAULT NOW();
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='farm_products' AND column_name='updated_at'
+      ) THEN
+        ALTER TABLE farm_products ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
+      END IF;
+    END $$;
+  `);
+
+
+  await pool.query(`
       CREATE TABLE IF NOT EXISTS logistics (
         id SERIAL PRIMARY KEY,
         farmer_id UUID,
