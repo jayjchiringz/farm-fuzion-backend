@@ -415,48 +415,64 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
   });
 
-  // 🧾 PayBill or BuyGoods
-  router.post("/paybill", async (req, res) => {
-    const {farmer_id, destination, amount} = req.body;
+  // 🧾 Unified Payment (internal services + external merchants)
+  router.post("/payment", async (req, res) => {
+    const {farmer_id, destination, amount, service, merchant, mock} = req.body;
     const amt = Number(amount);
 
-    if (!farmer_id || !destination || isNaN(amt) || amt <= 0) {
+    if (!farmer_id || isNaN(amt) || amt <= 0) {
       res.status(400).json({error: "Invalid payment request"});
       return;
     }
 
     try {
-      const current = await db.oneOrNone(
+      // ✅ Resolve farmer
+      const payerId = await resolveFarmerId(db, farmer_id);
+
+      // ✅ Check wallet balance
+      const wallet = await db.oneOrNone(
         "SELECT balance FROM wallets WHERE farmer_id = $1",
-        [farmer_id]
+        [payerId]
       );
 
-      if (!current || Number(current.balance) < amt) {
+      if (!wallet || Number(wallet.balance) < amt) {
         res.status(400).json({error: "Insufficient funds"});
         return;
       }
 
+      // 🧩 Meta data: unify info for internal vs external
+      const meta: any = {
+        service: service || null, // e.g. "fertilizer_purchase"
+        merchant: merchant || null, // e.g. "Paybill:12345"
+        mock: !!mock,
+      };
+
+      // 🔁 Mock or live: for now always mock success
+      const result = {
+        transaction_id: `PAY-${Date.now()}`,
+        status: "completed",
+        message: mock ? "Simulated payment success" : "Payment initiated",
+      };
+
       await db.tx(async (t) => {
         await t.none(
           `INSERT INTO wallet_transactions
-            (farmer_id, type, amount, destination, direction,
-            method, status, meta)
-          VALUES ($1, 'paybill', $2, $3, 'out', 'paybill', 'completed', $4)`,
-          // eslint-disable-next-line max-len
-          [farmer_id, amt, destination, JSON.stringify({purpose: "bill payment"})]
+            (farmer_id, type, amount, destination, direction, method, status, meta)
+          VALUES ($1, 'payment', $2, $3, 'out', 'wallet', $4, $5)`,
+          [payerId, amt, destination || merchant || service || "unknown", result.status, JSON.stringify({...meta, ...result})]
         );
 
         await t.none(
           `UPDATE wallets SET balance = balance - $1, updated_at = NOW()
           WHERE farmer_id = $2`,
-          [amt, farmer_id]
+          [amt, payerId]
         );
       });
 
-      res.json({success: true});
+      res.json({success: true, transaction: result});
     } catch (err) {
-      console.error("💥 PayBill error:", err);
-      res.status(500).json({error: "PayBill failed"});
+      console.error("💥 Payment error:", err);
+      res.status(500).json({error: "Payment failed"});
     }
   });
 
