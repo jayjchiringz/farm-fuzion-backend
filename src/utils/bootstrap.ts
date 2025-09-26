@@ -197,6 +197,14 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       ) THEN
         ALTER TABLE farm_products ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
       END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='farm_products' AND column_name='spoilage_reason'
+      ) THEN
+        ALTER TABLE farm_products ADD COLUMN spoilage_reason VARCHAR(255) DEFAULT 'Pests/Disease';
+      END IF;
+
     END $$;
   `);
 

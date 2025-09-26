@@ -13,6 +13,7 @@ export const FarmProductSchema = z.object({
   status: z.enum(["available", "sold", "hidden"]).optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
+  spoilage_reason: z.string().optional(),
 });
 
 // ✅ Export type inferred from schema
