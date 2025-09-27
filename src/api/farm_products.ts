@@ -3,7 +3,15 @@ import express, {Request, Response, NextFunction} from "express";
 import {z} from "zod";
 import {initDbPool} from "../utils/db";
 import {FarmProductSchema, FarmProduct} from "../validation/farmProductSchema";
+import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
 
+// ✅ Create a registry just for farm products
+export const farmProductRegistry = new OpenAPIRegistry();
+
+// Register schema
+farmProductRegistry.register("FarmProduct", FarmProductSchema);
+
+// Middleware for validation
 const validateRequest = (schema: z.ZodSchema) => (
   req: Request,
   res: Response,
@@ -27,27 +35,30 @@ export const getFarmProductsRouter = (config: {
   const pool = initDbPool(config);
   const router = express.Router();
 
-  /**
-   * @openapi
-   * /farm-products:
-   *   post:
-   *     summary: Add a new farm product
-   *     tags:
-   *       - Farm Products
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/FarmProduct'
-   *     responses:
-   *       201:
-   *         description: Product created successfully
-   *       400:
-   *         description: Validation error
-   *       500:
-   *         description: Internal server error
-   */
+  // ==========================
+  // POST /farm-products
+  // ==========================
+  farmProductRegistry.registerPath({
+    method: "post",
+    path: "/farm-products",
+    description: "Add a new farm product",
+    request: {
+      body: {
+        content: {
+          "application/json": {schema: FarmProductSchema},
+        },
+      },
+    },
+    responses: {
+      201: {
+        description: "Product created successfully",
+        content: {"application/json": {schema: z.object({id: z.string()})}},
+      },
+      400: {description: "Validation error"},
+      500: {description: "Internal server error"},
+    },
+  });
+
   router.post(
     "/",
     validateRequest(FarmProductSchema),
@@ -93,30 +104,26 @@ export const getFarmProductsRouter = (config: {
     }
   );
 
-  /**
-   * @openapi
-   * /farm-products:
-   *   get:
-   *     summary: Get all farm products (with optional filters)
-   *     tags:
-   *       - Farm Products
-   *     parameters:
-   *       - in: query
-   *         name: category
-   *         schema:
-   *           type: string
-   *         description: Filter by category
-   *       - in: query
-   *         name: status
-   *         schema:
-   *           type: string
-   *         description: Filter by status
-   *     responses:
-   *       200:
-   *         description: List of products
-   *       500:
-   *         description: Internal server error
-   */
+  // ==========================
+  // GET /farm-products
+  // ==========================
+  farmProductRegistry.registerPath({
+    method: "get",
+    path: "/farm-products",
+    description: "Get all farm products (with optional filters)",
+    parameters: [
+      {name: "category", in: "query", schema: {type: "string"}},
+      {name: "status", in: "query", schema: {type: "string"}},
+    ],
+    responses: {
+      200: {
+        description: "List of products",
+        content: {"application/json": {schema: z.array(FarmProductSchema)}},
+      },
+      500: {description: "Internal server error"},
+    },
+  });
+
   router.get("/", async (req, res) => {
     try {
       const {category, status} = req.query;
@@ -144,27 +151,31 @@ export const getFarmProductsRouter = (config: {
     }
   });
 
-  /**
-   * @openapi
-   * /farm-products/farmer/{farmer_id}:
-   *   get:
-   *     summary: Get all products belonging to a farmer
-   *     tags:
-   *       - Farm Products
-   *     parameters:
-   *       - in: path
-   *         name: farmer_id
-   *         required: true
-   *         schema:
-   *           type: string
-   *     responses:
-   *       200:
-   *         description: List of farmer products
-   *       404:
-   *         description: Farmer not found
-   *       500:
-   *         description: Internal server error
-   */
+  // ==========================
+  // GET /farm-products/farmer/:farmer_id
+  // ==========================
+  farmProductRegistry.registerPath({
+    method: "get",
+    path: "/farm-products/farmer/{farmer_id}",
+    description: "Get all products belonging to a farmer",
+    parameters: [
+      {
+        name: "farmer_id",
+        in: "path",
+        required: true,
+        schema: {type: "string", format: "uuid"},
+      },
+    ],
+    responses: {
+      200: {
+        description: "List of farmer products",
+        content: {"application/json": {schema: z.array(FarmProductSchema)}},
+      },
+      404: {description: "Farmer not found"},
+      500: {description: "Internal server error"},
+    },
+  });
+
   router.get("/farmer/:farmer_id", async (req, res) => {
     try {
       const {farmer_id} = req.params;
@@ -180,33 +191,38 @@ export const getFarmProductsRouter = (config: {
     }
   });
 
-  /**
-   * @openapi
-   * /farm-products/{id}:
-   *   put:
-   *     summary: Update a farm product
-   *     tags:
-   *       - Farm Products
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         required: true
-   *         schema:
-   *           type: string
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/FarmProduct'
-   *     responses:
-   *       200:
-   *         description: Product updated successfully
-   *       404:
-   *         description: Product not found
-   *       500:
-   *         description: Internal server error
-   */
+  // ==========================
+  // PUT /farm-products/:id
+  // ==========================
+  farmProductRegistry.registerPath({
+    method: "put",
+    path: "/farm-products/{id}",
+    description: "Update a farm product",
+    parameters: [
+      {
+        name: "id",
+        in: "path",
+        required: true,
+        schema: {type: "string", format: "uuid"},
+      },
+    ],
+    request: {
+      body: {
+        content: {
+          "application/json": {schema: FarmProductSchema.partial()},
+        },
+      },
+    },
+    responses: {
+      200: {
+        description: "Product updated successfully",
+        content: {"application/json": {schema: FarmProductSchema}},
+      },
+      404: {description: "Product not found"},
+      500: {description: "Internal server error"},
+    },
+  });
+
   router.put("/:id", async (req, res) => {
     const {id} = req.params;
     const {product_name, quantity, unit, price, status, category} = req.body;
@@ -237,27 +253,32 @@ export const getFarmProductsRouter = (config: {
     }
   });
 
-  /**
-   * @openapi
-   * /farm-products/{id}:
-   *   delete:
-   *     summary: Delete a farm product
-   *     tags:
-   *       - Farm Products
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         required: true
-   *         schema:
-   *           type: string
-   *     responses:
-   *       200:
-   *         description: Product deleted successfully
-   *       404:
-   *         description: Product not found
-   *       500:
-   *         description: Internal server error
-   */
+  // ==========================
+  // DELETE /farm-products/:id
+  // ==========================
+  farmProductRegistry.registerPath({
+    method: "delete",
+    path: "/farm-products/{id}",
+    description: "Delete a farm product",
+    parameters: [
+      {
+        name: "id",
+        in: "path",
+        required: true,
+        schema: {type: "string", format: "uuid"},
+      },
+    ],
+    responses: {
+      200: {
+        description: "Product deleted successfully",
+        // eslint-disable-next-line max-len
+        content: {"application/json": {schema: z.object({message: z.string(), id: z.string()})}},
+      },
+      404: {description: "Product not found"},
+      500: {description: "Internal server error"},
+    },
+  });
+
   router.delete("/:id", async (req, res) => {
     const {id} = req.params;
     try {
@@ -277,38 +298,3 @@ export const getFarmProductsRouter = (config: {
 
   return router;
 };
-
-/**
- * @openapi
- * components:
- *   schemas:
- *     FarmProduct:
- *       type: object
- *       required:
- *         - farmer_id
- *         - product_name
- *         - quantity
- *         - unit
- *       properties:
- *         farmer_id:
- *           type: string
- *           format: uuid
- *         product_name:
- *           type: string
- *         quantity:
- *           type: number
- *         unit:
- *           type: string
- *         harvest_date:
- *           type: string
- *           format: date
- *         storage_location:
- *           type: string
- *         category:
- *           type: string
- *         price:
- *           type: number
- *         status:
- *           type: string
- *           enum: [available, sold, hidden]
- */
