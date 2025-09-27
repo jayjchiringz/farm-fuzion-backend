@@ -1,7 +1,7 @@
 {
   "name": "functions",
   "scripts": {
-    "generate:api": "openapi-typescript https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api/app/docs-json --output src/types/api.d.ts",
+    "generate:api": "openapi-typescript https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api/docs-json --output src/types/api.d.ts",
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
     "build:watch": "tsc --watch",
@@ -54,6 +54,7 @@
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-import": "^2.25.4",
     "firebase-functions-test": "^3.1.0",
+    "openapi-typescript": "^7.9.1",
     "typescript": "^5.8.3"
   },
   "private": true,
