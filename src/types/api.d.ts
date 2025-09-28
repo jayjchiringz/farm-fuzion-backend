@@ -25,6 +25,21 @@ export interface components {
             updated_at?: string;
             spoilage_reason?: string;
         };
+        MarketPrice: {
+            /** Format: uuid */
+            id?: string;
+            product_name: string;
+            category: string;
+            unit: string;
+            wholesale_price?: number | null;
+            retail_price?: number | null;
+            broker_price?: number | null;
+            farmgate_price?: number | null;
+            region?: string | null;
+            source?: string | null;
+            /** Format: date-time */
+            collected_at?: string | null;
+        };
     };
     responses: never;
     parameters: never;
