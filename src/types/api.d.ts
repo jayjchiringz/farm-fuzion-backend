@@ -39,6 +39,8 @@ export interface components {
             source?: string | null;
             /** Format: date-time */
             collected_at?: string | null;
+            /** @default false */
+            benchmark: boolean;
         };
     };
     responses: never;

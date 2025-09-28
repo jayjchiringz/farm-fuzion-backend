@@ -352,20 +352,30 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   await pool.query(`
-    DO $$ 
-    BEGIN
-      -- ✅ Add benchmark if missing
-      IF NOT EXISTS (
-        SELECT 1 
-        FROM information_schema.columns
-        WHERE table_name='market_prices' 
-        AND column_name='benchmark'
-      ) THEN
-        ALTER TABLE market_prices
-        ADD COLUMN benchmark BOOLEAN DEFAULT false;
-      END IF;
-    END$$;
-  `);
+      DO $$ 
+      BEGIN
+        -- ✅ Add benchmark if missing
+        IF NOT EXISTS (
+          SELECT 1 
+          FROM information_schema.columns
+          WHERE table_name='market_prices' 
+          AND column_name='benchmark'
+        ) THEN
+          ALTER TABLE market_prices
+          ADD COLUMN benchmark BOOLEAN DEFAULT false;
+        END IF;
+      END$$;
+    `);
+
+  await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS market_prices_unique_idx
+      ON market_prices(product_name, region, source);
+    `);
+
+  await pool.query(`
+      ALTER TABLE market_prices
+      ADD COLUMN IF NOT EXISTS last_synced TIMESTAMP DEFAULT NOW();
+    `);
 
   await pool.query(`
       ALTER TABLE groups
