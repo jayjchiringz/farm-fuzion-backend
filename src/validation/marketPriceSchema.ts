@@ -13,6 +13,7 @@ export const MarketPriceSchema = z.object({
   region: z.string().max(100).nullable().optional(),
   source: z.string().max(200).nullable().optional(),
   collected_at: z.string().datetime().nullable().optional(),
+  benchmark: z.boolean().default(false),
 });
 
 // ✅ Inferred TS type

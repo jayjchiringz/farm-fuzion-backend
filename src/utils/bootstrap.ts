@@ -351,6 +351,21 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+  await pool.query(`
+    DO $$ 
+    BEGIN
+      -- ✅ Add benchmark if missing
+      IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns
+        WHERE table_name='market_prices' 
+        AND column_name='benchmark'
+      ) THEN
+        ALTER TABLE market_prices
+        ADD COLUMN benchmark BOOLEAN DEFAULT false;
+      END IF;
+    END$$;
+  `);
 
   await pool.query(`
       ALTER TABLE groups

@@ -62,17 +62,19 @@ export const getMarketPricesRouter = (config: {
           region,
           source,
           collected_at,
+          benchmark,
         } = req.body;
 
         const result = await pool.query(
           `INSERT INTO market_prices 
             (product_name, category, unit, wholesale_price, retail_price,
-            broker_price, farmgate_price, region, source, collected_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            broker_price, farmgate_price, region, source,
+            collected_at, benchmark)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
             RETURNING id`,
           [product_name, category, unit, wholesale_price, retail_price,
             broker_price, farmgate_price, region, source,
-            collected_at|| new Date()]
+            collected_at|| new Date(), benchmark ?? false]
         );
 
         res.status(201).json({id: result.rows[0].id});
