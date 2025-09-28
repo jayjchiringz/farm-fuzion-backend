@@ -112,15 +112,26 @@ export const getFarmProductsRouter = (config: {
   farmProductRegistry.registerPath({
     method: "get",
     path: "/farm-products",
-    description: "Get all farm products (with optional filters)",
+    description: "Get all farm products (with optional filters + pagination)",
     parameters: [
       {name: "category", in: "query", schema: {type: "string"}},
       {name: "status", in: "query", schema: {type: "string"}},
+      {name: "page", in: "query", schema: {type: "integer", minimum: 1}},
+      {name: "limit", in: "query", schema: {type: "integer", minimum: 1}},
     ],
     responses: {
       200: {
-        description: "List of products",
-        content: {"application/json": {schema: z.array(FarmProductSchema)}},
+        description: "Paginated list of products",
+        content: {
+          "application/json": {
+            schema: z.object({
+              data: z.array(FarmProductSchema),
+              total: z.number(),
+              page: z.number(),
+              limit: z.number(),
+            }),
+          },
+        },
       },
       500: {description: "Internal server error"},
     },
@@ -129,8 +140,11 @@ export const getFarmProductsRouter = (config: {
   router.get("/", async (req, res) => {
     try {
       const {category, status} = req.query;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const offset = (page - 1) * limit;
 
-      let baseQuery = "SELECT * FROM farm_products WHERE 1=1";
+      let baseQuery = "FROM farm_products WHERE 1=1";
       const params: unknown[] = [];
 
       if (category) {
@@ -143,10 +157,25 @@ export const getFarmProductsRouter = (config: {
         baseQuery += ` AND status = $${params.length}`;
       }
 
-      baseQuery += " ORDER BY created_at DESC";
+      // ✅ Get total count
+      const countResult = await pool.query(
+        `SELECT COUNT(*) ${baseQuery}`,
+        params
+      );
+      const total = parseInt(countResult.rows[0].count, 10);
 
-      const result = await pool.query(baseQuery, params);
-      res.json(result.rows);
+      // ✅ Get paginated products
+      params.push(limit);
+      params.push(offset);
+      const result = await pool.query(
+        `SELECT * ${baseQuery}
+        ORDER BY created_at DESC
+        LIMIT $${params.length - 1}
+        OFFSET $${params.length}`,
+        params
+      );
+
+      res.json({data: result.rows, total, page, limit});
     } catch (err) {
       console.error("Error fetching products:", err);
       res.status(500).send("Internal server error");
@@ -159,7 +188,7 @@ export const getFarmProductsRouter = (config: {
   farmProductRegistry.registerPath({
     method: "get",
     path: "/farm-products/farmer/{farmer_id}",
-    description: "Get all products belonging to a farmer",
+    description: "Get all products belonging to a farmer (with pagination)",
     parameters: [
       {
         name: "farmer_id",
@@ -167,11 +196,22 @@ export const getFarmProductsRouter = (config: {
         required: true,
         schema: {type: "string", format: "uuid"},
       },
+      {name: "page", in: "query", schema: {type: "integer", minimum: 1}},
+      {name: "limit", in: "query", schema: {type: "integer", minimum: 1}},
     ],
     responses: {
       200: {
-        description: "List of farmer products",
-        content: {"application/json": {schema: z.array(FarmProductSchema)}},
+        description: "Paginated list of farmer products",
+        content: {
+          "application/json": {
+            schema: z.object({
+              data: z.array(FarmProductSchema),
+              total: z.number(),
+              page: z.number(),
+              limit: z.number(),
+            }),
+          },
+        },
       },
       404: {description: "Farmer not found"},
       500: {description: "Internal server error"},
@@ -181,12 +221,27 @@ export const getFarmProductsRouter = (config: {
   router.get("/farmer/:farmer_id", async (req, res) => {
     try {
       const {farmer_id} = req.params;
-      const result = await pool.query(
-        `SELECT * FROM farm_products WHERE farmer_id = $1
-        ORDER BY created_at DESC`,
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const offset = (page - 1) * limit;
+
+      // ✅ Count total
+      const countResult = await pool.query(
+        "SELECT COUNT(*) FROM farm_products WHERE farmer_id = $1",
         [farmer_id]
       );
-      res.json(result.rows);
+      const total = parseInt(countResult.rows[0].count, 10);
+
+      // ✅ Paginated data
+      const result = await pool.query(
+        `SELECT * FROM farm_products 
+        WHERE farmer_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3`,
+        [farmer_id, limit, offset]
+      );
+
+      res.json({data: result.rows, total, page, limit});
     } catch (err) {
       console.error("Error fetching farmer products:", err);
       res.status(500).send("Internal server error");
