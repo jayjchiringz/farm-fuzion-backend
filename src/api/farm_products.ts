@@ -3,33 +3,30 @@ import express, {Request, Response, NextFunction} from "express";
 import {z} from "zod";
 import {initDbPool} from "../utils/db";
 import {FarmProductSchema, FarmProduct} from "../validation/farmProductSchema";
-// eslint-disable-next-line max-len
-import {OpenAPIRegistry, extendZodWithOpenApi} from "@asteasolutions/zod-to-openapi";
+import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
 
-// ✅ Add this line once in your codebase (ideally in a common setup file)
-extendZodWithOpenApi(z);
-
-// ✅ Create a registry just for farm products
+// ✅ Local registry for farm products (merged later in swagger.ts)
 export const farmProductRegistry = new OpenAPIRegistry();
 
-// ✅ Register schema normally (now `.openapi` exists)
+// ✅ Register schema once per feature
 farmProductRegistry.register("FarmProduct", FarmProductSchema);
 
+// -------------------------------------
+// Middleware for request body validation
+// -------------------------------------
+const validateRequest = (schema: z.ZodSchema) =>
+  (req: Request, res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.body);
+    if (!result.success) {
+      res.status(400).json({error: result.error.errors[0].message});
+      return; // ✅ explicitly return to stop execution after sending response
+    }
+    next();
+  };
 
-// Middleware for validation
-const validateRequest = (schema: z.ZodSchema) => (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const result = schema.safeParse(req.body);
-  if (!result.success) {
-    res.status(400).json({error: result.error.errors[0].message});
-    return;
-  }
-  next();
-};
-
+// -------------------------------------
+// Router factory
+// -------------------------------------
 export const getFarmProductsRouter = (config: {
   PGUSER: string;
   PGPASS: string;
@@ -276,8 +273,11 @@ export const getFarmProductsRouter = (config: {
     responses: {
       200: {
         description: "Product deleted successfully",
-        // eslint-disable-next-line max-len
-        content: {"application/json": {schema: z.object({message: z.string(), id: z.string()})}},
+        content: {
+          "application/json": {
+            schema: z.object({message: z.string(), id: z.string()}),
+          },
+        },
       },
       404: {description: "Product not found"},
       500: {description: "Internal server error"},
