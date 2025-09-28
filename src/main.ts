@@ -44,12 +44,17 @@ export const createMainApp = (secrets: {
   const app = express();
   setupSwagger(app);
 
-  app.use(cors({
-    origin: allowedOrigins,
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  }));
+  app.use(
+    cors({
+      origin: allowedOrigins,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], // ✅ added PUT
+      allowedHeaders: ["Content-Type", "Authorization"],
+      credentials: true,
+    })
+  );
+
+  // ✅ ensure OPTIONS preflight always handled
+  app.options("*", cors());
 
   app.use((req, res, next) => {
     if (req.is("application/json")) {
