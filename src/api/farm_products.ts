@@ -3,13 +3,18 @@ import express, {Request, Response, NextFunction} from "express";
 import {z} from "zod";
 import {initDbPool} from "../utils/db";
 import {FarmProductSchema, FarmProduct} from "../validation/farmProductSchema";
-import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
+// eslint-disable-next-line max-len
+import {OpenAPIRegistry, extendZodWithOpenApi} from "@asteasolutions/zod-to-openapi";
+
+// ✅ Add this line once in your codebase (ideally in a common setup file)
+extendZodWithOpenApi(z);
 
 // ✅ Create a registry just for farm products
 export const farmProductRegistry = new OpenAPIRegistry();
 
-// Register schema
+// ✅ Register schema normally (now `.openapi` exists)
 farmProductRegistry.register("FarmProduct", FarmProductSchema);
+
 
 // Middleware for validation
 const validateRequest = (schema: z.ZodSchema) => (

@@ -1,5 +1,6 @@
 import {z} from "zod";
 
+// ✅ Farm Product Schema (no .openapi here)
 export const FarmProductSchema = z.object({
   id: z.string().uuid().optional(), // DB assigns UUID
   farmer_id: z.string().uuid(),
