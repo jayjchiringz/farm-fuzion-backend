@@ -168,7 +168,21 @@ export const getFarmProductsRouter = (config: {
       params.push(limit);
       params.push(offset);
       const result = await pool.query(
-        `SELECT * ${baseQuery}
+        `SELECT 
+          id,
+          farmer_id,
+          product_name,
+          quantity::int,
+          unit,
+          harvest_date,
+          storage_location,
+          category,
+          price::float,
+          status,
+          created_at,
+          updated_at,
+          spoilage_reason
+        ${baseQuery}
         ORDER BY created_at DESC
         LIMIT $${params.length - 1}
         OFFSET $${params.length}`,
