@@ -25,6 +25,7 @@ import {getLoanRepaymentsRouter} from "./api/loan_repayments";
 import {getDocumentTypesRouter} from "./api/document_types";
 import {getStatsRouter} from "./api/stats";
 import {getWalletRouter} from "./api/wallet";
+import {getMarketPricesRouter} from "./api/market_prices";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
@@ -115,6 +116,7 @@ export const createMainApp = (secrets: {
       return next(err);
     }
   });
+  app.use("/market-prices", (req, res, next) => getMarketPricesRouter((req as any).dbConfig)(req, res, next));
 
   return app;
 };

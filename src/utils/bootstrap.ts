@@ -334,6 +334,24 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     console.log("✅ No legacy `type` column found. Skipping migration.");
   }
 
+  // Create market_prices if doesnt exist
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS market_prices (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      product_name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      unit TEXT NOT NULL,
+      wholesale_price NUMERIC,
+      retail_price NUMERIC,
+      broker_price NUMERIC,
+      farmgate_price NUMERIC,
+      region TEXT,
+      source TEXT, -- e.g. "KNBS", "KEBS", "FAO", "Open Market API"
+      collected_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+
   await pool.query(`
       ALTER TABLE groups
         ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending',
