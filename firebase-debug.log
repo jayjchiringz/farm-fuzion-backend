@@ -1,0 +1,1184 @@
+[debug] [2025-09-29T21:18:29.380Z] ----------------------------------------------------------------------
+[debug] [2025-09-29T21:18:29.384Z] Command:       C:\nvm4w\nodejs\node.exe C:\Users\dell\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2025-09-29T21:18:29.385Z] CLI Version:   14.11.0
+[debug] [2025-09-29T21:18:29.385Z] Platform:      win32
+[debug] [2025-09-29T21:18:29.385Z] Node Version:  v22.13.1
+[debug] [2025-09-29T21:18:29.386Z] Time:          Tue Sep 30 2025 00:18:29 GMT+0300 (East Africa Time)
+[debug] [2025-09-29T21:18:29.386Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-09-29T21:18:29.770Z] Field "/functions" in "firebase.json" is possibly invalid: must be object
+[debug] [2025-09-29T21:18:29.771Z] Object "/functions/0" in "firebase.json" has unknown property: {"additionalProperty":"secretEnvironmentVariables"}
+[debug] [2025-09-29T21:18:29.771Z] Field "/functions" in "firebase.json" is possibly invalid: must match a schema in anyOf
+[debug] [2025-09-29T21:18:29.782Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-09-29T21:18:29.782Z] > authorizing via signed-in user (caxshuganda@gmail.com)
+[debug] [2025-09-29T21:18:29.783Z] [iam] checking project farm-fuzion-abdf3 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2025-09-29T21:18:29.785Z] Checked if tokens are valid: false, expires at: 1759171792058
+[debug] [2025-09-29T21:18:29.785Z] Checked if tokens are valid: false, expires at: 1759171792058
+[debug] [2025-09-29T21:18:29.786Z] > refreshing access token with scopes: []
+[debug] [2025-09-29T21:18:29.790Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-09-29T21:18:29.790Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-09-29T21:18:30.426Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-09-29T21:18:30.427Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-09-29T21:18:30.457Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions [none]
+[debug] [2025-09-29T21:18:30.457Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions x-goog-quota-user=projects/farm-fuzion-abdf3
+[debug] [2025-09-29T21:18:30.457Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-09-29T21:18:32.075Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions 200
+[debug] [2025-09-29T21:18:32.075Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-09-29T21:18:32.075Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:32.076Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:32.076Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2025-09-29T21:18:32.076Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-09-29T21:18:33.739Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2025-09-29T21:18:33.739Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/farm-fuzion-abdf3/serviceAccounts/farm-fuzion-abdf3@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'farm-fuzion-abdf3'...
+[info] 
+[info] i  deploying functions 
+[info] Running command: npm --prefix functions run build
+[info] +  functions: Finished running predeploy script. 
+[debug] [2025-09-29T21:18:46.289Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:46.289Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:46.289Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3 [none]
+[debug] [2025-09-29T21:18:47.815Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3 200
+[debug] [2025-09-29T21:18:47.815Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3 {"projectNumber":"602008321992","projectId":"farm-fuzion-abdf3","lifecycleState":"ACTIVE","name":"Farm Fuzion","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-07-03T16:51:48.510092Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2025-09-29T21:18:47.824Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:47.824Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:47.825Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/adminSdkConfig [none]
+[debug] [2025-09-29T21:18:48.726Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/adminSdkConfig 200
+[debug] [2025-09-29T21:18:48.726Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/adminSdkConfig {"projectId":"farm-fuzion-abdf3","storageBucket":"farm-fuzion-abdf3.firebasestorage.app"}
+[debug] [2025-09-29T21:18:48.726Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:48.726Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:48.727Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs [none]
+[debug] [2025-09-29T21:18:49.453Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs 200
+[debug] [2025-09-29T21:18:49.453Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs {"configs":[{"name":"projects/farm-fuzion-abdf3/configs/mail"},{"name":"projects/farm-fuzion-abdf3/configs/mpesa"},{"name":"projects/farm-fuzion-abdf3/configs/bonga"}]}
+[debug] [2025-09-29T21:18:49.453Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:49.453Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:49.453Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:49.454Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:49.454Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:49.454Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:49.454Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mail/variables [none]
+[debug] [2025-09-29T21:18:49.455Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables [none]
+[debug] [2025-09-29T21:18:49.458Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables [none]
+[debug] [2025-09-29T21:18:49.941Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mail/variables 200
+[debug] [2025-09-29T21:18:49.941Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mail/variables {"variables":[{"name":"projects/farm-fuzion-abdf3/configs/mail/variables/pass","updateTime":"2025-08-04T10:25:18.764216733Z"}]}
+[debug] [2025-09-29T21:18:49.942Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:49.942Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:49.942Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mail/variables/pass [none]
+[debug] [2025-09-29T21:18:50.050Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables 200
+[debug] [2025-09-29T21:18:50.051Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables {"variables":[{"name":"projects/farm-fuzion-abdf3/configs/mpesa/variables/passkey","updateTime":"2025-07-20T09:13:09.915293957Z"},{"name":"projects/farm-fuzion-abdf3/configs/mpesa/variables/shortcode","updateTime":"2025-07-20T09:12:59.563087392Z"},{"name":"projects/farm-fuzion-abdf3/configs/mpesa/variables/callback_url","updateTime":"2025-07-20T09:13:19.031599192Z"},{"name":"projects/farm-fuzion-abdf3/configs/mpesa/variables/consumer_key","updateTime":"2025-07-20T09:12:41.240436641Z"},{"name":"projects/farm-fuzion-abdf3/configs/mpesa/variables/consumer_secret","updateTime":"2025-07-20T09:12:50.070526749Z"}]}
+[debug] [2025-09-29T21:18:50.051Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.051Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.051Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.051Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.051Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.051Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.051Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.051Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.051Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.051Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.052Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/passkey [none]
+[debug] [2025-09-29T21:18:50.052Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/shortcode [none]
+[debug] [2025-09-29T21:18:50.055Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/callback_url [none]
+[debug] [2025-09-29T21:18:50.057Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/consumer_key [none]
+[debug] [2025-09-29T21:18:50.059Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/consumer_secret [none]
+[debug] [2025-09-29T21:18:50.206Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables 200
+[debug] [2025-09-29T21:18:50.206Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables {"variables":[{"name":"projects/farm-fuzion-abdf3/configs/bonga/variables/api_secret","updateTime":"2025-07-20T09:11:18.557582040Z"},{"name":"projects/farm-fuzion-abdf3/configs/bonga/variables/client_id","updateTime":"2025-07-20T09:11:28.965327539Z"},{"name":"projects/farm-fuzion-abdf3/configs/bonga/variables/service_id","updateTime":"2025-07-20T09:11:37.228023468Z"},{"name":"projects/farm-fuzion-abdf3/configs/bonga/variables/api_key","updateTime":"2025-07-20T09:11:09.407484281Z"}]}
+[debug] [2025-09-29T21:18:50.207Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.207Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.207Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.207Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.207Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.208Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.208Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.208Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:18:50.208Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/api_secret [none]
+[debug] [2025-09-29T21:18:50.208Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/client_id [none]
+[debug] [2025-09-29T21:18:50.211Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/service_id [none]
+[debug] [2025-09-29T21:18:50.213Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/api_key [none]
+[debug] [2025-09-29T21:18:50.263Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mail/variables/pass 200
+[debug] [2025-09-29T21:18:50.263Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mail/variables/pass {"name":"projects/farm-fuzion-abdf3/configs/mail/variables/pass","updateTime":"2025-08-04T10:25:18.764216733Z","text":"oozl awlw mfjy nxnq"}
+[debug] [2025-09-29T21:18:50.406Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/passkey 200
+[debug] [2025-09-29T21:18:50.406Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/passkey {"name":"projects/farm-fuzion-abdf3/configs/mpesa/variables/passkey","updateTime":"2025-07-20T09:13:09.915293957Z","text":"bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"}
+[debug] [2025-09-29T21:18:50.609Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/api_secret 200
+[debug] [2025-09-29T21:18:50.609Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/api_secret {"name":"projects/farm-fuzion-abdf3/configs/bonga/variables/api_secret","updateTime":"2025-07-20T09:11:18.557582040Z","text":"lNsISnTGGguKfgGtwE2c5zvJv2e1OoSP"}
+[debug] [2025-09-29T21:18:50.710Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/shortcode 200
+[debug] [2025-09-29T21:18:50.710Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/shortcode {"name":"projects/farm-fuzion-abdf3/configs/mpesa/variables/shortcode","updateTime":"2025-07-20T09:12:59.563087392Z","text":"174379"}
+[debug] [2025-09-29T21:18:50.711Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/callback_url 200
+[debug] [2025-09-29T21:18:50.711Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/callback_url {"name":"projects/farm-fuzion-abdf3/configs/mpesa/variables/callback_url","updateTime":"2025-07-20T09:13:19.031599192Z","text":"https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/mpesaCallback"}
+[debug] [2025-09-29T21:18:50.755Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/consumer_key 200
+[debug] [2025-09-29T21:18:50.755Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/consumer_key {"name":"projects/farm-fuzion-abdf3/configs/mpesa/variables/consumer_key","updateTime":"2025-07-20T09:12:41.240436641Z","text":"fpe6F7erWAsWay6KJ6q7zu3Qui02I82TPALhG81QUqiELSkB"}
+[debug] [2025-09-29T21:18:50.777Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/consumer_secret 200
+[debug] [2025-09-29T21:18:50.777Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/mpesa/variables/consumer_secret {"name":"projects/farm-fuzion-abdf3/configs/mpesa/variables/consumer_secret","updateTime":"2025-07-20T09:12:50.070526749Z","text":"By7y1OTe2zjCrkN7Qt5DxO1RwvP6vX2Cmxi4vrzbD2bBhn8HHR2ytwfsYwRZgmid"}
+[debug] [2025-09-29T21:18:50.801Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/client_id 200
+[debug] [2025-09-29T21:18:50.802Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/client_id {"name":"projects/farm-fuzion-abdf3/configs/bonga/variables/client_id","updateTime":"2025-07-20T09:11:28.965327539Z","text":"123456"}
+[debug] [2025-09-29T21:18:50.803Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/api_key 200
+[debug] [2025-09-29T21:18:50.804Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/api_key {"name":"projects/farm-fuzion-abdf3/configs/bonga/variables/api_key","updateTime":"2025-07-20T09:11:09.407484281Z","text":"yFU5LWq38JcyU+/ioD6fWIfhDSKDRvHOw/hhIngM968="}
+[debug] [2025-09-29T21:18:50.841Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/service_id 200
+[debug] [2025-09-29T21:18:50.841Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/farm-fuzion-abdf3/configs/bonga/variables/service_id {"name":"projects/farm-fuzion-abdf3/configs/bonga/variables/service_id","updateTime":"2025-07-20T09:11:37.228023468Z","text":"1"}
+[debug] [2025-09-29T21:18:50.844Z] Validating nodejs source
+[debug] [2025-09-29T21:18:53.432Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "generate:api": "openapi-typescript https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api/docs-json --output src/types/api.d.ts",
+    "lint": "eslint --ext .js,.ts .",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^6.2.0",
+    "@google-cloud/storage": "^6.12.0",
+    "@types/joi": "^17.2.2",
+    "axios": "^1.11.0",
+    "busboy": "^1.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.18.2",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "^6.4.0",
+    "joi": "^17.13.3",
+    "multer": "^2.0.1",
+    "nodemailer": "^7.0.3",
+    "papaparse": "^5.5.3",
+    "pg": "^8.16.0",
+    "pg-promise": "^11.15.0",
+    "raw-body": "^3.0.0",
+    "swagger-ui-express": "^5.0.1",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/axios": "^0.9.36",
+    "@types/busboy": "^1.5.4",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.0.14",
+    "@types/nodemailer": "^6.4.17",
+    "@types/papaparse": "^5.3.16",
+    "@types/pg": "^8.15.1",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.12.0",
+    "@typescript-eslint/parser": "^5.12.0",
+    "eslint": "^8.9.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-import": "^2.25.4",
+    "firebase-functions-test": "^3.1.0",
+    "openapi-typescript": "^7.9.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  },
+  "private": true,
+  "firebase": {
+    "functions": {
+      "predeploy": [
+        "npm run build"
+      ]
+    }
+  },
+  "overrides": {
+    "@google-cloud/storage": "^6.12.0"
+  }
+}
+[debug] [2025-09-29T21:18:53.433Z] Building nodejs source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[debug] [2025-09-29T21:18:53.436Z] Could not find functions.yaml. Must use http discovery
+[debug] [2025-09-29T21:18:53.459Z] Found firebase-functions binary at 'C:\Users\dell\OneDrive\Projects\Farm_Fuzion\FarmFuzion_Firebase_MVP_Starter\functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8135
+
+[debug] [2025-09-29T21:18:55.960Z] Got response from /__/functions.yaml {"endpoints":{"api":{"availableMemoryMb":1024,"timeoutSeconds":300,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","secretEnvironmentVariables":[{"key":"PGUSER"},{"key":"PGPASS"},{"key":"PGHOST"},{"key":"PGDB"},{"key":"PGPORT"},{"key":"MAIL_USER"},{"key":"MAIL_PASS"},{"key":"MSIMBO_MERCHANT_ID"},{"key":"MSIMBO_SECRET_KEY"},{"key":"MSIMBO_PUBLIC_ID"}],"labels":{},"httpsTrigger":{},"entryPoint":"api"},"registerWithDocs":{"availableMemoryMb":1024,"timeoutSeconds":300,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","secretEnvironmentVariables":[{"key":"PGUSER"},{"key":"PGPASS"},{"key":"PGHOST"},{"key":"PGDB"},{"key":"PGPORT"},{"key":"MAIL_USER"},{"key":"MAIL_PASS"},{"key":"MSIMBO_MERCHANT_ID"},{"key":"MSIMBO_SECRET_KEY"},{"key":"MSIMBO_PUBLIC_ID"}],"labels":{},"httpsTrigger":{},"entryPoint":"registerWithDocs"},"getRoles":{"availableMemoryMb":512,"timeoutSeconds":60,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","secretEnvironmentVariables":[{"key":"PGUSER"},{"key":"PGPASS"},{"key":"PGHOST"},{"key":"PGDB"},{"key":"PGPORT"}],"labels":{},"httpsTrigger":{},"entryPoint":"getRoles"},"updateRole":{"availableMemoryMb":512,"timeoutSeconds":60,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","secretEnvironmentVariables":[{"key":"PGUSER"},{"key":"PGPASS"},{"key":"PGHOST"},{"key":"PGDB"},{"key":"PGPORT"}],"labels":{},"httpsTrigger":{},"entryPoint":"updateRole"},"deleteRole":{"availableMemoryMb":512,"timeoutSeconds":60,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","secretEnvironmentVariables":[{"key":"PGUSER"},{"key":"PGPASS"},{"key":"PGHOST"},{"key":"PGDB"},{"key":"PGPORT"}],"labels":{},"httpsTrigger":{},"entryPoint":"deleteRole"},"createRole":{"availableMemoryMb":512,"timeoutSeconds":60,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","secretEnvironmentVariables":[{"key":"PGUSER"},{"key":"PGPASS"},{"key":"PGHOST"},{"key":"PGDB"},{"key":"PGPORT"}],"labels":{},"httpsTrigger":{},"entryPoint":"createRole"}},"specVersion":"v1alpha1","requiredAPIs":[],"extensions":{},"params":[{"type":"secret","name":"MAIL_USER"},{"type":"secret","name":"MAIL_PASS"},{"type":"secret","name":"MSIMBO_MERCHANT_ID"},{"type":"secret","name":"MSIMBO_SECRET_KEY"},{"type":"secret","name":"MSIMBO_PUBLIC_ID"},{"type":"secret","name":"PGUSER"},{"type":"secret","name":"PGPASS"},{"type":"secret","name":"PGHOST"},{"type":"secret","name":"PGDB"},{"type":"secret","name":"PGPORT"}]}
+[info] i  extensions: ensuring required API firebaseextensions.googleapis.com is enabled... 
+[debug] [2025-09-29T21:19:00.039Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-09-29T21:19:00.039Z] > authorizing via signed-in user (caxshuganda@gmail.com)
+[debug] [2025-09-29T21:19:00.039Z] [iam] checking project farm-fuzion-abdf3 for permissions ["firebase.projects.get","firebaseextensions.instances.list"]
+[debug] [2025-09-29T21:19:00.039Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:00.039Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:00.039Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions [none]
+[debug] [2025-09-29T21:19:00.040Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions x-goog-quota-user=projects/farm-fuzion-abdf3
+[debug] [2025-09-29T21:19:00.040Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions {"permissions":["firebase.projects.get","firebaseextensions.instances.list"]}
+[debug] [2025-09-29T21:19:01.606Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions 200
+[debug] [2025-09-29T21:19:01.606Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3:testIamPermissions {"permissions":["firebase.projects.get","firebaseextensions.instances.list"]}
+[debug] [2025-09-29T21:19:01.607Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:01.607Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:01.607Z] >>> [apiv2][query] GET https://firebaseextensions.googleapis.com/v1beta/projects/farm-fuzion-abdf3/instances pageSize=100&pageToken=
+[debug] [2025-09-29T21:19:03.433Z] <<< [apiv2][status] GET https://firebaseextensions.googleapis.com/v1beta/projects/farm-fuzion-abdf3/instances 200
+[debug] [2025-09-29T21:19:03.434Z] <<< [apiv2][body] GET https://firebaseextensions.googleapis.com/v1beta/projects/farm-fuzion-abdf3/instances {}
+[info] i  functions: Loaded environment variables from .env. 
+[debug] [2025-09-29T21:19:03.439Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:03.439Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:03.439Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_USER [none]
+[debug] [2025-09-29T21:19:04.695Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_USER 200
+[debug] [2025-09-29T21:19:04.695Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_USER {"name":"projects/602008321992/secrets/MAIL_USER","replication":{"automatic":{}},"createTime":"2025-07-07T09:40:51.501873Z","labels":{"firebase-managed":"functions"},"etag":"\"163953a3c1a8b3\""}
+[debug] [2025-09-29T21:19:04.696Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:04.696Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:04.696Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_USER/versions/latest [none]
+[debug] [2025-09-29T21:19:05.294Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_USER/versions/latest 200
+[debug] [2025-09-29T21:19:05.294Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_USER/versions/latest {"name":"projects/602008321992/secrets/MAIL_USER/versions/1","createTime":"2025-07-07T09:40:56.858841Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163953a400f4d9\""}
+[debug] [2025-09-29T21:19:05.295Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:05.295Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:05.295Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_PASS [none]
+[debug] [2025-09-29T21:19:05.753Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_PASS 200
+[debug] [2025-09-29T21:19:05.753Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_PASS {"name":"projects/602008321992/secrets/MAIL_PASS","replication":{"automatic":{}},"createTime":"2025-07-07T09:41:19.532622Z","labels":{"firebase-managed":"functions"},"etag":"\"163953a578cfaa\""}
+[debug] [2025-09-29T21:19:05.753Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:05.753Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:05.753Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_PASS/versions/latest [none]
+[debug] [2025-09-29T21:19:06.350Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_PASS/versions/latest 200
+[debug] [2025-09-29T21:19:06.350Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_PASS/versions/latest {"name":"projects/602008321992/secrets/MAIL_PASS/versions/4","createTime":"2025-08-04T10:19:49.699702Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163b87729bc876\""}
+[debug] [2025-09-29T21:19:06.351Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:06.351Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:06.351Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_MERCHANT_ID [none]
+[debug] [2025-09-29T21:19:07.304Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_MERCHANT_ID 200
+[debug] [2025-09-29T21:19:07.304Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_MERCHANT_ID {"name":"projects/602008321992/secrets/MSIMBO_MERCHANT_ID","replication":{"automatic":{}},"createTime":"2025-09-14T12:37:11.799776Z","labels":{"firebase-managed":"functions"},"etag":"\"163ec22572034d\""}
+[debug] [2025-09-29T21:19:07.305Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:07.305Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:07.305Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_MERCHANT_ID/versions/latest [none]
+[debug] [2025-09-29T21:19:07.836Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_MERCHANT_ID/versions/latest 200
+[debug] [2025-09-29T21:19:07.836Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_MERCHANT_ID/versions/latest {"name":"projects/602008321992/secrets/MSIMBO_MERCHANT_ID/versions/1","createTime":"2025-09-14T12:37:24.671310Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163ec22623074e\""}
+[debug] [2025-09-29T21:19:07.837Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:07.837Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:07.837Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_SECRET_KEY [none]
+[debug] [2025-09-29T21:19:08.226Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_SECRET_KEY 200
+[debug] [2025-09-29T21:19:08.226Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_SECRET_KEY {"name":"projects/602008321992/secrets/MSIMBO_SECRET_KEY","replication":{"automatic":{}},"createTime":"2025-09-14T12:37:43.455312Z","labels":{"firebase-managed":"functions"},"etag":"\"163ec2275fb738\""}
+[debug] [2025-09-29T21:19:08.226Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:08.226Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:08.227Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_SECRET_KEY/versions/latest [none]
+[debug] [2025-09-29T21:19:08.570Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_SECRET_KEY/versions/latest 200
+[debug] [2025-09-29T21:19:08.570Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_SECRET_KEY/versions/latest {"name":"projects/602008321992/secrets/MSIMBO_SECRET_KEY/versions/2","createTime":"2025-09-14T12:38:31.955047Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163ec22a25b267\""}
+[debug] [2025-09-29T21:19:08.570Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:08.570Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:08.570Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_PUBLIC_ID [none]
+[debug] [2025-09-29T21:19:09.024Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_PUBLIC_ID 200
+[debug] [2025-09-29T21:19:09.024Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_PUBLIC_ID {"name":"projects/602008321992/secrets/MSIMBO_PUBLIC_ID","replication":{"automatic":{}},"createTime":"2025-09-14T12:36:25.034166Z","labels":{"firebase-managed":"functions"},"etag":"\"163ec222b9eb3c\""}
+[debug] [2025-09-29T21:19:09.024Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:09.024Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:09.024Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_PUBLIC_ID/versions/latest [none]
+[debug] [2025-09-29T21:19:09.516Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_PUBLIC_ID/versions/latest 200
+[debug] [2025-09-29T21:19:09.517Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_PUBLIC_ID/versions/latest {"name":"projects/602008321992/secrets/MSIMBO_PUBLIC_ID/versions/1","createTime":"2025-09-14T12:36:44.967397Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163ec223c531e5\""}
+[info] i  functions: preparing functions directory for uploading... 
+[info] i  functions: packaged C:\Users\dell\OneDrive\Projects\Farm_Fuzion\FarmFuzion_Firebase_MVP_Starter\functions (412.48 KB) for uploading 
+[debug] [2025-09-29T21:19:10.192Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:10.192Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:10.192Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/farm-fuzion-abdf3/locations/-/functions [none]
+[debug] [2025-09-29T21:19:11.337Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/farm-fuzion-abdf3/locations/-/functions 200
+[debug] [2025-09-29T21:19:11.338Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/farm-fuzion-abdf3/locations/-/functions {}
+[debug] [2025-09-29T21:19:11.338Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:11.338Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:11.339Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/-/functions filter=environment%3D%22GEN_2%22
+[debug] [2025-09-29T21:19:12.457Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/-/functions 200
+[debug] [2025-09-29T21:19:12.457Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/-/functions {"functions":[{"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole","buildConfig":{"build":"projects/602008321992/locations/us-central1/builds/6b604bf8-f0fe-4f24-9302-3a5011a99850","runtime":"nodejs22","entryPoint":"deleteRole","source":{"storageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"deleteRole/function-source.zip","generation":"1759168342948316"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/farm-fuzion-abdf3/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"deleteRole/function-source.zip","generation":"1759168342948316"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/farm-fuzion-abdf3/serviceAccounts/602008321992-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/farm-fuzion-abdf3/locations/us-central1/services/deleterole","timeoutSeconds":60,"environmentVariables":{"FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/deleteRole","FUNCTION_TARGET":"deleteRole","LOG_EXECUTION_ID":"true","FUNCTION_SIGNATURE_TYPE":"http"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://deleterole-ugbghpzhpa-uc.a.run.app","serviceAccountEmail":"602008321992-compute@developer.gserviceaccount.com","availableMemory":"512Mi","allTrafficOnLatestRevision":true,"secretEnvironmentVariables":[{"key":"PGUSER","projectId":"farm-fuzion-abdf3","secret":"PGUSER","version":"2"},{"key":"PGPASS","projectId":"farm-fuzion-abdf3","secret":"PGPASS","version":"2"},{"key":"PGHOST","projectId":"farm-fuzion-abdf3","secret":"PGHOST","version":"2"},{"key":"PGDB","projectId":"farm-fuzion-abdf3","secret":"PGDB","version":"2"},{"key":"PGPORT","projectId":"farm-fuzion-abdf3","secret":"PGPORT","version":"2"}],"revision":"deleterole-00056-xed","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-09-29T17:52:30.653859873Z","labels":{"firebase-functions-hash":"895e7a40d26bc663f6ae7e679959d1f867b14308","deployment-tool":"cli-firebase"},"environment":"GEN_2","url":"https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/deleteRole","createTime":"2025-07-22T21:12:23.360328447Z","satisfiesPzi":true},{"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs","buildConfig":{"build":"projects/602008321992/locations/us-central1/builds/1404bdd4-fbe3-43b2-8f3e-c6f3b715d675","runtime":"nodejs22","entryPoint":"registerWithDocs","source":{"storageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"registerWithDocs/function-source.zip","generation":"1759168330147294"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/farm-fuzion-abdf3/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"registerWithDocs/function-source.zip","generation":"1759168330147294"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/farm-fuzion-abdf3/serviceAccounts/602008321992-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/farm-fuzion-abdf3/locations/us-central1/services/registerwithdocs","timeoutSeconds":300,"environmentVariables":{"FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/registerWithDocs","FUNCTION_TARGET":"registerWithDocs","LOG_EXECUTION_ID":"true","FUNCTION_SIGNATURE_TYPE":"http"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://registerwithdocs-ugbghpzhpa-uc.a.run.app","serviceAccountEmail":"602008321992-compute@developer.gserviceaccount.com","availableMemory":"1024Mi","allTrafficOnLatestRevision":true,"secretEnvironmentVariables":[{"key":"PGUSER","projectId":"farm-fuzion-abdf3","secret":"PGUSER","version":"2"},{"key":"PGPASS","projectId":"farm-fuzion-abdf3","secret":"PGPASS","version":"2"},{"key":"PGHOST","projectId":"farm-fuzion-abdf3","secret":"PGHOST","version":"2"},{"key":"PGDB","projectId":"farm-fuzion-abdf3","secret":"PGDB","version":"2"},{"key":"PGPORT","projectId":"farm-fuzion-abdf3","secret":"PGPORT","version":"2"},{"key":"MAIL_USER","projectId":"farm-fuzion-abdf3","secret":"MAIL_USER","version":"1"},{"key":"MAIL_PASS","projectId":"farm-fuzion-abdf3","secret":"MAIL_PASS","version":"4"},{"key":"MSIMBO_MERCHANT_ID","projectId":"farm-fuzion-abdf3","secret":"MSIMBO_MERCHANT_ID","version":"1"},{"key":"MSIMBO_SECRET_KEY","projectId":"farm-fuzion-abdf3","secret":"MSIMBO_SECRET_KEY","version":"2"},{"key":"MSIMBO_PUBLIC_ID","projectId":"farm-fuzion-abdf3","secret":"MSIMBO_PUBLIC_ID","version":"1"}],"revision":"registerwithdocs-00112-laf","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-09-29T17:52:22.939715305Z","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"7c44bb616af8ae3de993aa5cc3cb3458c55124c7"},"environment":"GEN_2","url":"https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/registerWithDocs","createTime":"2025-07-16T14:16:20.833069257Z","satisfiesPzi":true},{"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole","buildConfig":{"build":"projects/602008321992/locations/us-central1/builds/6b604bf8-f0fe-4f24-9302-3a5011a99850","runtime":"nodejs22","entryPoint":"updateRole","source":{"storageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"updateRole/function-source.zip","generation":"1759168342666206"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/farm-fuzion-abdf3/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"updateRole/function-source.zip","generation":"1759168342666206"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/farm-fuzion-abdf3/serviceAccounts/602008321992-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/farm-fuzion-abdf3/locations/us-central1/services/updaterole","timeoutSeconds":60,"environmentVariables":{"FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/updateRole","FUNCTION_TARGET":"updateRole","LOG_EXECUTION_ID":"true","FUNCTION_SIGNATURE_TYPE":"http"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://updaterole-ugbghpzhpa-uc.a.run.app","serviceAccountEmail":"602008321992-compute@developer.gserviceaccount.com","availableMemory":"512Mi","allTrafficOnLatestRevision":true,"secretEnvironmentVariables":[{"key":"PGUSER","projectId":"farm-fuzion-abdf3","secret":"PGUSER","version":"2"},{"key":"PGPASS","projectId":"farm-fuzion-abdf3","secret":"PGPASS","version":"2"},{"key":"PGHOST","projectId":"farm-fuzion-abdf3","secret":"PGHOST","version":"2"},{"key":"PGDB","projectId":"farm-fuzion-abdf3","secret":"PGDB","version":"2"},{"key":"PGPORT","projectId":"farm-fuzion-abdf3","secret":"PGPORT","version":"2"}],"revision":"updaterole-00056-now","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-09-29T17:52:30.941995497Z","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"895e7a40d26bc663f6ae7e679959d1f867b14308"},"environment":"GEN_2","url":"https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/updateRole","createTime":"2025-07-22T21:12:23.190329762Z","satisfiesPzi":true},{"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/api","buildConfig":{"build":"projects/602008321992/locations/us-central1/builds/1404bdd4-fbe3-43b2-8f3e-c6f3b715d675","runtime":"nodejs22","entryPoint":"api","source":{"storageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"api/function-source.zip","generation":"1759168265187610"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/farm-fuzion-abdf3/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"api/function-source.zip","generation":"1759168265187610"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/farm-fuzion-abdf3/serviceAccounts/602008321992-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/farm-fuzion-abdf3/locations/us-central1/services/api","timeoutSeconds":300,"environmentVariables":{"FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/api","FUNCTION_TARGET":"api","LOG_EXECUTION_ID":"true"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://api-ugbghpzhpa-uc.a.run.app","serviceAccountEmail":"602008321992-compute@developer.gserviceaccount.com","availableMemory":"1024Mi","allTrafficOnLatestRevision":true,"secretEnvironmentVariables":[{"key":"PGUSER","projectId":"farm-fuzion-abdf3","secret":"PGUSER","version":"2"},{"key":"PGPASS","projectId":"farm-fuzion-abdf3","secret":"PGPASS","version":"2"},{"key":"PGHOST","projectId":"farm-fuzion-abdf3","secret":"PGHOST","version":"2"},{"key":"PGDB","projectId":"farm-fuzion-abdf3","secret":"PGDB","version":"2"},{"key":"PGPORT","projectId":"farm-fuzion-abdf3","secret":"PGPORT","version":"2"},{"key":"MAIL_USER","projectId":"farm-fuzion-abdf3","secret":"MAIL_USER","version":"1"},{"key":"MAIL_PASS","projectId":"farm-fuzion-abdf3","secret":"MAIL_PASS","version":"4"},{"key":"MSIMBO_MERCHANT_ID","projectId":"farm-fuzion-abdf3","secret":"MSIMBO_MERCHANT_ID","version":"1"},{"key":"MSIMBO_SECRET_KEY","projectId":"farm-fuzion-abdf3","secret":"MSIMBO_SECRET_KEY","version":"2"},{"key":"MSIMBO_PUBLIC_ID","projectId":"farm-fuzion-abdf3","secret":"MSIMBO_PUBLIC_ID","version":"1"}],"revision":"api-00167-biq","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-09-29T17:52:23.029153990Z","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"7c44bb616af8ae3de993aa5cc3cb3458c55124c7"},"environment":"GEN_2","url":"https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api","createTime":"2025-07-03T21:32:42.189278699Z","satisfiesPzi":true},{"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles","buildConfig":{"build":"projects/602008321992/locations/us-central1/builds/6b604bf8-f0fe-4f24-9302-3a5011a99850","runtime":"nodejs22","entryPoint":"getRoles","source":{"storageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"getRoles/function-source.zip","generation":"1759168265551951"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/farm-fuzion-abdf3/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"getRoles/function-source.zip","generation":"1759168265551951"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/farm-fuzion-abdf3/serviceAccounts/602008321992-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/farm-fuzion-abdf3/locations/us-central1/services/getroles","timeoutSeconds":60,"environmentVariables":{"FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/getRoles","FUNCTION_TARGET":"getRoles","LOG_EXECUTION_ID":"true"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://getroles-ugbghpzhpa-uc.a.run.app","serviceAccountEmail":"602008321992-compute@developer.gserviceaccount.com","availableMemory":"512Mi","allTrafficOnLatestRevision":true,"secretEnvironmentVariables":[{"key":"PGUSER","projectId":"farm-fuzion-abdf3","secret":"PGUSER","version":"2"},{"key":"PGPASS","projectId":"farm-fuzion-abdf3","secret":"PGPASS","version":"2"},{"key":"PGHOST","projectId":"farm-fuzion-abdf3","secret":"PGHOST","version":"2"},{"key":"PGDB","projectId":"farm-fuzion-abdf3","secret":"PGDB","version":"2"},{"key":"PGPORT","projectId":"farm-fuzion-abdf3","secret":"PGPORT","version":"2"}],"revision":"getroles-00056-xax","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-09-29T17:52:23.974770880Z","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"895e7a40d26bc663f6ae7e679959d1f867b14308"},"environment":"GEN_2","url":"https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/getRoles","createTime":"2025-07-22T21:11:17.090344874Z","satisfiesPzi":true},{"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole","buildConfig":{"build":"projects/602008321992/locations/us-central1/builds/6b604bf8-f0fe-4f24-9302-3a5011a99850","runtime":"nodejs22","entryPoint":"createRole","source":{"storageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"createRole/function-source.zip","generation":"1759168342949838"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/farm-fuzion-abdf3/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-602008321992-us-central1","object":"createRole/function-source.zip","generation":"1759168342949838"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/farm-fuzion-abdf3/serviceAccounts/602008321992-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/farm-fuzion-abdf3/locations/us-central1/services/createrole","timeoutSeconds":60,"environmentVariables":{"FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/createRole","FUNCTION_TARGET":"createRole","LOG_EXECUTION_ID":"true","FUNCTION_SIGNATURE_TYPE":"http"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://createrole-ugbghpzhpa-uc.a.run.app","serviceAccountEmail":"602008321992-compute@developer.gserviceaccount.com","availableMemory":"512Mi","allTrafficOnLatestRevision":true,"secretEnvironmentVariables":[{"key":"PGUSER","projectId":"farm-fuzion-abdf3","secret":"PGUSER","version":"2"},{"key":"PGPASS","projectId":"farm-fuzion-abdf3","secret":"PGPASS","version":"2"},{"key":"PGHOST","projectId":"farm-fuzion-abdf3","secret":"PGHOST","version":"2"},{"key":"PGDB","projectId":"farm-fuzion-abdf3","secret":"PGDB","version":"2"},{"key":"PGPORT","projectId":"farm-fuzion-abdf3","secret":"PGPORT","version":"2"}],"revision":"createrole-00056-poj","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-09-29T17:52:30.269439426Z","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"895e7a40d26bc663f6ae7e679959d1f867b14308"},"environment":"GEN_2","url":"https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/createRole","createTime":"2025-07-22T21:12:22.867221403Z","satisfiesPzi":true}]}
+[info] i  functions: ensuring required API run.googleapis.com is enabled... 
+[info] i  functions: ensuring required API eventarc.googleapis.com is enabled... 
+[info] i  functions: ensuring required API pubsub.googleapis.com is enabled... 
+[info] i  functions: ensuring required API storage.googleapis.com is enabled... 
+[info] i  functions: generating the service identity for pubsub.googleapis.com... 
+[debug] [2025-09-29T21:19:12.467Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:12.467Z] Checked if tokens are valid: true, expires at: 1759184309427
+[info] i  functions: generating the service identity for eventarc.googleapis.com... 
+[debug] [2025-09-29T21:19:12.468Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:12.468Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:12.469Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1beta1/projects/602008321992/services/pubsub.googleapis.com:generateServiceIdentity [none]
+[debug] [2025-09-29T21:19:12.469Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1beta1/projects/602008321992/services/pubsub.googleapis.com:generateServiceIdentity x-goog-quota-user=projects/602008321992
+[debug] [2025-09-29T21:19:12.469Z] >>> [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/602008321992/services/pubsub.googleapis.com:generateServiceIdentity {}
+[debug] [2025-09-29T21:19:12.470Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1beta1/projects/602008321992/services/eventarc.googleapis.com:generateServiceIdentity [none]
+[debug] [2025-09-29T21:19:12.471Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1beta1/projects/602008321992/services/eventarc.googleapis.com:generateServiceIdentity x-goog-quota-user=projects/602008321992
+[debug] [2025-09-29T21:19:12.471Z] >>> [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/602008321992/services/eventarc.googleapis.com:generateServiceIdentity {}
+[debug] [2025-09-29T21:19:14.395Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1beta1/projects/602008321992/services/eventarc.googleapis.com:generateServiceIdentity 200
+[debug] [2025-09-29T21:19:14.395Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/602008321992/services/eventarc.googleapis.com:generateServiceIdentity {"name":"operations/finished.DONE_OPERATION","done":true,"response":{"@type":"type.googleapis.com/google.api.serviceusage.v1beta1.ServiceIdentity","email":"service-602008321992@gcp-sa-eventarc.iam.gserviceaccount.com","uniqueId":"103240170946236341683"}}
+[debug] [2025-09-29T21:19:14.411Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1beta1/projects/602008321992/services/pubsub.googleapis.com:generateServiceIdentity 200
+[debug] [2025-09-29T21:19:14.411Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/602008321992/services/pubsub.googleapis.com:generateServiceIdentity {"name":"operations/finished.DONE_OPERATION","done":true,"response":{"@type":"type.googleapis.com/google.api.serviceusage.v1beta1.ServiceIdentity","email":"service-602008321992@gcp-sa-pubsub.iam.gserviceaccount.com","uniqueId":"108984000962260841912"}}
+[info] i  functions: ensuring required API secretmanager.googleapis.com is enabled... 
+[debug] [2025-09-29T21:19:14.416Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.416Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.416Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.416Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.417Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:14.418Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGUSER/versions/latest [none]
+[debug] [2025-09-29T21:19:14.418Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGPASS/versions/latest [none]
+[debug] [2025-09-29T21:19:14.420Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGHOST/versions/latest [none]
+[debug] [2025-09-29T21:19:14.422Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGDB/versions/latest [none]
+[debug] [2025-09-29T21:19:14.425Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGPORT/versions/latest [none]
+[debug] [2025-09-29T21:19:14.429Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_USER/versions/latest [none]
+[debug] [2025-09-29T21:19:14.431Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_PASS/versions/latest [none]
+[debug] [2025-09-29T21:19:14.433Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_MERCHANT_ID/versions/latest [none]
+[debug] [2025-09-29T21:19:14.434Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_SECRET_KEY/versions/latest [none]
+[debug] [2025-09-29T21:19:14.436Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_PUBLIC_ID/versions/latest [none]
+[debug] [2025-09-29T21:19:14.838Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGUSER/versions/latest 200
+[debug] [2025-09-29T21:19:14.838Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGUSER/versions/latest {"name":"projects/602008321992/secrets/PGUSER/versions/2","createTime":"2025-07-07T10:02:06.928078Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163953efb4acce\""}
+[debug] [2025-09-29T21:19:14.839Z] Resolved secret version of PGUSER to 2.
+[debug] [2025-09-29T21:19:15.245Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGPASS/versions/latest 200
+[debug] [2025-09-29T21:19:15.245Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGPASS/versions/latest {"name":"projects/602008321992/secrets/PGPASS/versions/2","createTime":"2025-07-07T10:09:23.293858Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"16395409b716a2\""}
+[debug] [2025-09-29T21:19:15.245Z] Resolved secret version of PGPASS to 2.
+[debug] [2025-09-29T21:19:15.272Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGDB/versions/latest 200
+[debug] [2025-09-29T21:19:15.272Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGDB/versions/latest {"name":"projects/602008321992/secrets/PGDB/versions/2","createTime":"2025-07-07T11:07:26.072548Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163954d94e12e4\""}
+[debug] [2025-09-29T21:19:15.272Z] Resolved secret version of PGDB to 2.
+[debug] [2025-09-29T21:19:15.290Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_PASS/versions/latest 200
+[debug] [2025-09-29T21:19:15.290Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_PASS/versions/latest {"name":"projects/602008321992/secrets/MAIL_PASS/versions/4","createTime":"2025-08-04T10:19:49.699702Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163b87729bc876\""}
+[debug] [2025-09-29T21:19:15.291Z] Resolved secret version of MAIL_PASS to 4.
+[debug] [2025-09-29T21:19:15.322Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGHOST/versions/latest 200
+[debug] [2025-09-29T21:19:15.322Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGHOST/versions/latest {"name":"projects/602008321992/secrets/PGHOST/versions/2","createTime":"2025-07-07T11:05:28.343305Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163954d249ab09\""}
+[debug] [2025-09-29T21:19:15.322Z] Resolved secret version of PGHOST to 2.
+[debug] [2025-09-29T21:19:15.359Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_USER/versions/latest 200
+[debug] [2025-09-29T21:19:15.360Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MAIL_USER/versions/latest {"name":"projects/602008321992/secrets/MAIL_USER/versions/1","createTime":"2025-07-07T09:40:56.858841Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163953a400f4d9\""}
+[debug] [2025-09-29T21:19:15.360Z] Resolved secret version of MAIL_USER to 1.
+[debug] [2025-09-29T21:19:15.379Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_SECRET_KEY/versions/latest 200
+[debug] [2025-09-29T21:19:15.379Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_SECRET_KEY/versions/latest {"name":"projects/602008321992/secrets/MSIMBO_SECRET_KEY/versions/2","createTime":"2025-09-14T12:38:31.955047Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163ec22a25b267\""}
+[debug] [2025-09-29T21:19:15.379Z] Resolved secret version of MSIMBO_SECRET_KEY to 2.
+[debug] [2025-09-29T21:19:15.430Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGPORT/versions/latest 200
+[debug] [2025-09-29T21:19:15.431Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/PGPORT/versions/latest {"name":"projects/602008321992/secrets/PGPORT/versions/2","createTime":"2025-07-07T20:45:00.206538Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"16395ceada31ca\""}
+[debug] [2025-09-29T21:19:15.431Z] Resolved secret version of PGPORT to 2.
+[debug] [2025-09-29T21:19:15.452Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_PUBLIC_ID/versions/latest 200
+[debug] [2025-09-29T21:19:15.453Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_PUBLIC_ID/versions/latest {"name":"projects/602008321992/secrets/MSIMBO_PUBLIC_ID/versions/1","createTime":"2025-09-14T12:36:44.967397Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163ec223c531e5\""}
+[debug] [2025-09-29T21:19:15.453Z] Resolved secret version of MSIMBO_PUBLIC_ID to 1.
+[debug] [2025-09-29T21:19:15.495Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_MERCHANT_ID/versions/latest 200
+[debug] [2025-09-29T21:19:15.495Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/farm-fuzion-abdf3/secrets/MSIMBO_MERCHANT_ID/versions/latest {"name":"projects/602008321992/secrets/MSIMBO_MERCHANT_ID/versions/1","createTime":"2025-09-14T12:37:24.671310Z","state":"ENABLED","replicationStatus":{"automatic":{}},"etag":"\"163ec22623074e\""}
+[debug] [2025-09-29T21:19:15.495Z] Resolved secret version of MSIMBO_MERCHANT_ID to 1.
+[debug] [2025-09-29T21:19:15.497Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:15.497Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:15.497Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3 [none]
+[debug] [2025-09-29T21:19:17.054Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3 200
+[debug] [2025-09-29T21:19:17.054Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/farm-fuzion-abdf3 {"projectNumber":"602008321992","projectId":"farm-fuzion-abdf3","lifecycleState":"ACTIVE","name":"Farm Fuzion","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-07-03T16:51:48.510092Z"}
+[debug] [2025-09-29T21:19:17.055Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:17.055Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:17.055Z] >>> [apiv2][query] GET https://compute.googleapis.com/compute/v1/projects/602008321992 [none]
+[debug] [2025-09-29T21:19:17.683Z] <<< [apiv2][status] GET https://compute.googleapis.com/compute/v1/projects/602008321992 403
+[debug] [2025-09-29T21:19:17.683Z] <<< [apiv2][body] GET https://compute.googleapis.com/compute/v1/projects/602008321992 {"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"serviceTitle":"Compute Engine API","containerInfo":"602008321992","consumer":"projects/602008321992","activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992","service":"compute.googleapis.com"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}}
+[debug] [2025-09-29T21:19:17.683Z] unable to look up default compute service account. Falling back to 602008321992-compute@developer.gserviceaccount.com. Error: {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"serviceTitle":"Compute Engine API","containerInfo":"602008321992","consumer":"projects/602008321992","activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992","service":"compute.googleapis.com"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}},"response":{"statusCode":403}},"exit":1,"message":"Request to https://compute.googleapis.com/compute/v1/projects/602008321992 had HTTP Error: 403, Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":403}
+[debug] [2025-09-29T21:19:17.684Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:17.684Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:17.684Z] >>> [apiv2][query] GET https://compute.googleapis.com/compute/v1/projects/602008321992 [none]
+[debug] [2025-09-29T21:19:18.087Z] <<< [apiv2][status] GET https://compute.googleapis.com/compute/v1/projects/602008321992 403
+[debug] [2025-09-29T21:19:18.087Z] <<< [apiv2][body] GET https://compute.googleapis.com/compute/v1/projects/602008321992 {"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992","serviceTitle":"Compute Engine API","service":"compute.googleapis.com","containerInfo":"602008321992","consumer":"projects/602008321992"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}}
+[debug] [2025-09-29T21:19:18.088Z] unable to look up default compute service account. Falling back to 602008321992-compute@developer.gserviceaccount.com. Error: {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992","serviceTitle":"Compute Engine API","service":"compute.googleapis.com","containerInfo":"602008321992","consumer":"projects/602008321992"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}},"response":{"statusCode":403}},"exit":1,"message":"Request to https://compute.googleapis.com/compute/v1/projects/602008321992 had HTTP Error: 403, Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":403}
+[debug] [2025-09-29T21:19:18.088Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:18.088Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:18.088Z] >>> [apiv2][query] GET https://compute.googleapis.com/compute/v1/projects/602008321992 [none]
+[debug] [2025-09-29T21:19:18.364Z] <<< [apiv2][status] GET https://compute.googleapis.com/compute/v1/projects/602008321992 403
+[debug] [2025-09-29T21:19:18.364Z] <<< [apiv2][body] GET https://compute.googleapis.com/compute/v1/projects/602008321992 {"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"containerInfo":"602008321992","serviceTitle":"Compute Engine API","consumer":"projects/602008321992","activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992","service":"compute.googleapis.com"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}}
+[debug] [2025-09-29T21:19:18.364Z] unable to look up default compute service account. Falling back to 602008321992-compute@developer.gserviceaccount.com. Error: {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"containerInfo":"602008321992","serviceTitle":"Compute Engine API","consumer":"projects/602008321992","activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992","service":"compute.googleapis.com"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}},"response":{"statusCode":403}},"exit":1,"message":"Request to https://compute.googleapis.com/compute/v1/projects/602008321992 had HTTP Error: 403, Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":403}
+[debug] [2025-09-29T21:19:18.364Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:18.364Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:18.364Z] >>> [apiv2][query] GET https://compute.googleapis.com/compute/v1/projects/602008321992 [none]
+[debug] [2025-09-29T21:19:18.639Z] <<< [apiv2][status] GET https://compute.googleapis.com/compute/v1/projects/602008321992 403
+[debug] [2025-09-29T21:19:18.639Z] <<< [apiv2][body] GET https://compute.googleapis.com/compute/v1/projects/602008321992 {"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992","consumer":"projects/602008321992","service":"compute.googleapis.com","containerInfo":"602008321992","serviceTitle":"Compute Engine API"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}}
+[debug] [2025-09-29T21:19:18.639Z] unable to look up default compute service account. Falling back to 602008321992-compute@developer.gserviceaccount.com. Error: {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992","consumer":"projects/602008321992","service":"compute.googleapis.com","containerInfo":"602008321992","serviceTitle":"Compute Engine API"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}},"response":{"statusCode":403}},"exit":1,"message":"Request to https://compute.googleapis.com/compute/v1/projects/602008321992 had HTTP Error: 403, Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":403}
+[debug] [2025-09-29T21:19:18.639Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:18.639Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:18.640Z] >>> [apiv2][query] GET https://compute.googleapis.com/compute/v1/projects/602008321992 [none]
+[debug] [2025-09-29T21:19:18.928Z] <<< [apiv2][status] GET https://compute.googleapis.com/compute/v1/projects/602008321992 403
+[debug] [2025-09-29T21:19:18.928Z] <<< [apiv2][body] GET https://compute.googleapis.com/compute/v1/projects/602008321992 {"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"containerInfo":"602008321992","serviceTitle":"Compute Engine API","service":"compute.googleapis.com","consumer":"projects/602008321992","activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}}
+[debug] [2025-09-29T21:19:18.928Z] unable to look up default compute service account. Falling back to 602008321992-compute@developer.gserviceaccount.com. Error: {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"containerInfo":"602008321992","serviceTitle":"Compute Engine API","service":"compute.googleapis.com","consumer":"projects/602008321992","activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}},"response":{"statusCode":403}},"exit":1,"message":"Request to https://compute.googleapis.com/compute/v1/projects/602008321992 had HTTP Error: 403, Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":403}
+[debug] [2025-09-29T21:19:18.929Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:18.929Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:18.929Z] >>> [apiv2][query] GET https://compute.googleapis.com/compute/v1/projects/602008321992 [none]
+[debug] [2025-09-29T21:19:19.211Z] <<< [apiv2][status] GET https://compute.googleapis.com/compute/v1/projects/602008321992 403
+[debug] [2025-09-29T21:19:19.212Z] <<< [apiv2][body] GET https://compute.googleapis.com/compute/v1/projects/602008321992 {"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"consumer":"projects/602008321992","containerInfo":"602008321992","activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992","serviceTitle":"Compute Engine API","service":"compute.googleapis.com"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}}
+[debug] [2025-09-29T21:19:19.212Z] unable to look up default compute service account. Falling back to 602008321992-compute@developer.gserviceaccount.com. Error: {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":403,"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"consumer":"projects/602008321992","containerInfo":"602008321992","activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992","serviceTitle":"Compute Engine API","service":"compute.googleapis.com"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992"}]}]}},"response":{"statusCode":403}},"exit":1,"message":"Request to https://compute.googleapis.com/compute/v1/projects/602008321992 had HTTP Error: 403, Compute Engine API has not been used in project 602008321992 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=602008321992 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":403}
+[debug] [2025-09-29T21:19:19.214Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:19.214Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:19.214Z] >>> [apiv2][query] GET https://cloudbilling.googleapis.com/v1/projects/farm-fuzion-abdf3/billingInfo [none]
+[debug] [2025-09-29T21:19:20.630Z] <<< [apiv2][status] GET https://cloudbilling.googleapis.com/v1/projects/farm-fuzion-abdf3/billingInfo 200
+[debug] [2025-09-29T21:19:20.630Z] <<< [apiv2][body] GET https://cloudbilling.googleapis.com/v1/projects/farm-fuzion-abdf3/billingInfo {"name":"projects/farm-fuzion-abdf3/billingInfo","projectId":"farm-fuzion-abdf3","billingAccountName":"billingAccounts/019B10-FF5A10-08C5D8","billingEnabled":true}
+[debug] [2025-09-29T21:19:20.632Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:20.632Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:20.633Z] >>> [apiv2][query] POST https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions:generateUploadUrl [none]
+[debug] [2025-09-29T21:19:21.933Z] <<< [apiv2][status] POST https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions:generateUploadUrl 200
+[debug] [2025-09-29T21:19:21.934Z] <<< [apiv2][body] POST https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions:generateUploadUrl {"uploadUrl":"https://storage.googleapis.com/gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com/73574e98-6509-4b18-b7c2-ab9d587edd12.zip?GoogleAccessId=service-602008321992@gcf-admin-robot.iam.gserviceaccount.com&Expires=1759182563&Signature=r4TjR6fTXEaWqgFAGWd%2BJ4fDGMjO5NzIC0ydlHcsDHELV4SQUYWTVJpvNBnQaYlFUuE8vrw%2F%2F744NuWkAirSQg%2B9Jf5eBtmSZRIdTkcZ2tD7AiXDVEQDjpBxGZRVvBhY1f1uhyqAVoGHrF9cfGA%2B65ATM%2BpCOk9ucB2EsED3vbewuYc2XrcZs9qtZoWtbh0Irrms78Gs%2BIDRd94BQ6IPONZcgQlKQFwRbxvhdqBLlMJKqjG7Cssn%2FPKAZ%2FLTbg4Gh06xmERo3CKzwoKgp%2FdWwq%2FlBa4rGuQfvm3YTsnmlMnHzV4NufuDObzh4Awth8Jj5WAFibpgGweziICaVtu%2FCA%3D%3D","storageSource":{"bucket":"gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com","object":"73574e98-6509-4b18-b7c2-ab9d587edd12.zip"}}
+[debug] [2025-09-29T21:19:21.935Z] >>> [apiv2][query] PUT https://storage.googleapis.com/gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com/73574e98-6509-4b18-b7c2-ab9d587edd12.zip GoogleAccessId=service-602008321992%40gcf-admin-robot.iam.gserviceaccount.com&Expires=1759182563&Signature=r4TjR6fTXEaWqgFAGWd%2BJ4fDGMjO5NzIC0ydlHcsDHELV4SQUYWTVJpvNBnQaYlFUuE8vrw%2F%2F744NuWkAirSQg%2B9Jf5eBtmSZRIdTkcZ2tD7AiXDVEQDjpBxGZRVvBhY1f1uhyqAVoGHrF9cfGA%2B65ATM%2BpCOk9ucB2EsED3vbewuYc2XrcZs9qtZoWtbh0Irrms78Gs%2BIDRd94BQ6IPONZcgQlKQFwRbxvhdqBLlMJKqjG7Cssn%2FPKAZ%2FLTbg4Gh06xmERo3CKzwoKgp%2FdWwq%2FlBa4rGuQfvm3YTsnmlMnHzV4NufuDObzh4Awth8Jj5WAFibpgGweziICaVtu%2FCA%3D%3D
+[debug] [2025-09-29T21:19:21.935Z] >>> [apiv2][body] PUT https://storage.googleapis.com/gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com/73574e98-6509-4b18-b7c2-ab9d587edd12.zip [stream]
+[debug] [2025-09-29T21:19:32.669Z] <<< [apiv2][status] PUT https://storage.googleapis.com/gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com/73574e98-6509-4b18-b7c2-ab9d587edd12.zip 200
+[debug] [2025-09-29T21:19:32.669Z] <<< [apiv2][body] PUT https://storage.googleapis.com/gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com/73574e98-6509-4b18-b7c2-ab9d587edd12.zip [omitted]
+[info] +  functions: functions folder uploaded successfully 
+[info] i  functions: updating Node.js 22 (2nd Gen) function api(us-central1)... 
+[info] i  functions: updating Node.js 22 (2nd Gen) function registerWithDocs(us-central1)... 
+[info] i  functions: updating Node.js 22 (2nd Gen) function getRoles(us-central1)... 
+[info] i  functions: updating Node.js 22 (2nd Gen) function updateRole(us-central1)... 
+[info] i  functions: updating Node.js 22 (2nd Gen) function deleteRole(us-central1)... 
+[info] i  functions: updating Node.js 22 (2nd Gen) function createRole(us-central1)... 
+[debug] [2025-09-29T21:19:32.681Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:32.682Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:32.682Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:32.682Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:32.682Z] >>> [apiv2][query] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/api updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels
+[debug] [2025-09-29T21:19:32.682Z] >>> [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/api {"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/api","buildConfig":{"runtime":"nodejs22","entryPoint":"api","source":{"storageSource":{"bucket":"gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com","object":"73574e98-6509-4b18-b7c2-ab9d587edd12.zip"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""}},"serviceConfig":{"environmentVariables":{"PGUSER":"neondb_owner","PGPASS":"npg_ydktDfeI8h6K","PGHOST":"ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech","PGPORT":"5432","PGDB":"neondb","FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/api","FUNCTION_TARGET":"api","LOG_EXECUTION_ID":"true"},"secretEnvironmentVariables":[{"key":"PGUSER","secret":"PGUSER","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPASS","secret":"PGPASS","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGHOST","secret":"PGHOST","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGDB","secret":"PGDB","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPORT","secret":"PGPORT","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"MAIL_USER","secret":"MAIL_USER","projectId":"farm-fuzion-abdf3","version":"1"},{"key":"MAIL_PASS","secret":"MAIL_PASS","projectId":"farm-fuzion-abdf3","version":"4"},{"key":"MSIMBO_MERCHANT_ID","secret":"MSIMBO_MERCHANT_ID","projectId":"farm-fuzion-abdf3","version":"1"},{"key":"MSIMBO_SECRET_KEY","secret":"MSIMBO_SECRET_KEY","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"MSIMBO_PUBLIC_ID","secret":"MSIMBO_PUBLIC_ID","projectId":"farm-fuzion-abdf3","version":"1"}],"ingressSettings":null,"timeoutSeconds":300,"serviceAccountEmail":null,"availableMemory":"1024Mi","minInstanceCount":null,"maxInstanceCount":null,"maxInstanceRequestConcurrency":80,"availableCpu":"1","vpcConnector":null,"vpcConnectorEgressSettings":null},"labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"9fbaefe5c39422277277aad28949618449a23887"}}
+[debug] [2025-09-29T21:19:32.685Z] >>> [apiv2][query] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels
+[debug] [2025-09-29T21:19:32.685Z] >>> [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles {"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles","buildConfig":{"runtime":"nodejs22","entryPoint":"getRoles","source":{"storageSource":{"bucket":"gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com","object":"73574e98-6509-4b18-b7c2-ab9d587edd12.zip"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""}},"serviceConfig":{"environmentVariables":{"PGUSER":"neondb_owner","PGPASS":"npg_ydktDfeI8h6K","PGHOST":"ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech","PGPORT":"5432","PGDB":"neondb","FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/getRoles","FUNCTION_TARGET":"getRoles","LOG_EXECUTION_ID":"true"},"secretEnvironmentVariables":[{"key":"PGUSER","secret":"PGUSER","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPASS","secret":"PGPASS","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGHOST","secret":"PGHOST","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGDB","secret":"PGDB","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPORT","secret":"PGPORT","projectId":"farm-fuzion-abdf3","version":"2"}],"ingressSettings":null,"timeoutSeconds":60,"serviceAccountEmail":null,"availableMemory":"512Mi","minInstanceCount":null,"maxInstanceCount":null,"maxInstanceRequestConcurrency":80,"availableCpu":"1","vpcConnector":null,"vpcConnectorEgressSettings":null},"labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"08db3fbe4172116fca63e3356d028a92f6e09a18"}}
+[debug] [2025-09-29T21:19:34.151Z] <<< [apiv2][status] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles 400
+[debug] [2025-09-29T21:19:34.151Z] <<< [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles {"error":{"code":400,"message":"Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/getroles. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER","status":"INVALID_ARGUMENT"}}
+[warn] !  functions: Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/getroles. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER 
+[warn] !  functions:  failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles 
+[error] Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles
+[debug] [2025-09-29T21:19:34.158Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:34.158Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:34.158Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:34.158Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:34.159Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:34.159Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:34.159Z] >>> [apiv2][query] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels
+[debug] [2025-09-29T21:19:34.159Z] >>> [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole {"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole","buildConfig":{"runtime":"nodejs22","entryPoint":"updateRole","source":{"storageSource":{"bucket":"gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com","object":"73574e98-6509-4b18-b7c2-ab9d587edd12.zip"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""}},"serviceConfig":{"environmentVariables":{"PGUSER":"neondb_owner","PGPASS":"npg_ydktDfeI8h6K","PGHOST":"ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech","PGPORT":"5432","PGDB":"neondb","FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/updateRole","FUNCTION_TARGET":"updateRole","LOG_EXECUTION_ID":"true"},"secretEnvironmentVariables":[{"key":"PGUSER","secret":"PGUSER","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPASS","secret":"PGPASS","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGHOST","secret":"PGHOST","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGDB","secret":"PGDB","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPORT","secret":"PGPORT","projectId":"farm-fuzion-abdf3","version":"2"}],"ingressSettings":null,"timeoutSeconds":60,"serviceAccountEmail":null,"availableMemory":"512Mi","minInstanceCount":null,"maxInstanceCount":null,"maxInstanceRequestConcurrency":80,"availableCpu":"1","vpcConnector":null,"vpcConnectorEgressSettings":null},"labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"08db3fbe4172116fca63e3356d028a92f6e09a18"}}
+[debug] [2025-09-29T21:19:34.160Z] >>> [apiv2][query] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels
+[debug] [2025-09-29T21:19:34.161Z] >>> [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole {"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole","buildConfig":{"runtime":"nodejs22","entryPoint":"deleteRole","source":{"storageSource":{"bucket":"gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com","object":"73574e98-6509-4b18-b7c2-ab9d587edd12.zip"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""}},"serviceConfig":{"environmentVariables":{"PGUSER":"neondb_owner","PGPASS":"npg_ydktDfeI8h6K","PGHOST":"ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech","PGPORT":"5432","PGDB":"neondb","FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/deleteRole","FUNCTION_TARGET":"deleteRole","LOG_EXECUTION_ID":"true"},"secretEnvironmentVariables":[{"key":"PGUSER","secret":"PGUSER","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPASS","secret":"PGPASS","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGHOST","secret":"PGHOST","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGDB","secret":"PGDB","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPORT","secret":"PGPORT","projectId":"farm-fuzion-abdf3","version":"2"}],"ingressSettings":null,"timeoutSeconds":60,"serviceAccountEmail":null,"availableMemory":"512Mi","minInstanceCount":null,"maxInstanceCount":null,"maxInstanceRequestConcurrency":80,"availableCpu":"1","vpcConnector":null,"vpcConnectorEgressSettings":null},"labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"08db3fbe4172116fca63e3356d028a92f6e09a18"}}
+[debug] [2025-09-29T21:19:34.166Z] >>> [apiv2][query] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels
+[debug] [2025-09-29T21:19:34.166Z] >>> [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole {"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole","buildConfig":{"runtime":"nodejs22","entryPoint":"createRole","source":{"storageSource":{"bucket":"gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com","object":"73574e98-6509-4b18-b7c2-ab9d587edd12.zip"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""}},"serviceConfig":{"environmentVariables":{"PGUSER":"neondb_owner","PGPASS":"npg_ydktDfeI8h6K","PGHOST":"ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech","PGPORT":"5432","PGDB":"neondb","FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/createRole","FUNCTION_TARGET":"createRole","LOG_EXECUTION_ID":"true"},"secretEnvironmentVariables":[{"key":"PGUSER","secret":"PGUSER","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPASS","secret":"PGPASS","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGHOST","secret":"PGHOST","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGDB","secret":"PGDB","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPORT","secret":"PGPORT","projectId":"farm-fuzion-abdf3","version":"2"}],"ingressSettings":null,"timeoutSeconds":60,"serviceAccountEmail":null,"availableMemory":"512Mi","minInstanceCount":null,"maxInstanceCount":null,"maxInstanceRequestConcurrency":80,"availableCpu":"1","vpcConnector":null,"vpcConnectorEgressSettings":null},"labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"08db3fbe4172116fca63e3356d028a92f6e09a18"}}
+[debug] [2025-09-29T21:19:34.290Z] <<< [apiv2][status] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/api 400
+[debug] [2025-09-29T21:19:34.290Z] <<< [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/api {"error":{"code":400,"message":"Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/api. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER","status":"INVALID_ARGUMENT"}}
+[warn] !  functions: Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/api?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/api. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER 
+[warn] !  functions:  failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/api 
+[error] Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/api
+[debug] [2025-09-29T21:19:34.294Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:34.294Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:34.295Z] >>> [apiv2][query] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels
+[debug] [2025-09-29T21:19:34.295Z] >>> [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs {"name":"projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs","buildConfig":{"runtime":"nodejs22","entryPoint":"registerWithDocs","source":{"storageSource":{"bucket":"gcf-v2-uploads-602008321992.us-central1.cloudfunctions.appspot.com","object":"73574e98-6509-4b18-b7c2-ab9d587edd12.zip"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""}},"serviceConfig":{"environmentVariables":{"PGUSER":"neondb_owner","PGPASS":"npg_ydktDfeI8h6K","PGHOST":"ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech","PGPORT":"5432","PGDB":"neondb","FORCE_BOOTSTRAP":"true","FIREBASE_CONFIG":"{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}","GCLOUD_PROJECT":"farm-fuzion-abdf3","EVENTARC_CLOUD_EVENT_SOURCE":"projects/farm-fuzion-abdf3/locations/us-central1/services/registerWithDocs","FUNCTION_TARGET":"registerWithDocs","LOG_EXECUTION_ID":"true"},"secretEnvironmentVariables":[{"key":"PGUSER","secret":"PGUSER","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPASS","secret":"PGPASS","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGHOST","secret":"PGHOST","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGDB","secret":"PGDB","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"PGPORT","secret":"PGPORT","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"MAIL_USER","secret":"MAIL_USER","projectId":"farm-fuzion-abdf3","version":"1"},{"key":"MAIL_PASS","secret":"MAIL_PASS","projectId":"farm-fuzion-abdf3","version":"4"},{"key":"MSIMBO_MERCHANT_ID","secret":"MSIMBO_MERCHANT_ID","projectId":"farm-fuzion-abdf3","version":"1"},{"key":"MSIMBO_SECRET_KEY","secret":"MSIMBO_SECRET_KEY","projectId":"farm-fuzion-abdf3","version":"2"},{"key":"MSIMBO_PUBLIC_ID","secret":"MSIMBO_PUBLIC_ID","projectId":"farm-fuzion-abdf3","version":"1"}],"ingressSettings":null,"timeoutSeconds":300,"serviceAccountEmail":null,"availableMemory":"1024Mi","minInstanceCount":null,"maxInstanceCount":null,"maxInstanceRequestConcurrency":80,"availableCpu":"1","vpcConnector":null,"vpcConnectorEgressSettings":null},"labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"9fbaefe5c39422277277aad28949618449a23887"}}
+[debug] [2025-09-29T21:19:35.569Z] <<< [apiv2][status] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole 400
+[debug] [2025-09-29T21:19:35.569Z] <<< [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole {"error":{"code":400,"message":"Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/updaterole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER","status":"INVALID_ARGUMENT"}}
+[warn] !  functions: Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/updaterole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER 
+[warn] !  functions:  failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole 
+[error] Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole
+[debug] [2025-09-29T21:19:35.596Z] <<< [apiv2][status] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs 400
+[debug] [2025-09-29T21:19:35.597Z] <<< [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs {"error":{"code":400,"message":"Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/registerwithdocs. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER","status":"INVALID_ARGUMENT"}}
+[warn] !  functions: Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/registerwithdocs. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER 
+[warn] !  functions:  failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs 
+[error] Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs
+[debug] [2025-09-29T21:19:35.850Z] <<< [apiv2][status] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole 400
+[debug] [2025-09-29T21:19:35.850Z] <<< [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole {"error":{"code":400,"message":"Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/createrole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER","status":"INVALID_ARGUMENT"}}
+[warn] !  functions: Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/createrole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER 
+[warn] !  functions:  failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole 
+[error] Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole
+[debug] [2025-09-29T21:19:35.909Z] <<< [apiv2][status] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole 400
+[debug] [2025-09-29T21:19:35.910Z] <<< [apiv2][body] PATCH https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole {"error":{"code":400,"message":"Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/deleterole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER","status":"INVALID_ARGUMENT"}}
+[warn] !  functions: Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/deleterole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER 
+[warn] !  functions:  failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole 
+[error] Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole
+[debug] [2025-09-29T21:19:35.935Z] Total Function Deployment time: 3241
+[debug] [2025-09-29T21:19:35.936Z] 6 Functions Deployed
+[debug] [2025-09-29T21:19:35.936Z] 6 Functions Errored
+[debug] [2025-09-29T21:19:35.936Z] 0 Function Deployments Aborted
+[debug] [2025-09-29T21:19:35.936Z] Average Function Deployment time: 2554.5
+[info] 
+[info] Functions deploy had errors with the following functions:
+	api(us-central1)
+	createRole(us-central1)
+	deleteRole(us-central1)
+	getRoles(us-central1)
+	registerWithDocs(us-central1)
+	updateRole(us-central1)
+[debug] [2025-09-29T21:19:36.568Z] Not printing URL for HTTPS function. Typically this means it didn't match a filter or we failed deployment
+[debug] [2025-09-29T21:19:36.568Z] Not printing URL for HTTPS function. Typically this means it didn't match a filter or we failed deployment
+[debug] [2025-09-29T21:19:36.568Z] Not printing URL for HTTPS function. Typically this means it didn't match a filter or we failed deployment
+[debug] [2025-09-29T21:19:36.568Z] Not printing URL for HTTPS function. Typically this means it didn't match a filter or we failed deployment
+[debug] [2025-09-29T21:19:36.568Z] Not printing URL for HTTPS function. Typically this means it didn't match a filter or we failed deployment
+[debug] [2025-09-29T21:19:36.568Z] Not printing URL for HTTPS function. Typically this means it didn't match a filter or we failed deployment
+[debug] [2025-09-29T21:19:36.569Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:36.569Z] Checked if tokens are valid: true, expires at: 1759184309427
+[debug] [2025-09-29T21:19:36.569Z] >>> [apiv2][query] GET https://artifactregistry.googleapis.com/v1/projects/farm-fuzion-abdf3/locations/us-central1/repositories/gcf-artifacts [none]
+[debug] [2025-09-29T21:19:37.801Z] <<< [apiv2][status] GET https://artifactregistry.googleapis.com/v1/projects/farm-fuzion-abdf3/locations/us-central1/repositories/gcf-artifacts 200
+[debug] [2025-09-29T21:19:37.801Z] <<< [apiv2][body] GET https://artifactregistry.googleapis.com/v1/projects/farm-fuzion-abdf3/locations/us-central1/repositories/gcf-artifacts {"name":"projects/farm-fuzion-abdf3/locations/us-central1/repositories/gcf-artifacts","format":"DOCKER","description":"This repository is created and used by Cloud Functions for storing function docker images.","labels":{"goog-managed-by":"cloudfunctions"},"createTime":"2025-07-03T21:32:51.236953Z","updateTime":"2025-09-29T19:36:10.731721Z","mode":"STANDARD_REPOSITORY","cleanupPolicies":{"firebase-functions-cleanup":{"id":"firebase-functions-cleanup","action":"DELETE","condition":{"tagState":"ANY","olderThan":"86400s"}}},"sizeBytes":"264420871","vulnerabilityScanningConfig":{"lastEnableTime":"2025-07-03T21:32:42.382756375Z","enablementState":"SCANNING_DISABLED","enablementStateReason":"API containerscanning.googleapis.com is not enabled."},"satisfiesPzi":true,"registryUri":"us-central1-docker.pkg.dev/farm-fuzion-abdf3/gcf-artifacts"}
+[debug] [2025-09-29T21:19:37.802Z] Functions deploy failed.
+[debug] [2025-09-29T21:19:37.802Z] {
+  "endpoint": {
+    "id": "api",
+    "project": "farm-fuzion-abdf3",
+    "region": "us-central1",
+    "entryPoint": "api",
+    "platform": "gcfv2",
+    "runtime": "nodejs22",
+    "httpsTrigger": {},
+    "labels": {
+      "deployment-tool": "cli-firebase"
+    },
+    "secretEnvironmentVariables": [
+      {
+        "key": "PGUSER",
+        "secret": "PGUSER",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPASS",
+        "secret": "PGPASS",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGHOST",
+        "secret": "PGHOST",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGDB",
+        "secret": "PGDB",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPORT",
+        "secret": "PGPORT",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "MAIL_USER",
+        "secret": "MAIL_USER",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "1"
+      },
+      {
+        "key": "MAIL_PASS",
+        "secret": "MAIL_PASS",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "4"
+      },
+      {
+        "key": "MSIMBO_MERCHANT_ID",
+        "secret": "MSIMBO_MERCHANT_ID",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "1"
+      },
+      {
+        "key": "MSIMBO_SECRET_KEY",
+        "secret": "MSIMBO_SECRET_KEY",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "MSIMBO_PUBLIC_ID",
+        "secret": "MSIMBO_PUBLIC_ID",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "1"
+      }
+    ],
+    "serviceAccount": null,
+    "ingressSettings": null,
+    "availableMemoryMb": 1024,
+    "timeoutSeconds": 300,
+    "maxInstances": null,
+    "minInstances": null,
+    "concurrency": 80,
+    "vpc": null,
+    "environmentVariables": {
+      "PGUSER": "neondb_owner",
+      "PGPASS": "npg_ydktDfeI8h6K",
+      "PGHOST": "ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech",
+      "PGPORT": "5432",
+      "PGDB": "neondb",
+      "FORCE_BOOTSTRAP": "true",
+      "FIREBASE_CONFIG": "{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}",
+      "GCLOUD_PROJECT": "farm-fuzion-abdf3",
+      "EVENTARC_CLOUD_EVENT_SOURCE": "projects/farm-fuzion-abdf3/locations/us-central1/services/api"
+    },
+    "codebase": "default",
+    "runServiceId": "api",
+    "cpu": 1,
+    "securityLevel": "SECURE_ALWAYS",
+    "targetedByOnly": false,
+    "hash": "9fbaefe5c39422277277aad28949618449a23887"
+  },
+  "op": "update",
+  "original": {
+    "name": "FirebaseError",
+    "children": [],
+    "context": {
+      "function": "projects/farm-fuzion-abdf3/locations/us-central1/functions/api"
+    },
+    "exit": 1,
+    "message": "Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/api",
+    "original": {
+      "name": "FirebaseError",
+      "children": [],
+      "context": {
+        "body": {
+          "error": {
+            "code": 400,
+            "message": "Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/api. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+            "status": "INVALID_ARGUMENT"
+          }
+        },
+        "response": {
+          "statusCode": 400
+        }
+      },
+      "exit": 1,
+      "message": "Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/api?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/api. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+      "status": 400
+    },
+    "status": 400,
+    "code": 400
+  }
+}
+[debug] [2025-09-29T21:19:37.803Z] {
+  "endpoint": {
+    "id": "registerWithDocs",
+    "project": "farm-fuzion-abdf3",
+    "region": "us-central1",
+    "entryPoint": "registerWithDocs",
+    "platform": "gcfv2",
+    "runtime": "nodejs22",
+    "httpsTrigger": {},
+    "labels": {
+      "deployment-tool": "cli-firebase"
+    },
+    "secretEnvironmentVariables": [
+      {
+        "key": "PGUSER",
+        "secret": "PGUSER",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPASS",
+        "secret": "PGPASS",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGHOST",
+        "secret": "PGHOST",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGDB",
+        "secret": "PGDB",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPORT",
+        "secret": "PGPORT",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "MAIL_USER",
+        "secret": "MAIL_USER",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "1"
+      },
+      {
+        "key": "MAIL_PASS",
+        "secret": "MAIL_PASS",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "4"
+      },
+      {
+        "key": "MSIMBO_MERCHANT_ID",
+        "secret": "MSIMBO_MERCHANT_ID",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "1"
+      },
+      {
+        "key": "MSIMBO_SECRET_KEY",
+        "secret": "MSIMBO_SECRET_KEY",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "MSIMBO_PUBLIC_ID",
+        "secret": "MSIMBO_PUBLIC_ID",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "1"
+      }
+    ],
+    "serviceAccount": null,
+    "ingressSettings": null,
+    "availableMemoryMb": 1024,
+    "timeoutSeconds": 300,
+    "maxInstances": null,
+    "minInstances": null,
+    "concurrency": 80,
+    "vpc": null,
+    "environmentVariables": {
+      "PGUSER": "neondb_owner",
+      "PGPASS": "npg_ydktDfeI8h6K",
+      "PGHOST": "ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech",
+      "PGPORT": "5432",
+      "PGDB": "neondb",
+      "FORCE_BOOTSTRAP": "true",
+      "FIREBASE_CONFIG": "{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}",
+      "GCLOUD_PROJECT": "farm-fuzion-abdf3",
+      "EVENTARC_CLOUD_EVENT_SOURCE": "projects/farm-fuzion-abdf3/locations/us-central1/services/registerWithDocs"
+    },
+    "codebase": "default",
+    "runServiceId": "registerwithdocs",
+    "cpu": 1,
+    "securityLevel": "SECURE_ALWAYS",
+    "targetedByOnly": false,
+    "hash": "9fbaefe5c39422277277aad28949618449a23887"
+  },
+  "op": "update",
+  "original": {
+    "name": "FirebaseError",
+    "children": [],
+    "context": {
+      "function": "projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs"
+    },
+    "exit": 1,
+    "message": "Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs",
+    "original": {
+      "name": "FirebaseError",
+      "children": [],
+      "context": {
+        "body": {
+          "error": {
+            "code": 400,
+            "message": "Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/registerwithdocs. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+            "status": "INVALID_ARGUMENT"
+          }
+        },
+        "response": {
+          "statusCode": 400
+        }
+      },
+      "exit": 1,
+      "message": "Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/registerWithDocs?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/registerwithdocs. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+      "status": 400
+    },
+    "status": 400,
+    "code": 400
+  }
+}
+[debug] [2025-09-29T21:19:37.803Z] {
+  "endpoint": {
+    "id": "getRoles",
+    "project": "farm-fuzion-abdf3",
+    "region": "us-central1",
+    "entryPoint": "getRoles",
+    "platform": "gcfv2",
+    "runtime": "nodejs22",
+    "httpsTrigger": {},
+    "labels": {
+      "deployment-tool": "cli-firebase"
+    },
+    "secretEnvironmentVariables": [
+      {
+        "key": "PGUSER",
+        "secret": "PGUSER",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPASS",
+        "secret": "PGPASS",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGHOST",
+        "secret": "PGHOST",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGDB",
+        "secret": "PGDB",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPORT",
+        "secret": "PGPORT",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      }
+    ],
+    "serviceAccount": null,
+    "ingressSettings": null,
+    "availableMemoryMb": 512,
+    "timeoutSeconds": 60,
+    "maxInstances": null,
+    "minInstances": null,
+    "concurrency": 80,
+    "vpc": null,
+    "environmentVariables": {
+      "PGUSER": "neondb_owner",
+      "PGPASS": "npg_ydktDfeI8h6K",
+      "PGHOST": "ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech",
+      "PGPORT": "5432",
+      "PGDB": "neondb",
+      "FORCE_BOOTSTRAP": "true",
+      "FIREBASE_CONFIG": "{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}",
+      "GCLOUD_PROJECT": "farm-fuzion-abdf3",
+      "EVENTARC_CLOUD_EVENT_SOURCE": "projects/farm-fuzion-abdf3/locations/us-central1/services/getRoles"
+    },
+    "codebase": "default",
+    "runServiceId": "getroles",
+    "cpu": 1,
+    "securityLevel": "SECURE_ALWAYS",
+    "targetedByOnly": false,
+    "hash": "08db3fbe4172116fca63e3356d028a92f6e09a18"
+  },
+  "op": "update",
+  "original": {
+    "name": "FirebaseError",
+    "children": [],
+    "context": {
+      "function": "projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles"
+    },
+    "exit": 1,
+    "message": "Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles",
+    "original": {
+      "name": "FirebaseError",
+      "children": [],
+      "context": {
+        "body": {
+          "error": {
+            "code": 400,
+            "message": "Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/getroles. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+            "status": "INVALID_ARGUMENT"
+          }
+        },
+        "response": {
+          "statusCode": 400
+        }
+      },
+      "exit": 1,
+      "message": "Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/getRoles?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/getroles. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+      "status": 400
+    },
+    "status": 400,
+    "code": 400
+  }
+}
+[debug] [2025-09-29T21:19:37.803Z] {
+  "endpoint": {
+    "id": "updateRole",
+    "project": "farm-fuzion-abdf3",
+    "region": "us-central1",
+    "entryPoint": "updateRole",
+    "platform": "gcfv2",
+    "runtime": "nodejs22",
+    "httpsTrigger": {},
+    "labels": {
+      "deployment-tool": "cli-firebase"
+    },
+    "secretEnvironmentVariables": [
+      {
+        "key": "PGUSER",
+        "secret": "PGUSER",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPASS",
+        "secret": "PGPASS",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGHOST",
+        "secret": "PGHOST",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGDB",
+        "secret": "PGDB",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPORT",
+        "secret": "PGPORT",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      }
+    ],
+    "serviceAccount": null,
+    "ingressSettings": null,
+    "availableMemoryMb": 512,
+    "timeoutSeconds": 60,
+    "maxInstances": null,
+    "minInstances": null,
+    "concurrency": 80,
+    "vpc": null,
+    "environmentVariables": {
+      "PGUSER": "neondb_owner",
+      "PGPASS": "npg_ydktDfeI8h6K",
+      "PGHOST": "ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech",
+      "PGPORT": "5432",
+      "PGDB": "neondb",
+      "FORCE_BOOTSTRAP": "true",
+      "FIREBASE_CONFIG": "{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}",
+      "GCLOUD_PROJECT": "farm-fuzion-abdf3",
+      "EVENTARC_CLOUD_EVENT_SOURCE": "projects/farm-fuzion-abdf3/locations/us-central1/services/updateRole"
+    },
+    "codebase": "default",
+    "runServiceId": "updaterole",
+    "cpu": 1,
+    "securityLevel": "SECURE_ALWAYS",
+    "targetedByOnly": false,
+    "hash": "08db3fbe4172116fca63e3356d028a92f6e09a18"
+  },
+  "op": "update",
+  "original": {
+    "name": "FirebaseError",
+    "children": [],
+    "context": {
+      "function": "projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole"
+    },
+    "exit": 1,
+    "message": "Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole",
+    "original": {
+      "name": "FirebaseError",
+      "children": [],
+      "context": {
+        "body": {
+          "error": {
+            "code": 400,
+            "message": "Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/updaterole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+            "status": "INVALID_ARGUMENT"
+          }
+        },
+        "response": {
+          "statusCode": 400
+        }
+      },
+      "exit": 1,
+      "message": "Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/updateRole?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/updaterole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+      "status": 400
+    },
+    "status": 400,
+    "code": 400
+  }
+}
+[debug] [2025-09-29T21:19:37.804Z] {
+  "endpoint": {
+    "id": "createRole",
+    "project": "farm-fuzion-abdf3",
+    "region": "us-central1",
+    "entryPoint": "createRole",
+    "platform": "gcfv2",
+    "runtime": "nodejs22",
+    "httpsTrigger": {},
+    "labels": {
+      "deployment-tool": "cli-firebase"
+    },
+    "secretEnvironmentVariables": [
+      {
+        "key": "PGUSER",
+        "secret": "PGUSER",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPASS",
+        "secret": "PGPASS",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGHOST",
+        "secret": "PGHOST",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGDB",
+        "secret": "PGDB",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPORT",
+        "secret": "PGPORT",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      }
+    ],
+    "serviceAccount": null,
+    "ingressSettings": null,
+    "availableMemoryMb": 512,
+    "timeoutSeconds": 60,
+    "maxInstances": null,
+    "minInstances": null,
+    "concurrency": 80,
+    "vpc": null,
+    "environmentVariables": {
+      "PGUSER": "neondb_owner",
+      "PGPASS": "npg_ydktDfeI8h6K",
+      "PGHOST": "ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech",
+      "PGPORT": "5432",
+      "PGDB": "neondb",
+      "FORCE_BOOTSTRAP": "true",
+      "FIREBASE_CONFIG": "{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}",
+      "GCLOUD_PROJECT": "farm-fuzion-abdf3",
+      "EVENTARC_CLOUD_EVENT_SOURCE": "projects/farm-fuzion-abdf3/locations/us-central1/services/createRole"
+    },
+    "codebase": "default",
+    "runServiceId": "createrole",
+    "cpu": 1,
+    "securityLevel": "SECURE_ALWAYS",
+    "targetedByOnly": false,
+    "hash": "08db3fbe4172116fca63e3356d028a92f6e09a18"
+  },
+  "op": "update",
+  "original": {
+    "name": "FirebaseError",
+    "children": [],
+    "context": {
+      "function": "projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole"
+    },
+    "exit": 1,
+    "message": "Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole",
+    "original": {
+      "name": "FirebaseError",
+      "children": [],
+      "context": {
+        "body": {
+          "error": {
+            "code": 400,
+            "message": "Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/createrole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+            "status": "INVALID_ARGUMENT"
+          }
+        },
+        "response": {
+          "statusCode": 400
+        }
+      },
+      "exit": 1,
+      "message": "Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/createRole?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/createrole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+      "status": 400
+    },
+    "status": 400,
+    "code": 400
+  }
+}
+[debug] [2025-09-29T21:19:37.804Z] {
+  "endpoint": {
+    "id": "deleteRole",
+    "project": "farm-fuzion-abdf3",
+    "region": "us-central1",
+    "entryPoint": "deleteRole",
+    "platform": "gcfv2",
+    "runtime": "nodejs22",
+    "httpsTrigger": {},
+    "labels": {
+      "deployment-tool": "cli-firebase"
+    },
+    "secretEnvironmentVariables": [
+      {
+        "key": "PGUSER",
+        "secret": "PGUSER",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPASS",
+        "secret": "PGPASS",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGHOST",
+        "secret": "PGHOST",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGDB",
+        "secret": "PGDB",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      },
+      {
+        "key": "PGPORT",
+        "secret": "PGPORT",
+        "projectId": "farm-fuzion-abdf3",
+        "version": "2"
+      }
+    ],
+    "serviceAccount": null,
+    "ingressSettings": null,
+    "availableMemoryMb": 512,
+    "timeoutSeconds": 60,
+    "maxInstances": null,
+    "minInstances": null,
+    "concurrency": 80,
+    "vpc": null,
+    "environmentVariables": {
+      "PGUSER": "neondb_owner",
+      "PGPASS": "npg_ydktDfeI8h6K",
+      "PGHOST": "ep-odd-shadow-a8hbxcs0-pooler.eastus2.azure.neon.tech",
+      "PGPORT": "5432",
+      "PGDB": "neondb",
+      "FORCE_BOOTSTRAP": "true",
+      "FIREBASE_CONFIG": "{\"projectId\":\"farm-fuzion-abdf3\",\"storageBucket\":\"farm-fuzion-abdf3.firebasestorage.app\"}",
+      "GCLOUD_PROJECT": "farm-fuzion-abdf3",
+      "EVENTARC_CLOUD_EVENT_SOURCE": "projects/farm-fuzion-abdf3/locations/us-central1/services/deleteRole"
+    },
+    "codebase": "default",
+    "runServiceId": "deleterole",
+    "cpu": 1,
+    "securityLevel": "SECURE_ALWAYS",
+    "targetedByOnly": false,
+    "hash": "08db3fbe4172116fca63e3356d028a92f6e09a18"
+  },
+  "op": "update",
+  "original": {
+    "name": "FirebaseError",
+    "children": [],
+    "context": {
+      "function": "projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole"
+    },
+    "exit": 1,
+    "message": "Failed to update function projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole",
+    "original": {
+      "name": "FirebaseError",
+      "children": [],
+      "context": {
+        "body": {
+          "error": {
+            "code": 400,
+            "message": "Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/deleterole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+            "status": "INVALID_ARGUMENT"
+          }
+        },
+        "response": {
+          "statusCode": 400
+        }
+      },
+      "exit": 1,
+      "message": "Request to https://cloudfunctions.googleapis.com/v2/projects/farm-fuzion-abdf3/locations/us-central1/functions/deleteRole?updateMask=name%2CbuildConfig.runtime%2CbuildConfig.entryPoint%2CbuildConfig.source.storageSource.bucket%2CbuildConfig.source.storageSource.object%2CbuildConfig.environmentVariables%2CbuildConfig.sourceToken%2CserviceConfig.environmentVariables%2CserviceConfig.secretEnvironmentVariables%2CserviceConfig.ingressSettings%2CserviceConfig.timeoutSeconds%2CserviceConfig.serviceAccountEmail%2CserviceConfig.availableMemory%2CserviceConfig.minInstanceCount%2CserviceConfig.maxInstanceCount%2CserviceConfig.maxInstanceRequestConcurrency%2CserviceConfig.availableCpu%2CserviceConfig.vpcConnector%2CserviceConfig.vpcConnectorEgressSettings%2Clabels had HTTP Error: 400, Could not update Cloud Run service projects/farm-fuzion-abdf3/locations/us-central1/services/deleterole. spec.template.spec.containers[0].env: Secret environment variable overlaps non secret environment variable: PGUSER",
+      "status": 400
+    },
+    "status": 400,
+    "code": 400
+  }
+}
+[error] Error: There was an error deploying functions:
+[error] - Error Failed to update function api in region us-central1
+[error] - Error Failed to update function registerWithDocs in region us-central1
+[error] - Error Failed to update function getRoles in region us-central1
+[error] - Error Failed to update function updateRole in region us-central1
+[error] - Error Failed to update function createRole in region us-central1
+[error] - Error Failed to update function deleteRole in region us-central1
