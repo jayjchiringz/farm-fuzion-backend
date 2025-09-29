@@ -707,6 +707,19 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   ["Junior", "Omosh", "Omondi", "jromosh@gmail.com", fallbackGroupId]
   );
 
+  // 🌍 World Bank Prices Table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS worldbank_prices (
+      id SERIAL PRIMARY KEY,
+      date DATE NOT NULL,
+      commodity TEXT NOT NULL,
+      unit TEXT NOT NULL,
+      price NUMERIC,
+      created_at TIMESTAMP DEFAULT now(),
+      UNIQUE (date, commodity, unit)
+    );
+  `);
+
   // 🧪 Insert the tag only if not forced
   if (!force) {
     await pool.query(
