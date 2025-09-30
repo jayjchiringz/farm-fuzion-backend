@@ -172,64 +172,88 @@ export const getMarketPricesRouter = (config: {
   marketPriceRegistry.registerPath({
     method: "post",
     path: "/market-prices/sync",
-    description: "Sync benchmark prices from World Bank dataset (local table)",
+    description: "Sync benchmark prices from world_bank into market_prices",
     responses: {
       200: {
         description: "Sync successful",
-        content: {"application/json": {schema: z.object({count: z.number()})}},
+        content: {
+          "application/json": {
+            schema: z.object({
+              inserted: z.number(),
+              updated: z.number(),
+              total: z.number(),
+            }),
+          },
+        },
       },
       500: {description: "Failed to sync"},
     },
   });
 
   router.post("/sync", async (_req, res) => {
+    const client = await pool.connect();
     try {
-      const client = await pool.connect();
-      const wbResult = await client.query(
-        "SELECT date, commodity, unit, price FROM worldbank_prices");
+      // 1. Fetch from world_bank
+      const wbResult = await client.query(`
+        SELECT product_name, category, unit, region,
+              wholesale_price, retail_price, broker_price, farmgate_price,
+              collected_at
+        FROM world_bank
+      `);
 
       if (wbResult.rows.length === 0) {
         client.release();
-        return res.json({success: true, count: 0});
+        return res.json({inserted: 0, updated: 0, total: 0});
       }
 
+      // 2. Build bulk insert
       const values: unknown[] = [];
-      const valueClauses = wbResult.rows.map((row, idx) => {
-        const i = idx * 11;
-        values.push(
-          row.commodity ?? "Unknown",
-          "Global",
-          row.unit ?? "kg",
-          row.price ?? null,
-          null, // retail
-          null, // broker
-          null, // farmgate
-          "Global",
-          "WorldBank RTP",
-          row.date,
-          true
-        );
-        // eslint-disable-next-line max-len
-        return `($${i+1},$${i+2},$${i+3},$${i+4},$${i+5},$${i+6},$${i+7},$${i+8},$${i+9},$${i+10},$${i+11})`;
-      }).join(",");
+      const valueClauses = wbResult.rows
+        .map((row, idx) => {
+          const i = idx * 11;
+          values.push(
+            row.product_name ?? "Unknown",
+            row.category ?? null,
+            row.unit ?? "kg",
+            row.wholesale_price ?? null,
+            row.retail_price ?? null,
+            row.broker_price ?? null,
+            row.farmgate_price ?? null,
+            row.region ?? "Unknown",
+            "world_bank", // 🔹 source
+            row.collected_at ?? new Date(),
+            true // benchmark
+          );
+          // eslint-disable-next-line max-len
+          return `($${i + 1},$${i + 2},$${i + 3},$${i + 4},$${i + 5},$${i + 6},$${i + 7},$${i + 8},$${i + 9},$${i + 10},$${i + 11})`;
+        })
+        .join(",");
 
-      await client.query(
+      const result = await client.query(
         `INSERT INTO market_prices
           (product_name, category, unit, wholesale_price, retail_price,
           broker_price, farmgate_price, region, source, collected_at, benchmark)
-         VALUES ${valueClauses}
-         ON CONFLICT (product_name, region, source) DO UPDATE
-         SET wholesale_price = EXCLUDED.wholesale_price,
-             collected_at = EXCLUDED.collected_at,
-             benchmark = true`,
+        VALUES ${valueClauses}
+        ON CONFLICT (product_name, region, source) DO UPDATE
+        SET wholesale_price = EXCLUDED.wholesale_price,
+            retail_price    = EXCLUDED.retail_price,
+            broker_price    = EXCLUDED.broker_price,
+            farmgate_price  = EXCLUDED.farmgate_price,
+            collected_at    = EXCLUDED.collected_at,
+            benchmark       = true`,
         values
       );
 
       client.release();
-      return res.json({success: true, count: wbResult.rows.length});
+      return res.json({
+        inserted: wbResult.rows.length,
+        updated: result.rowCount ?? 0,
+        total: wbResult.rows.length,
+      });
     } catch (err) {
-      console.error("Error syncing worldbank market prices:", err);
-      return res.status(500).send("Failed to sync worldbank market prices");
+      client.release();
+      console.error("Error syncing world_bank → market_prices:", err);
+      return res.status(500).send("Failed to sync world_bank → market_prices");
     }
   });
 
