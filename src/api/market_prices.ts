@@ -4,24 +4,6 @@ import {z} from "zod";
 import {initDbPool} from "../utils/db";
 import {MarketPriceSchema, MarketPrice} from "../validation/marketPriceSchema";
 import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
-import axios from "axios";
-
-// External API response types
-interface KilimoStatEntry {
-  product?: string;
-  category?: string;
-  unit?: string;
-  wholesale?: number;
-  retail?: number;
-  region?: string;
-}
-
-interface WorldBankEntry {
-  commodity?: string;
-  unit?: string;
-  price?: number;
-}
-
 
 // ✅ Local registry
 export const marketPriceRegistry = new OpenAPIRegistry();
@@ -92,7 +74,7 @@ export const getMarketPricesRouter = (config: {
             RETURNING id`,
           [product_name, category, unit, wholesale_price, retail_price,
             broker_price, farmgate_price, region, source,
-            collected_at|| new Date(), benchmark ?? false]
+            collected_at || new Date(), benchmark ?? false]
         );
 
         res.status(201).json({id: result.rows[0].id});
@@ -180,8 +162,7 @@ export const getMarketPricesRouter = (config: {
   marketPriceRegistry.registerPath({
     method: "post",
     path: "/market-prices/sync",
-    // eslint-disable-next-line max-len
-    description: "Sync external benchmark prices from KilimoSTAT & World Bank RTP",
+    description: "Sync benchmark prices from World Bank dataset (local table)",
     responses: {
       200: {
         description: "Sync successful",
@@ -193,49 +174,31 @@ export const getMarketPricesRouter = (config: {
 
   router.post("/sync", async (_req, res) => {
     try {
-      // 🔹 Fetch from KilimoSTAT (adjust URL to real API/CSV/JSON endpoint)
-      const kilimoResp = await axios.get("https://statistics.kilimo.go.ke/api/prices");
-      const kilimoData = Array.isArray(kilimoResp.data) ? kilimoResp.data : [];
+      const client = await pool.connect();
 
-      const transformedKilimo = kilimoData.map((item: KilimoStatEntry) => ({
-        product_name: item.product ?? "Unknown",
-        category: item.category ?? "General",
-        unit: item.unit ?? "kg",
-        wholesale_price: item.wholesale ?? null,
-        retail_price: item.retail ?? null,
-        broker_price: null,
-        farmgate_price: null,
-        region: item.region ?? "Kenya",
-        source: "KilimoSTAT",
-        benchmark: true,
-        collected_at: new Date().toISOString(),
-      }));
+      // 🔹 Fetch from worldbank_prices table
+      const wbResult = await client.query(`
+        SELECT date, commodity, unit, price
+        FROM worldbank_prices
+      `);
 
-      // 🔹 Fetch from World Bank RTP (example endpoint — update with real)
-      const wbResp = await axios.get(
-        "https://api.worldbank.org/v2/some/food-prices?format=json"
-      );
-      const wbData = Array.isArray(wbResp.data) ? wbResp.data : [];
-
-      const transformedWB = wbData.map((item: WorldBankEntry) => ({
-        product_name: item.commodity ?? "Unknown",
+      const transformedWB = wbResult.rows.map((row) => ({
+        product_name: row.commodity ?? "Unknown",
         category: "Global",
-        unit: item.unit ?? "kg",
-        wholesale_price: item.price ?? null,
+        unit: row.unit ?? "kg",
+        wholesale_price: row.price ?? null,
         retail_price: null,
         broker_price: null,
         farmgate_price: null,
         region: "Global",
         source: "WorldBank RTP",
         benchmark: true,
-        collected_at: new Date().toISOString(),
+        collected_at: row.date, // use original WB date
       }));
 
-      const allPrices = [...transformedKilimo, ...transformedWB];
-
-      // 🔹 Upsert into DB (avoid duplicates by product+region+source)
-      for (const price of allPrices) {
-        await pool.query(
+      // 🔹 Upsert into DB
+      for (const price of transformedWB) {
+        await client.query(
           `INSERT INTO market_prices
             (product_name, category, unit, wholesale_price, retail_price,
             broker_price, farmgate_price, region, source, collected_at,
@@ -262,97 +225,11 @@ export const getMarketPricesRouter = (config: {
         );
       }
 
-      res.json({success: true, count: allPrices.length});
+      client.release();
+      res.json({success: true, count: transformedWB.length});
     } catch (err) {
-      console.error("Error syncing external market prices:", err);
-      res.status(500).send("Failed to sync external market prices");
-    }
-  });
-
-
-  // ==========================
-  // GET /market-prices/sync
-  // ==========================
-  marketPriceRegistry.registerPath({
-    method: "get",
-    path: "/market-prices/sync",
-    description: "Fetch and update benchmark market prices from external APIs",
-    responses: {
-      200: {description: "Sync successful"},
-      500: {description: "Sync failed"},
-    },
-  });
-
-  router.get("/sync", async (_req, res) => {
-    try {
-      // ✅ Example external APIs
-      const kilimoUrl = "https://statistics.kilimo.go.ke/api/prices"; // adjust if real endpoint differs
-      const worldBankUrl = "https://api.worldbank.org/v2/some-market-data"; // placeholder
-
-      const [kilimoRes, wbRes] = await Promise.allSettled([
-        axios.get(kilimoUrl),
-        axios.get(worldBankUrl),
-      ]);
-
-      // Process Kilimo data if available
-      if (kilimoRes.status === "fulfilled") {
-        for (const entry of kilimoRes.value.data || []) {
-          await pool.query(
-            `INSERT INTO market_prices 
-              (product_name, category, unit, wholesale_price, retail_price,
-              broker_price, farmgate_price, region, source, benchmark,
-              last_synced)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,NOW())
-            ON CONFLICT (product_name, region, source) DO UPDATE 
-            SET wholesale_price=EXCLUDED.wholesale_price,
-                retail_price=EXCLUDED.retail_price,
-                broker_price=EXCLUDED.broker_price,
-                farmgate_price=EXCLUDED.farmgate_price,
-                last_synced=NOW()`,
-            [
-              entry.product_name,
-              entry.category || "Cereal",
-              entry.unit || "Kg",
-              entry.wholesale_price || null,
-              entry.retail_price || null,
-              entry.broker_price || null,
-              entry.farmgate_price || null,
-              entry.region || "Kenya",
-              "KilimoSTAT",
-            ]
-          );
-        }
-      }
-
-      // Process World Bank data if available
-      if (wbRes.status === "fulfilled") {
-        for (const entry of wbRes.value.data || []) {
-          await pool.query(
-            `INSERT INTO market_prices 
-              (product_name, category, unit, wholesale_price, retail_price,
-              region, source, benchmark, last_synced)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,true,NOW())
-            ON CONFLICT (product_name, region, source) DO UPDATE 
-            SET wholesale_price=EXCLUDED.wholesale_price,
-                retail_price=EXCLUDED.retail_price,
-                last_synced=NOW()`,
-            [
-              entry.product_name,
-              entry.category || "Cereal",
-              entry.unit || "Kg",
-              entry.wholesale_price || null,
-              entry.retail_price || null,
-              entry.region || "Global",
-              "World Bank",
-            ]
-          );
-        }
-      }
-
-      res.json({success: true, message: "Sync completed"});
-    } catch (err) {
-      console.error("Error syncing market prices:", err);
-      res.status(500).json({error: "Sync failed"});
+      console.error("Error syncing worldbank market prices:", err);
+      res.status(500).send("Failed to sync worldbank market prices");
     }
   });
 
