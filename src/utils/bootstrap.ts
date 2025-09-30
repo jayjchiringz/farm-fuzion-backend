@@ -720,6 +720,30 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+
+  await pool.query(`
+      CREATE MATERIALIZED VIEW IF NOT EXISTS market_prices_mv AS
+      SELECT 
+        commodity AS product_name,
+        'worldbank' AS category,
+        unit,
+        price AS wholesale_price,
+        price AS retail_price,
+        price AS broker_price,
+        price AS farmgate_price,
+        'global' AS region,
+        'world_bank' AS source,
+        date AS collected_at,
+        true AS benchmark,
+        now() AS last_synced
+      FROM worldbank_prices;
+
+      -- Unique index for upserts
+      CREATE UNIQUE INDEX IF NOT EXISTS market_prices_mv_unique_idx
+        ON market_prices_mv (product_name, region, source, collected_at);
+    `);
+
+
   // 🧪 Insert the tag only if not forced
   if (!force) {
     await pool.query(

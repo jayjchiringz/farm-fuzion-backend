@@ -1,24 +1,14 @@
 /* eslint-disable camelcase */
-import express, {Request, Response, NextFunction} from "express";
+import express from "express";
 import {z} from "zod";
 import {initDbPool} from "../utils/db";
-import {MarketPriceSchema, MarketPrice} from "../validation/marketPriceSchema";
+import {MarketPriceSchema} from "../validation/marketPriceSchema";
 import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
+import {fetchCommodityPrice} from "../services/intelligentFetcher";
 
 // ✅ Local registry
 export const marketPriceRegistry = new OpenAPIRegistry();
 marketPriceRegistry.register("MarketPrice", MarketPriceSchema);
-
-// Middleware for validation
-const validateRequest = (schema: z.ZodSchema) =>
-  (req: Request, res: Response, next: NextFunction): void => {
-    const result = schema.safeParse(req.body);
-    if (!result.success) {
-      res.status(400).json({error: result.error.errors[0].message});
-      return;
-    }
-    next();
-  };
 
 export const getMarketPricesRouter = (config: {
   PGUSER: string;
@@ -31,76 +21,13 @@ export const getMarketPricesRouter = (config: {
   const router = express.Router();
 
   // ==========================
-  // POST /market-prices
-  // ==========================
-  marketPriceRegistry.registerPath({
-    method: "post",
-    path: "/market-prices",
-    description: "Add a new market price entry",
-    request: {
-      body: {content: {"application/json": {schema: MarketPriceSchema}}},
-    },
-    responses: {
-      201: {description: "Created",
-        content: {"application/json": {schema: z.object({id: z.string()})}}},
-      400: {description: "Validation error"},
-      500: {description: "Internal server error"},
-    },
-  });
-
-  router.post("/", validateRequest(MarketPriceSchema),
-    async (req: Request<object, object, MarketPrice>, res: Response) => {
-      try {
-        const {
-          product_name,
-          category,
-          unit,
-          wholesale_price,
-          retail_price,
-          broker_price,
-          farmgate_price,
-          region,
-          source,
-          collected_at,
-          benchmark,
-        } = req.body;
-
-        const result = await pool.query(
-          `INSERT INTO market_prices 
-            (product_name, category, unit, wholesale_price, retail_price,
-             broker_price, farmgate_price, region, source,
-             collected_at, benchmark)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-           RETURNING id`,
-          [
-            product_name,
-            category,
-            unit,
-            wholesale_price,
-            retail_price,
-            broker_price,
-            farmgate_price,
-            region,
-            source,
-            collected_at || new Date(),
-            benchmark ?? false,
-          ]
-        );
-
-        return res.status(201).json({id: result.rows[0].id});
-      } catch (err) {
-        console.error("Error adding market price:", err);
-        return res.status(500).send("Internal server error");
-      }
-    });
-
-  // ==========================
   // GET /market-prices
   // ==========================
   marketPriceRegistry.registerPath({
     method: "get",
     path: "/market-prices",
-    description: "Get market prices with filters + pagination",
+    // eslint-disable-next-line max-len
+    description: "Get market prices with filters + pagination. Falls back to live fetch if DB empty.",
     parameters: [
       {name: "product", in: "query", schema: {type: "string"}},
       {name: "region", in: "query", schema: {type: "string"}},
@@ -109,7 +36,7 @@ export const getMarketPricesRouter = (config: {
     ],
     responses: {
       200: {
-        description: "Paginated list of market prices",
+        description: "Paginated list of market prices (from MV or live fetch)",
         content: {
           "application/json": {
             schema: z.object({
@@ -125,13 +52,14 @@ export const getMarketPricesRouter = (config: {
   });
 
   router.get("/", async (req, res) => {
+    const client = await pool.connect();
     try {
       const {product, region} = req.query;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const offset = (page - 1) * limit;
 
-      let baseQuery = "FROM market_prices WHERE 1=1";
+      let baseQuery = "FROM market_prices_mv WHERE 1=1";
       const params: unknown[] = [];
 
       if (product) {
@@ -144,24 +72,65 @@ export const getMarketPricesRouter = (config: {
         baseQuery += ` AND region ILIKE $${params.length}`;
       }
 
-      const countResult = await pool.query(
-        `SELECT COUNT(*) ${baseQuery}`, params);
+      const countResult = await client.query(
+        `SELECT COUNT(*) ${baseQuery}`,
+        params
+      );
       const total = parseInt(countResult.rows[0].count, 10);
 
       params.push(limit);
       params.push(offset);
 
-      const result = await pool.query(
+      const result = await client.query(
         `SELECT * ${baseQuery}
-         ORDER BY collected_at DESC
-         LIMIT $${params.length - 1}
-         OFFSET $${params.length}`,
+        ORDER BY collected_at DESC
+        LIMIT $${params.length - 1}
+        OFFSET $${params.length}`,
         params
       );
 
-      return res.json({data: result.rows, total, page, limit});
-    } catch (err) {
-      console.error("Error fetching market prices:", err);
+      let data = result.rows;
+
+      // 🧠 Intelligent Fetch Fallback
+      if (data.length === 0 && product) {
+        const livePrice = await fetchCommodityPrice(product as string);
+        if (livePrice) {
+          const insertRes = await client.query(
+            `INSERT INTO market_prices
+              (product_name, category, unit, wholesale_price, retail_price,
+              broker_price, farmgate_price, region, source, collected_at,
+              benchmark, volatility, last_synced)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            RETURNING *`,
+            [
+              product,
+              "auto_category", // fallback category
+              "kg", // default unit
+              livePrice,
+              livePrice,
+              livePrice,
+              livePrice,
+              region || "auto",
+              "auto_web",
+              new Date(),
+              false, // not benchmark
+              true, // ⚡ mark volatile
+              new Date(),
+            ]
+          );
+          data = insertRes.rows;
+        }
+      }
+
+      client.release();
+      return res.json({data, total, page, limit});
+    } catch (err: unknown) {
+      client.release();
+      if (err instanceof Error) {
+        console.error("Error fetching market prices:", err.message);
+      } else {
+        console.error("Error fetching market prices:", err);
+      }
       return res.status(500).send("Internal server error");
     }
   });
@@ -172,88 +141,35 @@ export const getMarketPricesRouter = (config: {
   marketPriceRegistry.registerPath({
     method: "post",
     path: "/market-prices/sync",
-    description: "Sync benchmark prices from world_bank into market_prices",
+    description: "Refresh the materialized view market_prices_mv",
     responses: {
       200: {
-        description: "Sync successful",
+        description: "Refresh successful",
         content: {
           "application/json": {
-            schema: z.object({
-              inserted: z.number(),
-              updated: z.number(),
-              total: z.number(),
-            }),
+            schema: z.object({message: z.string()}),
           },
         },
       },
-      500: {description: "Failed to sync"},
+      500: {description: "Failed to refresh"},
     },
   });
 
   router.post("/sync", async (_req, res) => {
     const client = await pool.connect();
     try {
-      // 1. Fetch from world_bank
-      const wbResult = await client.query(`
-        SELECT product_name, category, unit, region,
-              wholesale_price, retail_price, broker_price, farmgate_price,
-              collected_at
-        FROM world_bank
-      `);
-
-      if (wbResult.rows.length === 0) {
-        client.release();
-        return res.json({inserted: 0, updated: 0, total: 0});
+      await client.query(
+        "REFRESH MATERIALIZED VIEW CONCURRENTLY market_prices_mv");
+      client.release();
+      return res.json({message: "market_prices_mv refreshed"});
+    } catch (err: unknown) {
+      client.release();
+      if (err instanceof Error) {
+        console.error("Error refreshing market_prices_mv:", err.message);
+      } else {
+        console.error("Error refreshing market_prices_mv:", err);
       }
-
-      // 2. Build bulk insert
-      const values: unknown[] = [];
-      const valueClauses = wbResult.rows
-        .map((row, idx) => {
-          const i = idx * 11;
-          values.push(
-            row.product_name ?? "Unknown",
-            row.category ?? null,
-            row.unit ?? "kg",
-            row.wholesale_price ?? null,
-            row.retail_price ?? null,
-            row.broker_price ?? null,
-            row.farmgate_price ?? null,
-            row.region ?? "Unknown",
-            "world_bank", // 🔹 source
-            row.collected_at ?? new Date(),
-            true // benchmark
-          );
-          // eslint-disable-next-line max-len
-          return `($${i + 1},$${i + 2},$${i + 3},$${i + 4},$${i + 5},$${i + 6},$${i + 7},$${i + 8},$${i + 9},$${i + 10},$${i + 11})`;
-        })
-        .join(",");
-
-      const result = await client.query(
-        `INSERT INTO market_prices
-          (product_name, category, unit, wholesale_price, retail_price,
-          broker_price, farmgate_price, region, source, collected_at, benchmark)
-        VALUES ${valueClauses}
-        ON CONFLICT (product_name, region, source) DO UPDATE
-        SET wholesale_price = EXCLUDED.wholesale_price,
-            retail_price    = EXCLUDED.retail_price,
-            broker_price    = EXCLUDED.broker_price,
-            farmgate_price  = EXCLUDED.farmgate_price,
-            collected_at    = EXCLUDED.collected_at,
-            benchmark       = true`,
-        values
-      );
-
-      client.release();
-      return res.json({
-        inserted: wbResult.rows.length,
-        updated: result.rowCount ?? 0,
-        total: wbResult.rows.length,
-      });
-    } catch (err) {
-      client.release();
-      console.error("Error syncing world_bank → market_prices:", err);
-      return res.status(500).send("Failed to sync world_bank → market_prices");
+      return res.status(500).send("Failed to refresh materialized view");
     }
   });
 
