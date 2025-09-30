@@ -41,8 +41,8 @@ export const getMarketPricesRouter = (config: {
       body: {content: {"application/json": {schema: MarketPriceSchema}}},
     },
     responses: {
-      201: {description: "Created", content: {"application/json":
-        {schema: z.object({id: z.string()})}}},
+      201: {description: "Created",
+        content: {"application/json": {schema: z.object({id: z.string()})}}},
       400: {description: "Validation error"},
       500: {description: "Internal server error"},
     },
@@ -68,19 +68,29 @@ export const getMarketPricesRouter = (config: {
         const result = await pool.query(
           `INSERT INTO market_prices 
             (product_name, category, unit, wholesale_price, retail_price,
-            broker_price, farmgate_price, region, source,
-            collected_at, benchmark)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-            RETURNING id`,
-          [product_name, category, unit, wholesale_price, retail_price,
-            broker_price, farmgate_price, region, source,
-            collected_at || new Date(), benchmark ?? false]
+             broker_price, farmgate_price, region, source,
+             collected_at, benchmark)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+           RETURNING id`,
+          [
+            product_name,
+            category,
+            unit,
+            wholesale_price,
+            retail_price,
+            broker_price,
+            farmgate_price,
+            region,
+            source,
+            collected_at || new Date(),
+            benchmark ?? false,
+          ]
         );
 
-        res.status(201).json({id: result.rows[0].id});
+        return res.status(201).json({id: result.rows[0].id});
       } catch (err) {
         console.error("Error adding market price:", err);
-        res.status(500).send("Internal server error");
+        return res.status(500).send("Internal server error");
       }
     });
 
@@ -149,10 +159,10 @@ export const getMarketPricesRouter = (config: {
         params
       );
 
-      res.json({data: result.rows, total, page, limit});
+      return res.json({data: result.rows, total, page, limit});
     } catch (err) {
       console.error("Error fetching market prices:", err);
-      res.status(500).send("Internal server error");
+      return res.status(500).send("Internal server error");
     }
   });
 
@@ -175,61 +185,51 @@ export const getMarketPricesRouter = (config: {
   router.post("/sync", async (_req, res) => {
     try {
       const client = await pool.connect();
+      const wbResult = await client.query(
+        "SELECT date, commodity, unit, price FROM worldbank_prices");
 
-      // 🔹 Fetch from worldbank_prices table
-      const wbResult = await client.query(`
-        SELECT date, commodity, unit, price
-        FROM worldbank_prices
-      `);
-
-      const transformedWB = wbResult.rows.map((row) => ({
-        product_name: row.commodity ?? "Unknown",
-        category: "Global",
-        unit: row.unit ?? "kg",
-        wholesale_price: row.price ?? null,
-        retail_price: null,
-        broker_price: null,
-        farmgate_price: null,
-        region: "Global",
-        source: "WorldBank RTP",
-        benchmark: true,
-        collected_at: row.date, // use original WB date
-      }));
-
-      // 🔹 Upsert into DB
-      for (const price of transformedWB) {
-        await client.query(
-          `INSERT INTO market_prices
-            (product_name, category, unit, wholesale_price, retail_price,
-            broker_price, farmgate_price, region, source, collected_at,
-            benchmark)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-          ON CONFLICT (product_name, region, source) DO UPDATE
-            SET wholesale_price = EXCLUDED.wholesale_price,
-                retail_price = EXCLUDED.retail_price,
-                collected_at = EXCLUDED.collected_at,
-                benchmark = true`,
-          [
-            price.product_name,
-            price.category,
-            price.unit,
-            price.wholesale_price,
-            price.retail_price,
-            price.broker_price,
-            price.farmgate_price,
-            price.region,
-            price.source,
-            price.collected_at,
-            price.benchmark,
-          ]
-        );
+      if (wbResult.rows.length === 0) {
+        client.release();
+        return res.json({success: true, count: 0});
       }
 
+      const values: unknown[] = [];
+      const valueClauses = wbResult.rows.map((row, idx) => {
+        const i = idx * 11;
+        values.push(
+          row.commodity ?? "Unknown",
+          "Global",
+          row.unit ?? "kg",
+          row.price ?? null,
+          null, // retail
+          null, // broker
+          null, // farmgate
+          "Global",
+          "WorldBank RTP",
+          row.date,
+          true
+        );
+        // eslint-disable-next-line max-len
+        return `($${i+1},$${i+2},$${i+3},$${i+4},$${i+5},$${i+6},$${i+7},$${i+8},$${i+9},$${i+10},$${i+11})`;
+      }).join(",");
+
+      await client.query(
+        `INSERT INTO market_prices
+          (product_name, category, unit, wholesale_price, retail_price,
+          broker_price, farmgate_price, region, source, collected_at, benchmark)
+         VALUES ${valueClauses}
+         ON CONFLICT (product_name, region, source) DO UPDATE
+         SET wholesale_price = EXCLUDED.wholesale_price,
+             collected_at = EXCLUDED.collected_at,
+             benchmark = true`,
+        values
+      );
+
       client.release();
-      res.json({success: true, count: transformedWB.length});
+      return res.json({success: true, count: wbResult.rows.length});
     } catch (err) {
       console.error("Error syncing worldbank market prices:", err);
-      res.status(500).send("Failed to sync worldbank market prices");
+      return res.status(500).send("Failed to sync worldbank market prices");
     }
   });
 
