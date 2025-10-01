@@ -27,8 +27,9 @@ export const getMarketPricesRouter = (config: {
   marketPriceRegistry.registerPath({
     method: "get",
     path: "/market-prices",
-    // eslint-disable-next-line max-len
-    description: "Get market prices with filters + pagination. Falls back to live fetch if DB empty.",
+    description:
+      // eslint-disable-next-line max-len
+      "Get market prices with filters + pagination. Falls back to live fetch if DB empty.",
     parameters: [
       {name: "product", in: "query", schema: {type: "string"}},
       {name: "region", in: "query", schema: {type: "string"}},
@@ -37,7 +38,8 @@ export const getMarketPricesRouter = (config: {
     ],
     responses: {
       200: {
-        description: "Paginated list of market prices (from MV or live fetch)",
+        description:
+          "Paginated list of market prices (from MV or live fetch)",
         content: {
           "application/json": {
             schema: z.object({
@@ -92,10 +94,13 @@ export const getMarketPricesRouter = (config: {
 
       let data = result.rows;
 
-      // ✅ Normalize currency → KES
+      // ✅ Normalize currency → KES & ensure ISO string for collected_at
       const rate = await getUsdToKesRate();
       data = data.map((row) => ({
         ...row,
+        collected_at: row.collected_at ?
+          new Date(row.collected_at).toISOString() :
+          null,
         // eslint-disable-next-line max-len
         wholesale_price: row.wholesale_price ? row.wholesale_price * rate : null,
         retail_price: row.retail_price ? row.retail_price * rate : null,
@@ -118,21 +123,26 @@ export const getMarketPricesRouter = (config: {
             RETURNING *`,
             [
               product,
-              "auto_category", // fallback category
-              "kg", // default unit
+              "auto_category",
+              "kg",
               livePrice,
               livePrice,
               livePrice,
               livePrice,
               region || "auto",
               "auto_web",
-              new Date(),
-              false, // not benchmark
-              true, // ⚡ mark volatile
-              new Date(),
+              new Date().toISOString(), // 🔥 ISO string
+              false,
+              true,
+              new Date().toISOString(), // 🔥 ISO string
             ]
           );
-          data = insertRes.rows;
+          data = insertRes.rows.map((row) => ({
+            ...row,
+            collected_at: row.collected_at ?
+              new Date(row.collected_at).toISOString() :
+              null,
+          }));
         }
       }
 
@@ -173,7 +183,8 @@ export const getMarketPricesRouter = (config: {
     const client = await pool.connect();
     try {
       await client.query(
-        "REFRESH MATERIALIZED VIEW CONCURRENTLY market_prices_mv");
+        "REFRESH MATERIALIZED VIEW CONCURRENTLY market_prices_mv"
+      );
       client.release();
       return res.json({message: "market_prices_mv refreshed"});
     } catch (err: unknown) {
@@ -220,8 +231,16 @@ export const getMarketPricesRouter = (config: {
         ORDER BY product_name, collected_at DESC;
       `);
 
+      // ✅ Normalize collected_at here too
+      const data = result.rows.map((row) => ({
+        ...row,
+        collected_at: row.collected_at ?
+          new Date(row.collected_at).toISOString() :
+          null,
+      }));
+
       client.release();
-      return res.json({data: result.rows});
+      return res.json({data});
     } catch (err) {
       client.release();
       console.error("Error fetching summary:", err);
