@@ -1,16 +1,5 @@
 import {z} from "zod";
 
-// ✅ Canonical worldbank schema
-export const WorldBankPriceSchema = z.object({
-  id: z.number().int().optional(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  commodity: z.string().min(2, "Commodity name is too short"),
-  unit: z.string().min(1, "Unit is required"),
-  price: z.number().nullable().optional(),
-  created_at: z.string().datetime().optional(),
-});
-export type WorldBankPrice = z.infer<typeof WorldBankPriceSchema>;
-
 // ✅ MarketPrice schema (view projection of worldbank)
 export const MarketPriceSchema = z.object({
   id: z.string().uuid().optional(),

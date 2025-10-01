@@ -187,5 +187,47 @@ export const getMarketPricesRouter = (config: {
     }
   });
 
+  // ==========================
+  // GET /market-prices/summary
+  // ==========================
+  marketPriceRegistry.registerPath({
+    method: "get",
+    path: "/market-prices/summary",
+    description: "Get latest price per product (summary view)",
+    responses: {
+      200: {
+        description: "Latest price per product",
+        content: {
+          "application/json": {
+            schema: z.object({
+              data: z.array(MarketPriceSchema),
+            }),
+          },
+        },
+      },
+    },
+  });
+
+  router.get("/summary", async (_req, res) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT DISTINCT ON (product_name)
+              id, product_name, category, unit,
+              wholesale_price, retail_price, broker_price, farmgate_price,
+              region, source, volatility, collected_at, benchmark, last_synced
+        FROM market_prices_mv
+        ORDER BY product_name, collected_at DESC;
+      `);
+
+      client.release();
+      return res.json({data: result.rows});
+    } catch (err) {
+      client.release();
+      console.error("Error fetching summary:", err);
+      return res.status(500).send("Failed to fetch summary");
+    }
+  });
+
   return router;
 };
