@@ -37,10 +37,17 @@ export interface components {
             farmgate_price?: number | null;
             region?: string | null;
             source?: string | null;
+            /**
+             * @default stable
+             * @enum {string}
+             */
+            volatility: "stable" | "volatile";
             /** Format: date-time */
             collected_at?: string | null;
             /** @default false */
             benchmark: boolean;
+            /** Format: date-time */
+            last_synced?: string | null;
         };
     };
     responses: never;

@@ -5,6 +5,7 @@ import {initDbPool} from "../utils/db";
 import {MarketPriceSchema} from "../validation/marketPriceSchema";
 import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
 import {fetchCommodityPrice} from "../services/intelligentFetcher";
+import {getUsdToKesRate} from "../services/fxService";
 
 // ✅ Local registry
 export const marketPriceRegistry = new OpenAPIRegistry();
@@ -90,6 +91,19 @@ export const getMarketPricesRouter = (config: {
       );
 
       let data = result.rows;
+
+      // ✅ Normalize currency → KES
+      const rate = await getUsdToKesRate();
+      data = data.map((row) => ({
+        ...row,
+        // eslint-disable-next-line max-len
+        wholesale_price: row.wholesale_price ? row.wholesale_price * rate : null,
+        retail_price: row.retail_price ? row.retail_price * rate : null,
+        broker_price: row.broker_price ? row.broker_price * rate : null,
+        farmgate_price: row.farmgate_price ? row.farmgate_price * rate : null,
+        currency: "KES",
+        fx_rate: rate,
+      }));
 
       // 🧠 Intelligent Fetch Fallback
       if (data.length === 0 && product) {
