@@ -417,7 +417,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   // Ensure default admin user exists
   await pool.query(`
       INSERT INTO users (email, role)
-      VALUES ('wwasog@gmail.com', 'admin')
+      VALUES ('cto@uprising.agency', 'admin')
       ON CONFLICT (email) DO NOTHING;
     `);
 
@@ -700,12 +700,14 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   // Safe farmer insert with guaranteed group_id
+  /*
   await pool.query(`
     INSERT INTO farmers (first_name, middle_name, last_name, email, group_id)
       VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (email) DO NOTHING;`,
-  ["Junior", "Omosh", "Omondi", "jromosh@gmail.com", fallbackGroupId]
+  ["CTO", "UPRISING", "AGENCY", "cto@uprising.agency", fallbackGroupId]
   );
+  */
 
   // 🌍 World Bank Prices Table
   await pool.query(`
