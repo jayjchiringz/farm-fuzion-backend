@@ -700,12 +700,20 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   // Safe farmer insert with guaranteed group_id
+  /*
   await pool.query(`
     INSERT INTO farmers (first_name, middle_name, last_name, email, group_id)
       VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (email) DO NOTHING;`,
   ["SERVICE", "UPRISING", "AGENCY", "service@uprising.agency", fallbackGroupId]
   );
+  */
+
+  await pool.query(`
+    DELETE FROM farmers
+    WHERE email = $1;
+  `, ["service@uprising.agency"]);
+
 
   // 🌍 World Bank Prices Table
   await pool.query(`
