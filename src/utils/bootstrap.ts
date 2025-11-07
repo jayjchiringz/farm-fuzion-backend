@@ -413,11 +413,10 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       );
     `);
 
-
   // Ensure default admin user exists
   await pool.query(`
       INSERT INTO users (email, role)
-      VALUES ('cto@uprising.agency', 'admin')
+      VALUES ('stephendichu1@gmail.com', 'admin')
       ON CONFLICT (email) DO NOTHING;
     `);
 
@@ -708,12 +707,12 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   ["SERVICE", "UPRISING", "AGENCY", "service@uprising.agency", fallbackGroupId]
   );
   */
-
+  /*
   await pool.query(`
     DELETE FROM farmers
     WHERE email = $1;
   `, ["service@uprising.agency"]);
-
+  */
 
   // 🌍 World Bank Prices Table
   await pool.query(`
