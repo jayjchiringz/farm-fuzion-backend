@@ -66,12 +66,12 @@ export const getMarketPricesRouter = (config: {
       const params: unknown[] = [];
 
       if (product) {
-        params.push(product);
+        params.push(`%${product}%`);
         baseQuery += ` AND product_name ILIKE $${params.length}`;
       }
 
       if (region) {
-        params.push(region);
+        params.push(`%${region}%`);
         baseQuery += ` AND region ILIKE $${params.length}`;
       }
 
