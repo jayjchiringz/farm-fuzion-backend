@@ -98,64 +98,70 @@ export const getMarketPricesRouter = (config: {
       const rate = await getUsdToKesRate();
       data = data.map((row) => ({
         ...row,
-        collected_at: row.collected_at ?
-          new Date(row.collected_at).toISOString() :
-          null,
+        collected_at: row.collected_at ? new Date(
+          row.collected_at).toISOString() : null,
         // eslint-disable-next-line max-len
-        wholesale_price: row.wholesale_price ? row.wholesale_price * rate : null,
-        retail_price: row.retail_price ? row.retail_price * rate : null,
-        broker_price: row.broker_price ? row.broker_price * rate : null,
-        farmgate_price: row.farmgate_price ? row.farmgate_price * rate : null,
+        wholesale_price: row.wholesale_price ? Number(row.wholesale_price) * rate : null,
+        retail_price: row.retail_price ? Number(row.retail_price) * rate : null,
+        broker_price: row.broker_price ? Number(row.broker_price) * rate : null,
+        farmgate_price: row.farmgate_price ? Number(
+          row.farmgate_price) * rate : null,
         currency: "KES",
         fx_rate: rate,
       }));
 
-      // 🧠 Intelligent Fetch Fallback
+      // 🧠 Intelligent Fetch Fallback (World Bank Benchmark Integration)
       if (data.length === 0 && product) {
         const livePrice = await fetchCommodityPrice(product as string);
-        if (livePrice) {
+        if (livePrice !== null && livePrice !== undefined) {
+          // ✅ Define market price ratios based on benchmark
+          const wholesale = livePrice; // benchmark baseline
+          const retail = wholesale * 1.15; // +15%
+          const broker = wholesale * 0.95; // -5%
+          const farmgate = wholesale * 0.75; // -25%
+
           const insertRes = await client.query(
             `INSERT INTO market_prices
-              (product_name, category, unit, wholesale_price, retail_price,
-              broker_price, farmgate_price, region, source, collected_at,
-              benchmark, volatility, last_synced)
+              (product_name, category, unit,
+              wholesale_price, retail_price, broker_price, farmgate_price,
+              region, source, collected_at, benchmark, volatility, last_synced)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
             RETURNING *`,
             [
               product,
               "auto_category",
               "kg",
-              livePrice,
-              livePrice,
-              livePrice,
-              livePrice,
+              wholesale,
+              retail,
+              broker,
+              farmgate,
               region || "auto",
-              "auto_web",
-              new Date().toISOString(), // 🔥 ISO string
-              false,
-              true,
-              new Date().toISOString(), // 🔥 ISO string
+              "worldbank_api",
+              new Date().toISOString(),
+              true, // ✅ mark as benchmark
+              "stable",
+              new Date().toISOString(),
             ]
           );
+
           data = insertRes.rows.map((row) => ({
             ...row,
-            collected_at: row.collected_at ?
-              new Date(row.collected_at).toISOString() :
-              null,
+            collected_at: row.collected_at ? new Date(
+              row.collected_at).toISOString() : null,
           }));
         }
       }
 
-      client.release();
       return res.json({data, total, page, limit});
     } catch (err: unknown) {
-      client.release();
       if (err instanceof Error) {
         console.error("Error fetching market prices:", err.message);
       } else {
         console.error("Error fetching market prices:", err);
       }
       return res.status(500).send("Internal server error");
+    } finally {
+      client.release();
     }
   });
 
@@ -234,19 +240,21 @@ export const getMarketPricesRouter = (config: {
       // ✅ Normalize collected_at here too
       const data = result.rows.map((row) => ({
         ...row,
-        collected_at: row.collected_at ?
-          new Date(row.collected_at).toISOString() :
-          null,
+        collected_at: row.collected_at ? new Date(
+          row.collected_at).toISOString() : null,
       }));
 
-      client.release();
       return res.json({data});
-    } catch (err) {
-      client.release();
-      console.error("Error fetching summary:", err);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Error fetching summary:", err.message);
+      } else {
+        console.error("Error fetching summary:", err);
+      }
       return res.status(500).send("Failed to fetch summary");
+    } finally {
+      client.release();
     }
   });
-
   return router;
 };
