@@ -79,16 +79,19 @@ export const getMarketPricesRouter = (config: {
         `SELECT COUNT(*) ${baseQuery}`,
         params
       );
-      const total = parseInt(countResult.rows[0].count, 10);
+      let total = parseInt(countResult.rows[0].count, 10);
 
+      // append limit and offset params for the main query
       params.push(limit);
       params.push(offset);
+      const limitIdx = params.length - 1;
+      const offsetIdx = params.length;
 
       const result = await client.query(
         `SELECT * ${baseQuery}
         ORDER BY collected_at DESC
-        LIMIT $${params.length - 1}
-        OFFSET $${params.length}`,
+        LIMIT $${limitIdx}
+        OFFSET $${offsetIdx}`,
         params
       );
 
@@ -96,16 +99,13 @@ export const getMarketPricesRouter = (config: {
 
       // ✅ Normalize currency → KES & ensure ISO string for collected_at
       const rate = await getUsdToKesRate();
-      data = data.map((row) => ({
+      data = data.map((row: any) => ({
         ...row,
-        collected_at: row.collected_at ? new Date(
-          row.collected_at).toISOString() : null,
-        // eslint-disable-next-line max-len
-        wholesale_price: row.wholesale_price ? Number(row.wholesale_price) * rate : null,
-        retail_price: row.retail_price ? Number(row.retail_price) * rate : null,
-        broker_price: row.broker_price ? Number(row.broker_price) * rate : null,
-        farmgate_price: row.farmgate_price ? Number(
-          row.farmgate_price) * rate : null,
+        collected_at: row.collected_at ? new Date(row.collected_at).toISOString() : null,
+        wholesale_price: row.wholesale_price != null ? Number(row.wholesale_price) * rate : null,
+        retail_price: row.retail_price != null ? Number(row.retail_price) * rate : null,
+        broker_price: row.broker_price != null ? Number(row.broker_price) * rate : null,
+        farmgate_price: row.farmgate_price != null ? Number(row.farmgate_price) * rate : null,
         currency: "KES",
         fx_rate: rate,
       }));
@@ -113,12 +113,12 @@ export const getMarketPricesRouter = (config: {
       // 🧠 Intelligent Fetch Fallback (World Bank Benchmark Integration)
       if (data.length === 0 && product) {
         const livePrice = await fetchCommodityPrice(product as string);
-        if (livePrice !== null && livePrice !== undefined) {
+        if (livePrice != null) {
           // ✅ Define market price ratios based on benchmark
           const wholesale = livePrice; // benchmark baseline
-          const retail = wholesale * 1.15; // +15%
-          const broker = wholesale * 0.95; // -5%
-          const farmgate = wholesale * 0.75; // -25%
+          const retail = livePrice * 1.15; // +15%
+          const broker = livePrice * 0.95; // -5%
+          const farmgate = livePrice * 0.75; // -25%
 
           const insertRes = await client.query(
             `INSERT INTO market_prices
@@ -144,11 +144,19 @@ export const getMarketPricesRouter = (config: {
             ]
           );
 
-          data = insertRes.rows.map((row) => ({
+          data = insertRes.rows.map((row: any) => ({
             ...row,
-            collected_at: row.collected_at ? new Date(
-              row.collected_at).toISOString() : null,
+            collected_at: row.collected_at ? new Date(row.collected_at).toISOString() : null,
+            wholesale_price: row.wholesale_price != null ? Number(row.wholesale_price) * rate : null,
+            retail_price: row.retail_price != null ? Number(row.retail_price) * rate : null,
+            broker_price: row.broker_price != null ? Number(row.broker_price) * rate : null,
+            farmgate_price: row.farmgate_price != null ? Number(row.farmgate_price) * rate : null,
+            currency: "KES",
+            fx_rate: rate,
           }));
+
+          // adjust total to include the newly inserted row(s)
+          total = data.length;
         }
       }
 
@@ -191,16 +199,16 @@ export const getMarketPricesRouter = (config: {
       await client.query(
         "REFRESH MATERIALIZED VIEW CONCURRENTLY market_prices_mv"
       );
-      client.release();
       return res.json({message: "market_prices_mv refreshed"});
     } catch (err: unknown) {
-      client.release();
       if (err instanceof Error) {
         console.error("Error refreshing market_prices_mv:", err.message);
       } else {
         console.error("Error refreshing market_prices_mv:", err);
       }
       return res.status(500).send("Failed to refresh materialized view");
+    } finally {
+      client.release();
     }
   });
 
@@ -237,11 +245,17 @@ export const getMarketPricesRouter = (config: {
         ORDER BY product_name, collected_at DESC;
       `);
 
-      // ✅ Normalize collected_at here too
-      const data = result.rows.map((row) => ({
+      // ✅ Normalize collected_at here too and convert currency to KES
+      const rate = await getUsdToKesRate();
+      const data = result.rows.map((row: any) => ({
         ...row,
-        collected_at: row.collected_at ? new Date(
-          row.collected_at).toISOString() : null,
+        collected_at: row.collected_at ? new Date(row.collected_at).toISOString() : null,
+        wholesale_price: row.wholesale_price != null ? Number(row.wholesale_price) * rate : null,
+        retail_price: row.retail_price != null ? Number(row.retail_price) * rate : null,
+        broker_price: row.broker_price != null ? Number(row.broker_price) * rate : null,
+        farmgate_price: row.farmgate_price != null ? Number(row.farmgate_price) * rate : null,
+        currency: "KES",
+        fx_rate: rate,
       }));
 
       return res.json({data});
