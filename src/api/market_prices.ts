@@ -7,6 +7,25 @@ import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
 import {fetchCommodityPrice} from "../services/intelligentFetcher";
 import {getUsdToKesRate} from "../services/fxService";
 
+// Shared DB row type for market prices
+type DbMarketPriceRow = {
+  id?: string;
+  product_name?: string;
+  category?: string;
+  unit?: string;
+  collected_at?: string | Date | null;
+  wholesale_price?: number | string | null;
+  retail_price?: number | string | null;
+  broker_price?: number | string | null;
+  farmgate_price?: number | string | null;
+  region?: string;
+  source?: string;
+  volatility?: string;
+  benchmark?: boolean;
+  last_synced?: string | Date | null;
+  [key: string]: unknown;
+};
+
 // ✅ Local registry
 export const marketPriceRegistry = new OpenAPIRegistry();
 marketPriceRegistry.register("MarketPrice", MarketPriceSchema);
@@ -95,17 +114,31 @@ export const getMarketPricesRouter = (config: {
         params
       );
 
-      let data = result.rows;
+      type DbMarketPriceRow = {
+        collected_at?: string | Date | null;
+        wholesale_price?: number | string | null;
+        retail_price?: number | string | null;
+        broker_price?: number | string | null;
+        farmgate_price?: number | string | null;
+        [key: string]: unknown;
+      };
+
+      let data = result.rows as DbMarketPriceRow[];
 
       // ✅ Normalize currency → KES & ensure ISO string for collected_at
       const rate = await getUsdToKesRate();
-      data = data.map((row: any) => ({
+      data = data.map((row) => ({
         ...row,
-        collected_at: row.collected_at ? new Date(row.collected_at).toISOString() : null,
-        wholesale_price: row.wholesale_price != null ? Number(row.wholesale_price) * rate : null,
-        retail_price: row.retail_price != null ? Number(row.retail_price) * rate : null,
-        broker_price: row.broker_price != null ? Number(row.broker_price) * rate : null,
-        farmgate_price: row.farmgate_price != null ? Number(row.farmgate_price) * rate : null,
+        collected_at: row.collected_at ? new Date(
+          row.collected_at as string).toISOString() : null,
+        wholesale_price: row.wholesale_price != null ? Number(
+          row.wholesale_price as number) * rate : null,
+        retail_price: row.retail_price != null ? Number(
+          row.retail_price as number) * rate : null,
+        broker_price: row.broker_price != null ? Number(
+          row.broker_price as number) * rate : null,
+        farmgate_price: row.farmgate_price != null ? Number(
+          row.farmgate_price as number) * rate : null,
         currency: "KES",
         fx_rate: rate,
       }));
@@ -144,13 +177,18 @@ export const getMarketPricesRouter = (config: {
             ]
           );
 
-          data = insertRes.rows.map((row: any) => ({
+          data = insertRes.rows.map((row: DbMarketPriceRow) => ({
             ...row,
-            collected_at: row.collected_at ? new Date(row.collected_at).toISOString() : null,
-            wholesale_price: row.wholesale_price != null ? Number(row.wholesale_price) * rate : null,
-            retail_price: row.retail_price != null ? Number(row.retail_price) * rate : null,
-            broker_price: row.broker_price != null ? Number(row.broker_price) * rate : null,
-            farmgate_price: row.farmgate_price != null ? Number(row.farmgate_price) * rate : null,
+            collected_at: row.collected_at ? new Date(
+              row.collected_at).toISOString() : null,
+            wholesale_price: row.wholesale_price != null ? Number(
+              row.wholesale_price) * rate : null,
+            retail_price: row.retail_price != null ? Number(
+              row.retail_price) * rate : null,
+            broker_price: row.broker_price != null ? Number(
+              row.broker_price) * rate : null,
+            farmgate_price: row.farmgate_price != null ? Number(
+              row.farmgate_price) * rate : null,
             currency: "KES",
             fx_rate: rate,
           }));
@@ -230,30 +268,33 @@ export const getMarketPricesRouter = (config: {
           },
         },
       },
+      500: {description: "Failed to fetch summary"},
     },
   });
 
   router.get("/summary", async (_req, res) => {
     const client = await pool.connect();
     try {
-      const result = await client.query(`
-        SELECT DISTINCT ON (product_name)
-              id, product_name, category, unit,
-              wholesale_price, retail_price, broker_price, farmgate_price,
-              region, source, volatility, collected_at, benchmark, last_synced
-        FROM market_prices_mv
-        ORDER BY product_name, collected_at DESC;
-      `);
+      const result = await client.query(
+        `SELECT DISTINCT ON (product_name) *
+         FROM market_prices_mv
+         ORDER BY product_name, collected_at DESC`
+      );
 
-      // ✅ Normalize collected_at here too and convert currency to KES
+      // ✅ Normalize collected_at and convert currency to KES
       const rate = await getUsdToKesRate();
-      const data = result.rows.map((row: any) => ({
+      const data = result.rows.map((row: DbMarketPriceRow) => ({
         ...row,
-        collected_at: row.collected_at ? new Date(row.collected_at).toISOString() : null,
-        wholesale_price: row.wholesale_price != null ? Number(row.wholesale_price) * rate : null,
-        retail_price: row.retail_price != null ? Number(row.retail_price) * rate : null,
-        broker_price: row.broker_price != null ? Number(row.broker_price) * rate : null,
-        farmgate_price: row.farmgate_price != null ? Number(row.farmgate_price) * rate : null,
+        collected_at: row.collected_at ? new Date(
+          row.collected_at as string).toISOString() : null,
+        wholesale_price: row.wholesale_price != null ? Number(
+          row.wholesale_price as number) * rate : null,
+        retail_price: row.retail_price != null ? Number(
+          row.retail_price as number) * rate : null,
+        broker_price: row.broker_price != null ? Number(
+          row.broker_price as number) * rate : null,
+        farmgate_price: row.farmgate_price != null ? Number(
+          row.farmgate_price as number) * rate : null,
         currency: "KES",
         fx_rate: rate,
       }));
@@ -261,9 +302,9 @@ export const getMarketPricesRouter = (config: {
       return res.json({data});
     } catch (err: unknown) {
       if (err instanceof Error) {
-        console.error("Error fetching summary:", err.message);
+        console.error("Error fetching market price summary:", err.message);
       } else {
-        console.error("Error fetching summary:", err);
+        console.error("Error fetching market price summary:", err);
       }
       return res.status(500).send("Failed to fetch summary");
     } finally {
