@@ -727,6 +727,67 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+  // Market Intelligence Tables
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS market_intelligence (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        product_name VARCHAR(100) NOT NULL,
+        region VARCHAR(100),
+        intelligence_type VARCHAR(50), -- 'prediction', 'recommendation', 'insight'
+        data JSONB NOT NULL,
+        confidence_score DECIMAL(3,2),
+        valid_from TIMESTAMP DEFAULT NOW(),
+        valid_to TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE if not exists farmer_profiles (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id),
+        location VARCHAR(255),
+        farm_size_hectares DECIMAL(10,2),
+        soil_type VARCHAR(50),
+        irrigation_type VARCHAR(50),
+        capital_available DECIMAL(15,2),
+        storage_capacity_days INTEGER,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE if not exists farming_recommendations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        farmer_id UUID REFERENCES farmer_profiles(id),
+        product_name VARCHAR(100),
+        recommendation_type VARCHAR(50), -- 'planting', 'harvesting', 'selling'
+        action VARCHAR(20), -- 'BUY', 'SELL', 'HOLD', 'STORE'
+        reason TEXT,
+        confidence_score DECIMAL(3,2),
+        expected_benefit DECIMAL(15,2),
+        risk_level VARCHAR(20),
+        implementation_date DATE,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE if not exists price_predictions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        product_name VARCHAR(100),
+        region VARCHAR(100),
+        prediction_date DATE,
+        predicted_price DECIMAL(15,2),
+        lower_bound DECIMAL(15,2),
+        upper_bound DECIMAL(15,2),
+        model_version VARCHAR(50),
+        accuracy_score DECIMAL(3,2),
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
 
   await pool.query(`
     DROP MATERIALIZED VIEW IF EXISTS market_prices_mv CASCADE;
@@ -751,6 +812,35 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     CREATE UNIQUE INDEX IF NOT EXISTS market_prices_mv_unique_idx
       ON market_prices_mv (product_name, region, source, collected_at);
     `);
+
+  await pool.query(`
+    -- Create indexes for performance
+    CREATE INDEX if not exists idx_market_intelligence_product ON market_intelligence(product_name);
+    CREATE INDEX if not exists idx_market_intelligence_region ON market_intelligence(region);
+    CREATE INDEX if not exists idx_price_predictions_product_date ON price_predictions(product_name, prediction_date);
+    CREATE INDEX if not exists idx_farming_recommendations_farmer ON farming_recommendations(farmer_id, implementation_date);
+
+    -- Create materialized view for quick intelligence queries
+    CREATE MATERIALIZED VIEW if not exists market_intelligence_mv AS
+    SELECT 
+        mp.product_name,
+        mp.region,
+        AVG(mp.wholesale_price) as current_price,
+        STDDEV(mp.wholesale_price) as price_volatility,
+        COUNT(*) as data_points,
+        MIN(mp.collected_at) as earliest_date,
+        MAX(mp.collected_at) as latest_date,
+        -- Calculate trend
+        CORR(EXTRACT(EPOCH FROM mp.collected_at), mp.wholesale_price) as price_trend,
+        -- Calculate seasonality index
+        EXTRACT(MONTH FROM mp.collected_at) as month,
+        AVG(mp.wholesale_price) as monthly_avg
+    FROM market_prices_mv mp
+    WHERE mp.collected_at >= NOW() - INTERVAL '5 years'
+    GROUP BY mp.product_name, mp.region, EXTRACT(MONTH FROM mp.collected_at);
+
+    CREATE UNIQUE INDEX if not exists idx_market_intelligence_mv ON market_intelligence_mv(product_name, region, month);
+  `);
 
   // 🧪 Insert the tag only if not forced
   if (!force) {
