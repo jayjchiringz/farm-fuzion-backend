@@ -141,33 +141,34 @@ export const getMarketPricesRouter = (config: {
 
       let data = result.rows as DbMarketPriceRow[];
 
-      // ✅ Normalize currency → KES & ensure ISO string for collected_at
+      // ✅ Normalize currency → KES & add source metadata
       const rate = await getUsdToKesRate();
       data = data.map((row) => ({
         ...row,
-        collected_at: row.collected_at ? new Date(
-          row.collected_at as string).toISOString() : null,
-        wholesale_price: row.wholesale_price != null ? Number(
-          row.wholesale_price as number) * rate : null,
-        retail_price: row.retail_price != null ? Number(
-          row.retail_price as number) * rate : null,
-        broker_price: row.broker_price != null ? Number(
-          row.broker_price as number) * rate : null,
-        farmgate_price: row.farmgate_price != null ? Number(
-          row.farmgate_price as number) * rate : null,
+        collected_at: row.collected_at ? new Date(row.collected_at as string).toISOString() : null,
+        wholesale_price: row.wholesale_price != null ? Number(row.wholesale_price as number) * rate : null,
+        retail_price: row.retail_price != null ? Number(row.retail_price as number) * rate : null,
+        broker_price: row.broker_price != null ? Number(row.broker_price as number) * rate : null,
+        farmgate_price: row.farmgate_price != null ? Number(row.farmgate_price as number) * rate : null,
         currency: "KES",
         fx_rate: rate,
+        price_sources: {
+          retail: row.source || "worldbank_benchmark",
+          wholesale: row.source ? `${row.source}_estimated` : "calculated_estimated",
+          broker: row.source ? `${row.source}_estimated` : "calculated_estimated",
+          farmgate: row.source ? `${row.source}_estimated` : "calculated_estimated",
+        },
       }));
 
       // 🧠 Intelligent Fetch Fallback (World Bank Benchmark Integration)
       if (data.length === 0 && product) {
         const livePrice = await fetchCommodityPrice(product as string);
         if (livePrice != null) {
-          // ✅ Define market price ratios based on benchmark
-          const wholesale = livePrice; // benchmark baseline
-          const retail = livePrice * 1.15; // +15%
-          const broker = livePrice * 0.95; // -5%
-          const farmgate = livePrice * 0.75; // -25%
+          // ✅ Define market price ratios based on retail benchmark
+          const retail = livePrice; // Retail is the benchmark baseline
+          const wholesale = retail / 1.15; // -15% from retail (typical margin)
+          const broker = retail * 0.95; // -5% from retail
+          const farmgate = retail * 0.75; // -25% from retail (farmer's price)
 
           const insertRes = await client.query(
             `INSERT INTO market_prices
@@ -184,10 +185,10 @@ export const getMarketPricesRouter = (config: {
               retail,
               broker,
               farmgate,
-              region || "auto",
+              region || "global",
               "worldbank_api",
               new Date().toISOString(),
-              true, // ✅ mark as benchmark
+              true,
               "stable",
               new Date().toISOString(),
             ]
@@ -232,77 +233,165 @@ export const getMarketPricesRouter = (config: {
   // ==========================
   // Add this router endpoint
   marketPriceRegistry.registerPath({
-    method: "post",
-    path: "/market-prices/intelligent-recommendations",
-    description:
-    "Get AI-powered farming recommendations based on farmer context",
-    requestBody: {
-      content: {
-        "application/json": {
-          schema: (z.object({
-            location: z.string(),
-            farmSize: z.number(),
-            currentInventory: z.array(z.object({
-              product: z.string(),
-              quantity: z.number(),
-              unit: z.string(),
-              harvestDate: z.string().datetime(),
-            })),
-            storageCapacity: z.number(),
-            capitalAvailable: z.number(),
-          }) as any),
-        },
-      },
-    },
+    method: "get",
+    path: "/market-prices/dashboard",
+    description: "Get market insights dashboard for farmer overview",
+    parameters: [
+      {name: "region", in: "query", schema: {type: "string"}},
+      {name: "limit", in: "query", schema: {type: "integer", default: 5}},
+    ],
     responses: {
       200: {
-        description: "Intelligent recommendations for farmer",
+        description: "Market dashboard with insights",
         content: {
           "application/json": {
-            schema: (z.object({
-              recommendations: z.array(z.object({
+            schema: z.object({
+              summary: z.array(z.object({
                 product: z.string(),
-                region: z.string(),
-                currentPrices: z.object({
-                  wholesale: z.number(),
-                  retail: z.number(),
-                  broker: z.number(),
-                  farmgate: z.number(),
-                }),
-                recommendedAction: z.enum(["BUY", "SELL", "HOLD", "STORE"]),
-                confidenceScore: z.number(),
-                priceProjection30d: z.object({
-                  min: z.number(),
-                  max: z.number(),
-                  expected: z.number(),
-                }),
-                optimalTiming: z.object({
-                  bestBuyDate: z.string().datetime(),
-                  bestSellDate: z.string().datetime(),
-                  reason: z.string(),
-                }),
-                riskFactors: z.array(z.object({
-                  factor: z.string(),
-                  impact: z.enum(["HIGH", "MEDIUM", "LOW"]),
-                  description: z.string(),
-                })),
-                alternativeProducts: z.array(z.object({
-                  product: z.string(),
-                  profitMargin: z.number(),
-                  reason: z.string(),
-                })),
+                unit: z.string(),
+                retail_price: z.number(),
+                trend: z.enum(['UP', 'DOWN', 'STABLE']),
+                weekly_change: z.number(),
+                best_price_type: z.enum(['farmgate', 'wholesale', 'retail', 'broker']),
+                price_analysis: z.string(),
+                action_recommendation: z.string(),
               })),
-              marketInsights: z.object({
-                overallTrend: z.string(),
-                bestPerformingProduct: z.string(),
-                riskLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
-                suggestedActions: z.array(z.string()),
+              market_overview: z.object({
+                best_buy_product: z.string(),
+                best_sell_product: z.string(),
+                most_volatile: z.string(),
+                overall_trend: z.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
               }),
-            }) as any),
+              timestamp: z.string().datetime(),
+            }),
           },
         },
       },
     },
+  });
+
+  router.get("/dashboard", async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const {region, limit = 5} = req.query;
+      // Get latest prices for top products
+      const result = await client.query(`
+        WITH latest_prices AS (
+          SELECT DISTINCT ON (product_name) 
+            product_name,
+            unit,
+            retail_price,
+            wholesale_price,
+            broker_price,
+            farmgate_price,
+            collected_at,
+            region
+          FROM market_prices_mv
+          WHERE retail_price IS NOT NULL
+          ${region ? `AND region ILIKE $1` : ''}
+          ORDER BY product_name, collected_at DESC
+        )
+        SELECT * FROM latest_prices 
+        ORDER BY retail_price DESC 
+        LIMIT $${region ? 2 : 1}
+      `, region ? [`%${region}%`, limit] : [limit]);
+
+      // Get historical data for trend analysis
+      const trendResult = await client.query(`
+        SELECT 
+          product_name,
+          retail_price,
+          collected_at
+        FROM market_prices_mv
+        WHERE collected_at >= NOW() - INTERVAL '30 days'
+        AND retail_price IS NOT NULL
+        ORDER BY product_name, collected_at
+      `);
+
+      // Analyze trends
+      const productTrends = new Map();
+      trendResult.rows.forEach((row) => {
+        if (!productTrends.has(row.product_name)) {
+          productTrends.set(row.product_name, []);
+        }
+        productTrends.get(row.product_name).push({
+          price: row.retail_price,
+          date: row.collected_at,
+        });
+      });
+
+      // Generate insights
+      const summary = result.rows.map((row) => {
+        const trends = productTrends.get(row.product_name) || [];
+        const weeklyChange = trends.length >= 2 ?
+          ((row.retail_price - trends[0]?.price) / trends[0]?.price) * 100 :
+          0;
+
+        // Determine best price type for farmer
+        const prices = {
+          farmgate: row.farmgate_price,
+          wholesale: row.wholesale_price,
+          retail: row.retail_price,
+          broker: row.broker_price,
+        };
+
+        const bestPriceType = Object.entries(prices).reduce((best, [type, price]) =>
+          price && (!best.price || price > best.price) ? {type, price} : best
+        , {type: 'retail', price: row.retail_price}).type;
+
+        // Generate analysis
+        let analysis = '';
+        if (weeklyChange > 5) analysis = 'Prices rising significantly';
+        else if (weeklyChange < -5) analysis = 'Prices declining';
+        else analysis = 'Prices stable';
+
+        let recommendation = 'Monitor market';
+        if (bestPriceType === 'farmgate' && weeklyChange > 0) {
+          recommendation = 'Consider selling now';
+        } else if (bestPriceType === 'retail' && weeklyChange < 0) {
+          recommendation = 'Wait for better prices';
+        }
+
+        return {
+          product: row.product_name,
+          unit: row.unit,
+          retail_price: Math.round(row.retail_price * 100) / 100,
+          trend: weeklyChange > 2 ? 'UP' : weeklyChange < -2 ? 'DOWN' : 'STABLE',
+          weekly_change: Math.round(weeklyChange * 100) / 100,
+          best_price_type: bestPriceType,
+          price_analysis: analysis,
+          action_recommendation: recommendation,
+        };
+      });
+
+      // Market overview
+      const marketOverview = {
+        best_buy_product: summary.reduce((best, curr) =>
+          curr.trend === 'UP' && (!best || curr.weekly_change > best.weekly_change) ? curr : best
+        )?.product || 'N/A',
+        best_sell_product: summary.reduce((best, curr) =>
+          curr.trend === 'DOWN' && (!best || curr.weekly_change < best.weekly_change) ? curr : best
+        )?.product || 'N/A',
+        most_volatile: summary.reduce((most, curr) =>
+          Math.abs(curr.weekly_change) > Math.abs(most?.weekly_change || 0) ? curr : most
+        )?.product || 'N/A',
+        overall_trend: summary.filter((s) => s.trend === 'UP').length >
+                      summary.filter((s) => s.trend === 'DOWN').length ? 'BULLISH' :
+          summary.filter((s) => s.trend === 'DOWN').length >
+                      summary.filter((s) => s.trend === 'UP').length ? 'BEARISH' : 'NEUTRAL',
+      };
+
+      return res.json({
+        summary,
+        market_overview: marketOverview,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Dashboard API error:", error);
+      return res.status(500).json({error: "Failed to generate dashboard"});
+    } finally {
+      client.release();
+    }
   });
 
   router.post("/intelligent-recommendations", async (req, res) => {
@@ -330,6 +419,7 @@ export const getMarketPricesRouter = (config: {
       res.status(500).json({error: "Failed to generate recommendations"});
     }
   });
+
   // Add price prediction endpoint
   marketPriceRegistry.registerPath({
     method: 'get',
