@@ -687,6 +687,7 @@ export const getMarketPricesRouter = (config: {
           row.farmgate_price as number) * rate : null,
         currency: "KES",
         fx_rate: rate,
+        fx_source: fxSource,
       }));
 
       return res.json({data});
