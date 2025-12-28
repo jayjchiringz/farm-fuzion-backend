@@ -1,5 +1,6 @@
 {
   "name": "functions",
+  "type": "commonjs", 
   "scripts": {
     "generate:api": "openapi-typescript https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api/docs-json --output src/types/api.d.ts",
     "lint": "eslint --ext .js,.ts .",

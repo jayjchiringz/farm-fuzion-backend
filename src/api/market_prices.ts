@@ -14,7 +14,7 @@ import {fetchCommodityPrice} from "../services/intelligentFetcher";
 import {getUsdToKesRate} from "../services/fxService";
 import {IntelligentMarketEngine, FarmerContext}
   from "../services/intelligentPriceEngine";
-import {FarmIntelligenceEngine} from "../services/farmintelligence";
+import {FarmIntelligenceEngine} from "../services/farmIntelligence";
 
 // Shared DB row type for market prices
 type DbMarketPriceRow = {
