@@ -661,8 +661,18 @@ export const getMarketPricesRouter = (config: {
          ORDER BY product_name, collected_at DESC`
       );
 
-      // ✅ Normalize collected_at and convert currency to KES
-      const rate = await getUsdToKesRate();
+      // ✅ Normalize currency → KES with robust error handling
+      let rate: number;
+      let fxSource = "cache";
+      try {
+        rate = await getUsdToKesRate();
+        fxSource = "live";
+      } catch (error) {
+        console.warn("FX service critical error, using hardcoded default:", error);
+        rate = 147; // Hardcoded fallback
+        fxSource = "fallback";
+      }
+
       const data = result.rows.map((row: DbMarketPriceRow) => ({
         ...row,
         collected_at: row.collected_at ? new Date(
