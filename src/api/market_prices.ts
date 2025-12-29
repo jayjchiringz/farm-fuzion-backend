@@ -15,6 +15,7 @@ import {getUsdToKesRate} from "../services/fxService";
 import {IntelligentMarketEngine, FarmerContext}
   from "../services/intelligentPriceEngine";
 import {FarmIntelligenceEngine} from "../services/farmIntelligence";
+import {CurrencyRates, CurrencyService} from "../services/currencyService";
 
 // Shared DB row type for market prices
 type DbMarketPriceRow = {
@@ -92,7 +93,7 @@ export const getMarketPricesRouter = (config: {
   router.get("/", async (req, res) => {
     const client = await pool.connect();
     try {
-      const {product, region} = req.query;
+      const {product, region, currency = 'KES'} = req.query;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const offset = (page - 1) * limit;
@@ -141,48 +142,56 @@ export const getMarketPricesRouter = (config: {
 
       let data = result.rows as DbMarketPriceRow[];
 
-      // ✅ Normalize currency → KES & add source metadata
-      // In router.get("/", ...) after normalization (around line 90-110)
-      // REPLACE the entire data transformation with this:
+      // ✅ Get currency rates
+      const rates = await CurrencyService.getRates();
+      const targetCurrency = (currency as keyof CurrencyRates) || 'KES';
 
+      // ✅ TRANSFORM: Calculate prices and convert currency
       data = data.map((row) => {
-        // ✅ Get the ONLY reliable data point: retail price (WorldBank benchmark)
-        const retailPrice = Number(row.retail_price) || 0;
+        // WorldBank data is in USD, stored as retail_price in USD
+        const retailPriceUSD = Number(row.retail_price) || 0;
 
-        if (retailPrice > 0) {
-          // ✅ CALCULATE ALL OTHER PRICES FROM RETAIL
-          const wholesalePrice = retailPrice * 0.85; // -15%
-          const brokerPrice = retailPrice * 0.95; // -5%
-          const farmgatePrice = retailPrice * 0.60; // -40% (farmer gets)
+        if (retailPriceUSD > 0) {
+          // ✅ CALCULATE ALL PRICES FROM RETAIL (in USD first)
+          const wholesalePriceUSD = retailPriceUSD * 0.85; // -15%
+          const brokerPriceUSD = retailPriceUSD * 0.95; // -5%
+          const farmgatePriceUSD = retailPriceUSD * 0.60; // -40%
 
-          // ✅ DEBUG: Log what we're doing
-          console.log(`📊 Transforming ${row.product_name}:`);
-          console.log(`   Retail (source): ${retailPrice}`);
-          console.log(`   Wholesale (calc): ${wholesalePrice}`);
-          console.log(`   Broker (calc): ${brokerPrice}`);
-          console.log(`   Farmgate (calc): ${farmgatePrice}`);
+          // ✅ CONVERT TO TARGET CURRENCY
+          const convert = (amountUSD: number) =>
+            CurrencyService.convert(amountUSD, 'USD', targetCurrency, rates);
+
+          const retailPrice = convert(retailPriceUSD);
+          const wholesalePrice = convert(wholesalePriceUSD);
+          const brokerPrice = convert(brokerPriceUSD);
+          const farmgatePrice = convert(farmgatePriceUSD);
 
           return {
             ...row,
-            // KEEP retail as is (the only real data)
-            retail_price: retailPrice,
-            // CALCULATE all other prices
+            // Store both original and converted values
+            retail_price: Math.round(retailPrice * 100) / 100,
             wholesale_price: Math.round(wholesalePrice * 100) / 100,
             broker_price: Math.round(brokerPrice * 100) / 100,
             farmgate_price: Math.round(farmgatePrice * 100) / 100,
-            // Clear metadata about source
+            // Metadata
+            currency: targetCurrency,
+            original_currency: 'USD',
+            fx_rate: rates[targetCurrency],
+            fx_rates: rates,
             price_sources: {
               retail: row.source || "worldbank_benchmark",
               wholesale: "calculated_from_retail",
               broker: "calculated_from_retail",
               farmgate: "calculated_from_retail",
             },
-            // Add helpful metadata
-            calculation_note: "All non-retail prices calculated from WorldBank retail benchmark",
-            calculation_margins: {
-              wholesale: "15% below retail",
-              broker: "5% below retail",
-              farmgate: "40% below retail (farmer's share)",
+            unit: `${targetCurrency}/kg`, // Update unit with correct currency
+            calculation_details: {
+              base_price_usd: retailPriceUSD,
+              margins: {
+                wholesale: '15% below retail',
+                broker: '5% below retail',
+                farmgate: '40% below retail',
+              },
             },
           };
         }
@@ -190,12 +199,8 @@ export const getMarketPricesRouter = (config: {
         // Fallback for invalid data
         return {
           ...row,
-          price_sources: {
-            retail: "unknown",
-            wholesale: "unknown",
-            broker: "unknown",
-            farmgate: "unknown",
-          },
+          currency: targetCurrency,
+          fx_rate: rates[targetCurrency],
         };
       });
 
@@ -252,7 +257,15 @@ export const getMarketPricesRouter = (config: {
         }
       }
 
-      return res.json({data, total, page, limit});
+      return res.json({
+        data,
+        total,
+        page,
+        limit,
+        currency: targetCurrency,
+        fx_rates: rates,
+        note: `Prices converted from USD to ${targetCurrency}`,
+      });
     } catch (err: unknown) {
       if (err instanceof Error) {
         console.error("Error fetching market prices:", err.message);
@@ -812,10 +825,11 @@ export const getMarketPricesRouter = (config: {
   });
 
   // REPLACE the entire router.get("/summary", ...) with:
-
-  router.get("/summary", async (_req, res) => {
+  router.get("/summary", async (req, res) => {
     const client = await pool.connect();
     try {
+      const {currency = 'KES'} = req.query;
+      // ✅ FETCH: Get latest price per product
       const result = await client.query(
         `SELECT DISTINCT ON (product_name) *
         FROM market_prices_mv
@@ -823,37 +837,38 @@ export const getMarketPricesRouter = (config: {
         LIMIT 50`
       );
 
-      // ✅ Get FX rate
-      let rate: number;
-      try {
-        rate = await getUsdToKesRate();
-      } catch (error) {
-        console.warn("FX service error, using fallback:", error);
-        rate = 128.93; // From your response
-      }
+      // ✅ Get currency rates
+      const rates = await CurrencyService.getRates();
+      const targetCurrency = (currency as keyof CurrencyRates) || 'KES';
 
-      // ✅ TRANSFORM: Calculate ALL prices from retail
+      // ✅ TRANSFORM: Calculate and convert
       const data = result.rows.map((row: DbMarketPriceRow) => {
-        const retailPriceKES = Number(row.retail_price) * rate || 0;
+        const retailPriceUSD = Number(row.retail_price) || 0;
 
-        if (retailPriceKES > 0) {
-          // ✅ CALCULATE ALL PRICES FROM RETAIL
-          const wholesalePriceKES = retailPriceKES * 0.85; // -15%
-          const brokerPriceKES = retailPriceKES * 0.95; // -5%
-          const farmgatePriceKES = retailPriceKES * 0.60; // -40%
+        if (retailPriceUSD > 0) {
+          // Calculate in USD
+          const wholesalePriceUSD = retailPriceUSD * 0.85;
+          const brokerPriceUSD = retailPriceUSD * 0.95;
+          const farmgatePriceUSD = retailPriceUSD * 0.60;
+
+          // Convert to target currency
+          const convert = (amountUSD: number) =>
+            CurrencyService.convert(amountUSD, 'USD', targetCurrency, rates);
 
           return {
             ...row,
             collected_at: row.collected_at ?
               new Date(row.collected_at as string).toISOString() : null,
-            // ✅ Only retail is real data, others are calculated
-            retail_price: Math.round(retailPriceKES * 100) / 100,
-            wholesale_price: Math.round(wholesalePriceKES * 100) / 100,
-            broker_price: Math.round(brokerPriceKES * 100) / 100,
-            farmgate_price: Math.round(farmgatePriceKES * 100) / 100,
-            currency: "KES",
-            fx_rate: rate,
-            // Clear source indicators
+            // Converted prices
+            retail_price: Math.round(convert(retailPriceUSD) * 100) / 100,
+            wholesale_price: Math.round(convert(wholesalePriceUSD) * 100) / 100,
+            broker_price: Math.round(convert(brokerPriceUSD) * 100) / 100,
+            farmgate_price: Math.round(convert(farmgatePriceUSD) * 100) / 100,
+            // Currency info
+            currency: targetCurrency,
+            original_currency: 'USD',
+            fx_rate: rates[targetCurrency],
+            unit: `${targetCurrency}/kg`,
             price_sources: {
               retail: row.source || "worldbank_benchmark",
               wholesale: "calculated",
@@ -861,25 +876,27 @@ export const getMarketPricesRouter = (config: {
               farmgate: "calculated",
             },
             is_calculated: true,
-            calculation_base: "retail_price",
+            calculation_base: "retail_price_usd",
           };
         }
-        // Return as-is for invalid data
+
+        // Invalid data fallback
         return {
           ...row,
           collected_at: row.collected_at ?
             new Date(row.collected_at as string).toISOString() : null,
-          retail_price: row.retail_price != null ?
-            Math.round(Number(row.retail_price) * rate * 100) / 100 : null,
-          wholesale_price: null,
-          broker_price: null,
-          farmgate_price: null,
-          currency: "KES",
-          fx_rate: rate,
+          currency: targetCurrency,
+          fx_rate: rates[targetCurrency],
+          unit: `${targetCurrency}/kg`,
         };
       });
 
-      return res.json({data});
+      return res.json({
+        data,
+        currency: targetCurrency,
+        fx_rates: rates,
+        total_products: data.length,
+      });
     } catch (err: unknown) {
       console.error("Error fetching summary:", err);
       return res.status(500).send("Failed to fetch summary");
