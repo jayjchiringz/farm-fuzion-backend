@@ -11,7 +11,6 @@ import {initDbPool} from "../utils/db";
 import {MarketPriceSchema} from "../validation/marketPriceSchema";
 import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
 import {fetchCommodityPrice} from "../services/intelligentFetcher";
-import {getUsdToKesRate} from "../services/fxService";
 import {IntelligentMarketEngine, FarmerContext}
   from "../services/intelligentPriceEngine";
 import {FarmIntelligenceEngine} from "../services/farmIntelligence";
