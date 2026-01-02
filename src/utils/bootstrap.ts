@@ -814,6 +814,118 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     `);
 
   await pool.query(`
+      -- 1. MARKETPLACE PRODUCTS (Denormalized view of farm_products for performance)
+      CREATE TABLE IF NOT EXISTS marketplace_products (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        farm_product_id UUID REFERENCES farm_products(id) ON DELETE CASCADE,
+        farmer_id TEXT NOT NULL,
+        product_name TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        unit TEXT NOT NULL,
+        price NUMERIC(12,2) NOT NULL,
+        category TEXT,
+        status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'sold', 'reserved', 'hidden')),
+        location TEXT,
+        rating DECIMAL(3,2) DEFAULT 0,
+        total_sales INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        -- For search optimization
+        search_vector TSVECTOR
+      );
+    `);
+
+  await pool.query(`
+    -- 2. SHOPPING CARTS
+    CREATE TABLE IF NOT EXISTS shopping_carts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      buyer_id TEXT NOT NULL,
+      seller_id TEXT NOT NULL,
+      status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'pending', 'completed', 'abandoned')),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(buyer_id, seller_id, status) WHERE status = 'active'
+    );
+  `);
+
+  await pool.query(`
+    -- 3. CART ITEMS
+    CREATE TABLE IF NOT EXISTS cart_items (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      cart_id UUID REFERENCES shopping_carts(id) ON DELETE CASCADE,
+      marketplace_product_id UUID REFERENCES marketplace_products(id),
+      quantity INTEGER NOT NULL CHECK (quantity > 0),
+      unit_price NUMERIC(12,2) NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- 4. ORDERS
+    CREATE TABLE IF NOT EXISTS marketplace_orders (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_number TEXT UNIQUE NOT NULL,
+      buyer_id TEXT NOT NULL,
+      seller_id TEXT NOT NULL,
+      status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'shipping', 'delivered', 'cancelled', 'refunded')),
+      total_amount NUMERIC(12,2) NOT NULL,
+      shipping_address TEXT,
+      payment_method VARCHAR(50),
+      payment_status VARCHAR(20) DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'failed', 'refunded')),
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- 5. ORDER ITEMS
+    CREATE TABLE IF NOT EXISTS order_items (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_id UUID REFERENCES marketplace_orders(id) ON DELETE CASCADE,
+      marketplace_product_id UUID REFERENCES marketplace_products(id),
+      product_name TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      unit_price NUMERIC(12,2) NOT NULL,
+      total_price NUMERIC(12,2) NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- 6. INDEXES FOR PERFORMANCE
+    CREATE INDEX IF NOT EXISTS idx_marketplace_products_farmer ON marketplace_products(farmer_id);
+    CREATE INDEX IF NOT EXISTS idx_marketplace_products_status ON marketplace_products(status);
+    CREATE INDEX IF NOT EXISTS idx_marketplace_products_category ON marketplace_products(category);
+    CREATE INDEX IF NOT EXISTS idx_marketplace_products_search ON marketplace_products USING GIN(search_vector);
+    CREATE INDEX IF NOT EXISTS idx_carts_buyer ON shopping_carts(buyer_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_buyer ON marketplace_orders(buyer_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_seller ON marketplace_orders(seller_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_status ON marketplace_orders(status);
+  `);
+
+  await pool.query(`
+    -- 7. TRIGGER for search vector (optional, for advanced search)
+    CREATE OR REPLACE FUNCTION update_marketplace_search_vector()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      NEW.search_vector = to_tsvector('english',
+        COALESCE(NEW.product_name, '') || ' ' ||
+        COALESCE(NEW.category, '') || ' ' ||
+        COALESCE(NEW.location, '')
+      );
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+  `);
+
+  await pool.query(`
+    CREATE TRIGGER trg_marketplace_search_vector
+    BEFORE INSERT OR UPDATE ON marketplace_products
+    FOR EACH ROW EXECUTE FUNCTION update_marketplace_search_vector();
+  `);
+
+  await pool.query(`
     -- Create indexes for performance
     CREATE INDEX if not exists idx_market_intelligence_product ON market_intelligence(product_name);
     CREATE INDEX if not exists idx_market_intelligence_region ON market_intelligence(region);
