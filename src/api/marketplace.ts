@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-empty-function */
 /* eslint-disable require-jsdoc */
 /* eslint-disable max-len */
@@ -62,11 +63,11 @@ async function resolveFarmerId(db: Pool | PoolClient, farmerId: string | number)
       "SELECT id FROM farmers WHERE id::text = $1 OR auth_id::text = $1 OR user_id::text = $1 LIMIT 1",
       [normalized]
     );
-    
+
     if (result.rows.length > 0) {
       return result.rows[0].id;
     }
-    
+
     return normalized;
   } catch (err) {
     console.error("Error resolving farmer ID:", err);
@@ -74,10 +75,14 @@ async function resolveFarmerId(db: Pool | PoolClient, farmerId: string | number)
   }
 }
 
-// Replace the getOneOrNone function:
-const getOneOrNone = async (pool: Pool, query: string, params: any[] = []): Promise<any | null> => {
+// Replace the getOneOrNone function with proper typing:
+const getOneOrNone = async <T = Record<string, unknown>>(
+  pool: Pool,
+  query: string,
+  params: unknown[] = []
+): Promise<T | null> => {
   const result = await pool.query(query, params);
-  return result.rows.length > 0 ? result.rows[0] : null;
+  return result.rows.length > 0 ? result.rows[0] as T : null;
 };
 
 // Update the router factory signature:
@@ -142,9 +147,9 @@ export const getMarketplaceRouter = (config: {
         const farmProduct = await getOneOrNone(
           pool,
           `SELECT fp.*, f.location 
-           FROM farm_products fp
-           LEFT JOIN farmers f ON fp.farmer_id = f.id
-           WHERE fp.id = $1 AND fp.farmer_id = $2`,
+          FROM farm_products fp
+          LEFT JOIN farmers f ON fp.farmer_id = f.id
+          WHERE fp.id = $1 AND fp.farmer_id = $2`,
           [farm_product_id, farmer_id]
         );
 
@@ -187,13 +192,13 @@ export const getMarketplaceRouter = (config: {
           ]
         );
 
-        res.status(201).json({
+        return res.status(201).json({ // Add return
           id: result.rows[0].id,
           message: "Product published successfully to marketplace",
         });
       } catch (err) {
         console.error("Error publishing product:", err);
-        res.status(500).json({error: "Internal server error"});
+        return res.status(500).json({error: "Internal server error"}); // Add return
       }
     }
   );
@@ -408,10 +413,10 @@ export const getMarketplaceRouter = (config: {
         return res.status(404).json({error: "Product not found"});
       }
 
-      res.json(result.rows[0]);
+      return res.json(result.rows[0]); // Add "return" here
     } catch (err) {
       console.error("Error fetching product:", err);
-      res.status(500).json({error: "Internal server error"});
+      return res.status(500).json({error: "Internal server error"}); // Add "return" here too for consistency
     }
   });
 
@@ -473,21 +478,21 @@ export const getMarketplaceRouter = (config: {
       // Update product
       const result = await pool.query(
         `UPDATE marketplace_products
-         SET 
-           price = COALESCE($1, price),
-           quantity = COALESCE($2, quantity),
-           status = COALESCE($3, status),
-           location = COALESCE($4, location),
-           updated_at = NOW()
-         WHERE id = $5
-         RETURNING *`,
+        SET 
+          price = COALESCE($1, price),
+          quantity = COALESCE($2, quantity),
+          status = COALESCE($3, status),
+          location = COALESCE($4, location),
+          updated_at = NOW()
+        WHERE id = $5
+        RETURNING *`,
         [price, quantity, status, location, id]
       );
 
-      res.json(result.rows[0]);
+      return res.json(result.rows[0]); // Add return
     } catch (err) {
       console.error("Error updating product:", err);
-      res.status(500).json({error: "Internal server error"});
+      return res.status(500).json({error: "Internal server error"}); // Add return
     }
   });
 
@@ -631,15 +636,30 @@ export const getMarketplaceRouter = (config: {
         const resolvedBuyerId = await resolveFarmerId(pool, buyer_id);
 
         // 1. Get product details and verify stock
-        const product = await getOneOrNone(
-          pool,
+        const product = await getOneOrNone<{
+          id: string;
+          farmer_id: string;
+          market_quantity: number;
+          price: number;
+          farm_quantity?: number;
+          product_name?: string;
+          unit?: string;
+          category?: string;
+          status?: string;
+          location?: string;
+          rating?: number;
+          total_sales?: number;
+          created_at?: string;
+          updated_at?: string;
+          farm_product_id?: string;
+        }>(pool,
           `SELECT 
             mp.*,
             fp.quantity as farm_quantity,
             mp.quantity as market_quantity
-           FROM marketplace_products mp
-           LEFT JOIN farm_products fp ON mp.farm_product_id = fp.id
-           WHERE mp.id = $1 AND mp.status = 'available'`,
+          FROM marketplace_products mp
+          LEFT JOIN farm_products fp ON mp.farm_product_id = fp.id
+          WHERE mp.id = $1 AND mp.status = 'available'`,
           [marketplace_product_id]
         );
 
@@ -656,7 +676,7 @@ export const getMarketplaceRouter = (config: {
         // 2. Get or create cart for this buyer-seller pair
         const cartResult = await pool.query(
           `SELECT id FROM shopping_carts 
-           WHERE buyer_id = $1 AND seller_id = $2 AND status = 'active'`,
+          WHERE buyer_id = $1 AND seller_id = $2 AND status = 'active'`,
           [resolvedBuyerId, product.farmer_id]
         );
 
@@ -665,7 +685,7 @@ export const getMarketplaceRouter = (config: {
         if (!cart) {
           const newCartResult = await pool.query(
             `INSERT INTO shopping_carts (buyer_id, seller_id) 
-             VALUES ($1, $2) RETURNING id`,
+            VALUES ($1, $2) RETURNING id`,
             [resolvedBuyerId, product.farmer_id]
           );
           cart = newCartResult.rows[0];
@@ -674,7 +694,7 @@ export const getMarketplaceRouter = (config: {
         // 3. Check if item already in cart
         const existingItemResult = await pool.query(
           `SELECT id, quantity FROM cart_items 
-           WHERE cart_id = $1 AND marketplace_product_id = $2`,
+          WHERE cart_id = $1 AND marketplace_product_id = $2`,
           [cart.id, marketplace_product_id]
         );
 
@@ -691,8 +711,8 @@ export const getMarketplaceRouter = (config: {
 
           await pool.query(
             `UPDATE cart_items 
-             SET quantity = $1, created_at = NOW()
-             WHERE id = $2`,
+            SET quantity = $1, created_at = NOW()
+            WHERE id = $2`,
             [newQuantity, existingItem.id]
           );
 
@@ -706,20 +726,20 @@ export const getMarketplaceRouter = (config: {
         // 4. Add new item to cart
         const itemResult = await pool.query(
           `INSERT INTO cart_items 
-           (cart_id, marketplace_product_id, quantity, unit_price)
-           VALUES ($1, $2, $3, $4)
-           RETURNING id`,
+          (cart_id, marketplace_product_id, quantity, unit_price)
+          VALUES ($1, $2, $3, $4)
+          RETURNING id`,
           [cart.id, marketplace_product_id, quantity, product.price]
         );
 
-        res.json({
+        return res.json({ // Add return
           message: "Item added to cart",
           cart_id: cart.id,
           item_id: itemResult.rows[0].id,
         });
       } catch (err) {
         console.error("Error adding to cart:", err);
-        res.status(500).json({error: "Internal server error"});
+        return res.status(500).json({error: "Internal server error"}); // Add return
       }
     }
   );
@@ -739,11 +759,11 @@ export const getMarketplaceRouter = (config: {
       // Verify ownership and delete
       const result = await pool.query(
         `DELETE FROM cart_items ci
-         USING shopping_carts sc
-         WHERE ci.id = $1 
-           AND ci.cart_id = sc.id 
-           AND sc.buyer_id = $2
-         RETURNING ci.id`,
+        USING shopping_carts sc
+        WHERE ci.id = $1 
+          AND ci.cart_id = sc.id 
+          AND sc.buyer_id = $2
+        RETURNING ci.id`,
         [itemId, resolvedBuyerId]
       );
 
@@ -751,10 +771,10 @@ export const getMarketplaceRouter = (config: {
         return res.status(404).json({error: "Item not found in your cart"});
       }
 
-      res.json({message: "Item removed from cart", id: result.rows[0].id});
+      return res.json({message: "Item removed from cart", id: result.rows[0].id}); // Add return
     } catch (err) {
       console.error("Error removing cart item:", err);
-      res.status(500).json({error: "Internal server error"});
+      return res.status(500).json({error: "Internal server error"}); // Add return
     }
   });
 
@@ -813,9 +833,9 @@ export const getMarketplaceRouter = (config: {
         // 1. Verify cart exists and get items
         const cartResult = await client.query(
           `SELECT sc.*, f.first_name as seller_name 
-           FROM shopping_carts sc
-           LEFT JOIN farmers f ON sc.seller_id = f.id
-           WHERE sc.id = $1 AND sc.buyer_id = $2 AND sc.status = 'active'`,
+          FROM shopping_carts sc
+          LEFT JOIN farmers f ON sc.seller_id = f.id
+          WHERE sc.id = $1 AND sc.buyer_id = $2 AND sc.status = 'active'`,
           [cart_id, resolvedBuyerId]
         );
 
@@ -833,9 +853,9 @@ export const getMarketplaceRouter = (config: {
             mp.quantity as available_quantity,
             mp.farmer_id,
             mp.price as current_price
-           FROM cart_items ci
-           LEFT JOIN marketplace_products mp ON ci.marketplace_product_id = mp.id
-           WHERE ci.cart_id = $1`,
+          FROM cart_items ci
+          LEFT JOIN marketplace_products mp ON ci.marketplace_product_id = mp.id
+          WHERE ci.cart_id = $1`,
           [cart_id]
         );
 
@@ -909,9 +929,9 @@ export const getMarketplaceRouter = (config: {
           // 5. Update marketplace product quantity
           await client.query(
             `UPDATE marketplace_products 
-             SET quantity = quantity - $1,
-                 updated_at = NOW()
-             WHERE id = $2`,
+            SET quantity = quantity - $1,
+                updated_at = NOW()
+            WHERE id = $2`,
             [item.quantity, item.marketplace_product_id]
           );
         }
@@ -919,14 +939,14 @@ export const getMarketplaceRouter = (config: {
         // 6. Update cart status
         await client.query(
           `UPDATE shopping_carts 
-           SET status = 'pending', updated_at = NOW()
-           WHERE id = $1`,
+          SET status = 'pending', updated_at = NOW()
+          WHERE id = $1`,
           [cart_id]
         );
 
         await client.query("COMMIT");
 
-        res.json({
+        return res.json({ // Add return
           order_id: orderId,
           order_number: orderNumber,
           total_amount: totalAmount,
@@ -936,7 +956,7 @@ export const getMarketplaceRouter = (config: {
       } catch (err) {
         await client.query("ROLLBACK").catch(() => {});
         console.error("Error during checkout:", err);
-        res.status(500).json({error: "Internal server error"});
+        return res.status(500).json({error: "Internal server error"}); // Add return
       } finally {
         client.release();
       }
@@ -1091,7 +1111,7 @@ export const getMarketplaceRouter = (config: {
     validateRequest(PaymentRequestSchema),
     async (req: Request, res: Response) => {
       const {orderId} = req.params;
-      const {payment_method, phone_number, account_number} = req.body;
+      const {payment_method} = req.body;
       const buyer_id = req.body.buyer_id || (req as any).user?.farmer_id;
 
       if (!buyer_id) {
@@ -1104,7 +1124,7 @@ export const getMarketplaceRouter = (config: {
         // Get order details
         const orderResult = await pool.query(
           `SELECT * FROM marketplace_orders 
-           WHERE id = $1 AND buyer_id = $2 AND payment_status = 'pending'`,
+          WHERE id = $1 AND buyer_id = $2 AND payment_status = 'pending'`,
           [orderId, resolvedBuyerId]
         );
 
@@ -1112,33 +1132,24 @@ export const getMarketplaceRouter = (config: {
           return res.status(404).json({error: "Order not found or already paid"});
         }
 
-        const order = orderResult.rows[0];
-
         // Use existing wallet payment endpoint
         // For now, simulate payment success
         await pool.query(
           `UPDATE marketplace_orders 
-           SET payment_status = 'paid',
-               payment_method = $1,
-               updated_at = NOW()
-           WHERE id = $2`,
+          SET payment_status = 'paid',
+              payment_method = $1,
+              updated_at = NOW()
+          WHERE id = $2`,
           [payment_method, orderId]
         );
 
         // Record wallet transaction (using your existing wallet logic)
         // This would integrate with your /wallet/payment endpoint
-        const walletTransaction = {
-          farmer_id: resolvedBuyerId,
-          destination: order.seller_id,
-          amount: order.total_amount,
-          service: "marketplace_purchase",
-          merchant: `Order: ${order.order_number}`,
-        };
 
         // Call your existing wallet payment endpoint
         // await processWalletPayment(walletTransaction);
 
-        res.json({
+        return res.json({ // Add return
           success: true,
           message: "Payment processed successfully",
           order_id: orderId,
@@ -1146,7 +1157,7 @@ export const getMarketplaceRouter = (config: {
         });
       } catch (err) {
         console.error("Error processing payment:", err);
-        res.status(500).json({error: "Internal server error"});
+        return res.status(500).json({error: "Internal server error"}); // Add return
       }
     }
   );
@@ -1157,7 +1168,7 @@ export const getMarketplaceRouter = (config: {
     validateRequest(OrderStatusUpdateSchema),
     async (req: Request, res: Response) => {
       const {orderId} = req.params;
-      const {status, tracking_number, delivery_date} = req.body;
+      const {status, tracking_number} = req.body;
       const farmer_id = req.body.farmer_id || (req as any).user?.farmer_id;
 
       if (!farmer_id) {
@@ -1170,7 +1181,7 @@ export const getMarketplaceRouter = (config: {
         // Verify seller owns this order
         const orderResult = await pool.query(
           `SELECT * FROM marketplace_orders 
-           WHERE id = $1 AND seller_id = $2`,
+          WHERE id = $1 AND seller_id = $2`,
           [orderId, resolvedFarmerId]
         );
 
@@ -1183,16 +1194,16 @@ export const getMarketplaceRouter = (config: {
         // Update order status
         const updateQuery = tracking_number ?
           `UPDATE marketplace_orders 
-             SET status = $1,
-                 shipping_address = COALESCE($3, shipping_address),
-                 updated_at = NOW()
-             WHERE id = $2
-             RETURNING *` :
+            SET status = $1,
+                shipping_address = COALESCE($3, shipping_address),
+                updated_at = NOW()
+            WHERE id = $2
+            RETURNING *` :
           `UPDATE marketplace_orders 
-             SET status = $1,
-                 updated_at = NOW()
-             WHERE id = $2
-             RETURNING *`;
+            SET status = $1,
+                updated_at = NOW()
+            WHERE id = $2
+            RETURNING *`;
 
         const updateParams = tracking_number ?
           [status, orderId, tracking_number] :
@@ -1204,23 +1215,23 @@ export const getMarketplaceRouter = (config: {
         if (status === "delivered") {
           await pool.query(
             `UPDATE marketplace_products mp
-             SET total_sales = total_sales + oi.quantity,
-                 updated_at = NOW()
-             FROM order_items oi
-             WHERE oi.order_id = $1 
-               AND oi.marketplace_product_id = mp.id`,
+            SET total_sales = total_sales + oi.quantity,
+                updated_at = NOW()
+            FROM order_items oi
+            WHERE oi.order_id = $1 
+              AND oi.marketplace_product_id = mp.id`,
             [orderId]
           );
         }
 
-        res.json({
+        return res.json({ // Add return
           success: true,
           order: result.rows[0],
           message: `Order status updated to ${status}`,
         });
       } catch (err) {
         console.error("Error updating order status:", err);
-        res.status(500).json({error: "Internal server error"});
+        return res.status(500).json({error: "Internal server error"}); // Add return
       }
     }
   );
