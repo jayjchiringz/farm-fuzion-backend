@@ -49,6 +49,53 @@ export interface components {
             /** Format: date-time */
             last_synced?: string | null;
         };
+        MarketplaceProduct: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            farm_product_id: string;
+            farmer_id: string;
+            product_name: string;
+            quantity: number;
+            unit: string;
+            price: number;
+            category?: string;
+            /**
+             * @default available
+             * @enum {string}
+             */
+            status: "available" | "sold" | "reserved" | "hidden";
+            location?: string;
+            /** @default 0 */
+            rating: number;
+            /** @default 0 */
+            total_sales: number;
+            created_at?: string;
+            updated_at?: string;
+        };
+        PublishToMarketplace: {
+            /** Format: uuid */
+            farm_product_id: string;
+            price: number;
+            /** @default true */
+            is_public: boolean;
+        };
+        AddToCart: {
+            /** Format: uuid */
+            marketplace_product_id: string;
+            quantity: number;
+        };
+        Checkout: {
+            /** Format: uuid */
+            cart_id: string;
+            shipping_address?: string;
+            /**
+             * @default wallet
+             * @enum {string}
+             */
+            payment_method: "wallet" | "mpesa" | "paybill" | "cash";
+            notes?: string;
+        };
     };
     responses: never;
     parameters: never;

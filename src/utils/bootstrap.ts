@@ -911,7 +911,6 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   await pool.query(`
-    -- 7. TRIGGER for search vector (optional, for advanced search)
     CREATE OR REPLACE FUNCTION update_marketplace_search_vector()
     RETURNS TRIGGER AS $$
     BEGIN
@@ -926,30 +925,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   await pool.query(`
-    DO $$ 
-    BEGIN
-      -- Drop trigger if exists
-      DROP TRIGGER IF EXISTS trg_marketplace_search_vector ON marketplace_products;
-      
-      -- Drop function if exists
-      DROP FUNCTION IF EXISTS update_marketplace_search_vector();
-      
-      -- Create function
-      CREATE FUNCTION update_marketplace_search_vector()
-      RETURNS TRIGGER AS $$
-      BEGIN
-        NEW.search_vector = to_tsvector('english',
-          COALESCE(NEW.product_name, '') || ' ' ||
-          COALESCE(NEW.category, '') || ' ' ||
-          COALESCE(NEW.location, '')
-        );
-        RETURN NEW;
-      END;
-      $$ LANGUAGE plpgsql;
-    END $$;
-  `);
-
-  await pool.query(`
+    DROP TRIGGER IF EXISTS trg_marketplace_search_vector ON marketplace_products;
     CREATE TRIGGER trg_marketplace_search_vector
     BEFORE INSERT OR UPDATE ON marketplace_products
     FOR EACH ROW EXECUTE FUNCTION update_marketplace_search_vector();
