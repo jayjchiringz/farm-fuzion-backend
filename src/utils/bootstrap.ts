@@ -814,26 +814,26 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     `);
 
   await pool.query(`
-      -- 1. MARKETPLACE PRODUCTS (Denormalized view of farm_products for performance)
-      CREATE TABLE IF NOT EXISTS marketplace_products (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        farm_product_id UUID REFERENCES farm_products(id) ON DELETE CASCADE,
-        farmer_id TEXT NOT NULL,
-        product_name TEXT NOT NULL,
-        quantity INTEGER NOT NULL,
-        unit TEXT NOT NULL,
-        price NUMERIC(12,2) NOT NULL,
-        category TEXT,
-        status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'sold', 'reserved', 'hidden')),
-        location TEXT,
-        rating DECIMAL(3,2) DEFAULT 0,
-        total_sales INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        -- For search optimization
-        search_vector TSVECTOR
-      );
-    `);
+    -- 1. MARKETPLACE PRODUCTS (Denormalized view of farm_products for performance)
+    CREATE TABLE IF NOT EXISTS marketplace_products (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      farm_product_id UUID REFERENCES farm_products(id) ON DELETE CASCADE,
+      farmer_id TEXT NOT NULL,
+      product_name TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      unit TEXT NOT NULL,
+      price NUMERIC(12,2) NOT NULL,
+      category TEXT,
+      status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'sold', 'reserved', 'hidden')),
+      location TEXT,
+      rating DECIMAL(3,2) DEFAULT 0,
+      total_sales INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      -- For search optimization
+      search_vector TSVECTOR
+    );
+  `);
 
   await pool.query(`
     -- 2. SHOPPING CARTS
@@ -843,9 +843,15 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       seller_id TEXT NOT NULL,
       status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'pending', 'completed', 'abandoned')),
       created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
-      UNIQUE(buyer_id, seller_id, status) WHERE status = 'active'
+      updated_at TIMESTAMP DEFAULT NOW()
     );
+  `);
+
+  await pool.query(`
+    -- Partial unique index for one active cart per buyer-seller pair
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_shopping_carts_active_unique 
+    ON shopping_carts(buyer_id, seller_id) 
+    WHERE status = 'active';
   `);
 
   await pool.query(`
@@ -917,6 +923,30 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       RETURN NEW;
     END;
     $$ LANGUAGE plpgsql;
+  `);
+
+  await pool.query(`
+    DO $$ 
+    BEGIN
+      -- Drop trigger if exists
+      DROP TRIGGER IF EXISTS trg_marketplace_search_vector ON marketplace_products;
+      
+      -- Drop function if exists
+      DROP FUNCTION IF EXISTS update_marketplace_search_vector();
+      
+      -- Create function
+      CREATE FUNCTION update_marketplace_search_vector()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.search_vector = to_tsvector('english',
+          COALESCE(NEW.product_name, '') || ' ' ||
+          COALESCE(NEW.category, '') || ' ' ||
+          COALESCE(NEW.location, '')
+        );
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    END $$;
   `);
 
   await pool.query(`
