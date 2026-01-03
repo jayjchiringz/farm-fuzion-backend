@@ -931,7 +931,9 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     CREATE INDEX if not exists idx_market_intelligence_region ON market_intelligence(region);
     CREATE INDEX if not exists idx_price_predictions_product_date ON price_predictions(product_name, prediction_date);
     CREATE INDEX if not exists idx_farming_recommendations_farmer ON farming_recommendations(farmer_id, implementation_date);
+  `);
 
+  await pool.query(`
     -- Create materialized view for quick intelligence queries
     CREATE MATERIALIZED VIEW if not exists market_intelligence_mv AS
     SELECT 
@@ -950,7 +952,9 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     FROM market_prices_mv mp
     WHERE mp.collected_at >= NOW() - INTERVAL '5 years'
     GROUP BY mp.product_name, mp.region, EXTRACT(MONTH FROM mp.collected_at);
+  `);
 
+  await pool.query(`
     CREATE UNIQUE INDEX if not exists idx_market_intelligence_mv ON market_intelligence_mv(product_name, region, month);
   `);
 

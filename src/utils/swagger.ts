@@ -8,10 +8,12 @@ import {registry, mergeRegistries} from "./registry";
 // 👇 Import all feature registries
 import {farmProductRegistry} from "../api/farm_products";
 import {marketPriceRegistry} from "../api/market_prices";
+import {marketplaceRegistry} from "../api/marketplace";
 
 export const setupSwagger = (app: Express) => {
   // ✅ Merge all feature registries into the central registry
-  mergeRegistries(farmProductRegistry, marketPriceRegistry);
+  mergeRegistries(farmProductRegistry, marketPriceRegistry,
+    marketplaceRegistry);
 
   // ✅ Create OpenAPI spec from central registry
   const generator = new OpenApiGeneratorV3(registry.definitions);
