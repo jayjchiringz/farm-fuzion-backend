@@ -55,12 +55,24 @@ const generateOrderNumber = (): string => {
 // -------------------------------------
 // Helper: Resolve farmer ID
 // -------------------------------------
-// Replace the resolveFarmerId function:
+// First, update the resolveFarmerId function to handle UUIDs better:
 async function resolveFarmerId(db: Pool | PoolClient, farmerId: string | number): Promise<string> {
   const normalized = String(farmerId);
+
+  // Check if it's already a valid UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(normalized)) {
+    return normalized;
+  }
+
   try {
     const result = await db.query(
-      "SELECT id FROM farmers WHERE id::text = $1 OR auth_id::text = $1 OR user_id::text = $1 LIMIT 1",
+      `SELECT id FROM farmers 
+       WHERE id::text = $1 
+          OR auth_id::text = $1 
+          OR user_id::text = $1 
+          OR CAST(id AS text) = $1
+       LIMIT 1`,
       [normalized]
     );
 
@@ -537,6 +549,7 @@ export const getMarketplaceRouter = (config: {
     },
   });
 
+  // Then, update the cart endpoint to use explicit type casting:
   router.get("/cart/:buyerId", async (req: Request, res: Response) => {
     try {
       const {buyerId} = req.params;
@@ -545,11 +558,11 @@ export const getMarketplaceRouter = (config: {
       // Get all active carts for this buyer
       const cartsResult = await pool.query(
         `SELECT sc.*, f.first_name, f.last_name, f.mobile
-         FROM shopping_carts sc
-         LEFT JOIN farmers f ON sc.seller_id = f.id
-         WHERE sc.buyer_id = $1 AND sc.status = 'active'
-         ORDER BY sc.created_at DESC`,
-        [resolvedBuyerId]
+        FROM shopping_carts sc
+        LEFT JOIN farmers f ON sc.seller_id = f.id
+        WHERE sc.buyer_id = $1::uuid AND sc.status = 'active'
+        ORDER BY sc.created_at DESC`,
+        [resolvedBuyerId] // Use the resolved ID directly
       );
 
       const cartsWithItems = await Promise.all(
@@ -561,9 +574,9 @@ export const getMarketplaceRouter = (config: {
               mp.unit,
               mp.farmer_id as seller_id,
               (ci.quantity * ci.unit_price) as item_total
-             FROM cart_items ci
-             LEFT JOIN marketplace_products mp ON ci.marketplace_product_id = mp.id
-             WHERE ci.cart_id = $1`,
+            FROM cart_items ci
+            LEFT JOIN marketplace_products mp ON ci.marketplace_product_id = mp.id
+            WHERE ci.cart_id = $1::uuid`,
             [cart.id]
           );
 
@@ -587,6 +600,14 @@ export const getMarketplaceRouter = (config: {
       res.json({carts: cartsWithItems});
     } catch (err) {
       console.error("Error fetching cart:", err);
+      // Add more detailed error logging
+      if (err instanceof Error) {
+        console.error("Error details:", {
+          message: err.message,
+          stack: err.stack,
+          code: (err as any).code,
+        });
+      }
       res.status(500).json({error: "Internal server error"});
     }
   });
