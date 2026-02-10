@@ -27,6 +27,7 @@ import {getStatsRouter} from "./api/stats";
 import {getWalletRouter} from "./api/wallet";
 import {getMarketPricesRouter} from "./api/market_prices";
 import {getMarketplaceRouter} from "./api/marketplace";
+import {getFarmActivitiesRouter} from "./api/farm_activities";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
@@ -127,6 +128,8 @@ export const createMainApp = (secrets: {
       return next(err);
     }
   });
+
+  app.use("/farm-activities", getFarmActivitiesRouter);
 
   return app;
 };
