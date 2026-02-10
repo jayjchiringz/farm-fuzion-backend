@@ -898,6 +898,201 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+
+  /* -- ============================================*/
+  /* FARM ACTIVITY PLANNING TABLES*/
+  /* -- ============================================*/
+  await pool.query(`
+    -- 1. FARM_SEASONS: Master table for planting seasons
+    CREATE TABLE IF NOT EXISTS farm_seasons (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        farmer_id UUID REFERENCES farmers(id) ON DELETE CASCADE,
+        season_name VARCHAR(100) NOT NULL, -- e.g., "Long Rains 2024", "Short Rains 2024"
+        season_type VARCHAR(50) NOT NULL, -- 'long_rains', 'short_rains', 'dry_season', 'irrigated'
+        target_crop VARCHAR(100) NOT NULL,
+        location VARCHAR(255) NOT NULL,
+        county VARCHAR(100),
+        sub_county VARCHAR(100),
+        acreage DECIMAL(10,2) NOT NULL,
+        start_date DATE NOT NULL,
+        expected_end_date DATE NOT NULL,
+        status VARCHAR(20) DEFAULT 'planned' CHECK (status IN ('planned', 'active', 'completed', 'cancelled')),
+        notes TEXT,
+        weather_zone VARCHAR(100),
+        soil_type VARCHAR(50),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- 2. FARM_CROPS: Master catalog of crops with planting guidelines
+    CREATE TABLE IF NOT EXISTS farm_crops (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        crop_name VARCHAR(100) NOT NULL UNIQUE,
+        scientific_name VARCHAR(100),
+        category VARCHAR(50) NOT NULL, -- 'cereal', 'legume', 'vegetable', 'fruit', 'tuber'
+        growth_days INTEGER NOT NULL, -- Average days to maturity
+        optimal_temp_min DECIMAL(5,2), -- Celsius
+        optimal_temp_max DECIMAL(5,2), -- Celsius
+        rainfall_min INTEGER, -- mm per season
+        rainfall_max INTEGER, -- mm per season
+        soil_ph_min DECIMAL(3,1),
+        soil_ph_max DECIMAL(3,1),
+        spacing_row_cm INTEGER, -- Row spacing in cm
+        spacing_plant_cm INTEGER, -- Plant spacing in cm
+        description TEXT,
+        region_suitability JSONB, -- JSON array of suitable regions
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- 3. SEASON_ACTIVITIES: Detailed activity plan for each season
+    CREATE TABLE IF NOT EXISTS season_activities (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        season_id UUID REFERENCES farm_seasons(id) ON DELETE CASCADE,
+        activity_type VARCHAR(50) NOT NULL CHECK (activity_type IN (
+            'land_preparation', 'planting', 'fertilizer_application', 'pest_control',
+            'weeding', 'irrigation', 'harvesting', 'post_harvest', 'monitoring'
+        )),
+        activity_name VARCHAR(200) NOT NULL,
+        description TEXT,
+        planned_date DATE NOT NULL,
+        actual_date DATE,
+        deadline_date DATE,
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'delayed', 'cancelled')),
+        priority VARCHAR(10) CHECK (priority IN ('low', 'medium', 'high', 'critical')),
+        assigned_to VARCHAR(100), -- Could be farmer or worker name
+        notes TEXT,
+        cost_estimate DECIMAL(12,2),
+        actual_cost DECIMAL(12,2),
+        weather_notes TEXT,
+        completion_percentage INTEGER DEFAULT 0 CHECK (completion_percentage BETWEEN 0 AND 100),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        INDEX idx_season_status (season_id, status),
+        INDEX idx_planned_date (planned_date)
+    );
+  `);
+
+  await pool.query(`
+    -- 4. FARM_EQUIPMENT_NEEDS: Equipment/resources needed per activity
+    CREATE TABLE IF NOT EXISTS farm_equipment_needs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        activity_id UUID REFERENCES season_activities(id) ON DELETE CASCADE,
+        item_name VARCHAR(100) NOT NULL,
+        item_type VARCHAR(50) NOT NULL CHECK (item_type IN ('equipment', 'input', 'tool', 'labor')),
+        quantity DECIMAL(10,2) NOT NULL,
+        unit VARCHAR(50) NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'acquired', 'in_use', 'returned')),
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- 5. FARM_DIARY_ENTRIES: Daily farm observations and notes
+    CREATE TABLE IF NOT EXISTS farm_diary_entries (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        farmer_id UUID REFERENCES farmers(id) ON DELETE CASCADE,
+        season_id UUID REFERENCES farm_seasons(id) ON DELETE SET NULL,
+        entry_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        title VARCHAR(200),
+        entry_type VARCHAR(50) NOT NULL CHECK (entry_type IN (
+            'observation', 'issue', 'milestone', 'weather', 'expense', 'harvest', 'learning'
+        )),
+        content TEXT NOT NULL,
+        weather_condition VARCHAR(50),
+        temperature DECIMAL(5,2),
+        rainfall_mm DECIMAL(5,2),
+        related_activity_id UUID REFERENCES season_activities(id) ON DELETE SET NULL,
+        tags TEXT[], -- Array of tags for filtering
+        images_urls TEXT[], -- Array of image URLs
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        INDEX idx_farmer_date (farmer_id, entry_date),
+        INDEX idx_season_type (season_id, entry_type)
+    );
+  `);
+
+  await pool.query(`
+    -- 6. FARM_ALERTS_REMINDERS: System and user-generated alerts
+    CREATE TABLE IF NOT EXISTS farm_alerts_reminders (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        farmer_id UUID REFERENCES farmers(id) ON DELETE CASCADE,
+        season_id UUID REFERENCES farm_seasons(id) ON DELETE CASCADE,
+        activity_id UUID REFERENCES season_activities(id) ON DELETE CASCADE,
+        alert_type VARCHAR(50) NOT NULL CHECK (alert_type IN ('reminder', 'warning', 'system', 'weather', 'market')),
+        title VARCHAR(200) NOT NULL,
+        message TEXT NOT NULL,
+        alert_date DATE NOT NULL,
+        alert_time TIME,
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'read', 'dismissed')),
+        priority VARCHAR(10) CHECK (priority IN ('low', 'medium', 'high', 'critical')),
+        repeat_pattern VARCHAR(50), -- 'daily', 'weekly', 'monthly', 'yearly'
+        repeat_until DATE,
+        action_url VARCHAR(500), -- Deep link to related page
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT NOW(),
+        INDEX idx_alert_status (alert_date, status, priority)
+    );
+  `);
+
+  await pool.query(`
+    -- 7. FARM_WEATHER_DATA: Historical and forecast weather
+    CREATE TABLE IF NOT EXISTS farm_weather_data (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        farmer_id UUID REFERENCES farmers(id) ON DELETE CASCADE,
+        location VARCHAR(255) NOT NULL,
+        weather_date DATE NOT NULL,
+        temperature_max DECIMAL(5,2),
+        temperature_min DECIMAL(5,2),
+        rainfall_mm DECIMAL(5,2),
+        humidity_percent INTEGER,
+        wind_speed_kmh DECIMAL(5,2),
+        weather_condition VARCHAR(50),
+        sunrise TIME,
+        sunset TIME,
+        source VARCHAR(50) DEFAULT 'api', -- 'api', 'manual', 'farmer_input'
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(farmer_id, location, weather_date)
+    );
+  `);
+
+  await pool.query(`
+    -- 8. FARM_REGION_DATA: Crop suitability by region
+    CREATE TABLE IF NOT EXISTS farm_region_data (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        county VARCHAR(100) NOT NULL,
+        sub_county VARCHAR(100),
+        agro_ecological_zone VARCHAR(100),
+        avg_annual_rainfall_mm INTEGER,
+        avg_temperature_c DECIMAL(5,2),
+        main_soil_type VARCHAR(50),
+        suitable_crops JSONB, -- Array of crop IDs with planting windows
+        planting_calendar JSONB, -- Monthly planting guide
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(county, sub_county)
+    );  
+  `);
+
+  await pool.query(`
+    -- Insert common crops for Kenya
+    INSERT INTO farm_crops (crop_name, scientific_name, category, growth_days, optimal_temp_min, optimal_temp_max, rainfall_min, rainfall_max, spacing_row_cm, spacing_plant_cm, description) VALUES
+    ('Maize', 'Zea mays', 'cereal', 120, 18, 30, 500, 1200, 75, 25, 'Main staple food crop in Kenya'),
+    ('Beans', 'Phaseolus vulgaris', 'legume', 90, 18, 27, 350, 650, 50, 15, 'Common legumes grown with maize'),
+    ('Rice', 'Oryza sativa', 'cereal', 150, 20, 35, 1000, 2000, 20, 20, 'Paddy rice for irrigation'),
+    ('Tomatoes', 'Solanum lycopersicum', 'vegetable', 90, 21, 29, 600, 900, 100, 50, 'High value vegetable crop'),
+    ('Kale (Sukuma Wiki)', 'Brassica oleracea', 'vegetable', 70, 15, 25, 350, 600, 60, 30, 'Popular leafy vegetable'),
+    ('Potatoes', 'Solanum tuberosum', 'tuber', 120, 15, 20, 500, 700, 75, 30, 'Important tuber crop'),
+    ('Coffee', 'Coffea arabica', 'fruit', 270, 18, 24, 1500, 2500, 200, 200, 'Major cash crop'),
+    ('Tea', 'Camellia sinensis', 'fruit', 365, 15, 25, 1200, 3000, 120, 75, 'Important export crop'),
+    ('Bananas', 'Musa spp.', 'fruit', 365, 20, 30, 1000, 2500, 300, 300, 'Perennial fruit crop'),
+    ('Avocado', 'Persea americana', 'fruit', 730, 20, 30, 1000, 1500, 600, 600, 'Export fruit crop');
+  `);
+
   await pool.query(`
     -- 6. INDEXES FOR PERFORMANCE
     CREATE INDEX IF NOT EXISTS idx_marketplace_products_farmer ON marketplace_products(farmer_id);
