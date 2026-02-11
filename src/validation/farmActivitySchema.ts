@@ -1,9 +1,10 @@
 /* eslint-disable max-len */
 import {z} from "zod";
-// Farm Season Schema
+
+// Farm Season Schema - Using integer IDs to match existing schema
 export const FarmSeasonSchema = z.object({
-  id: z.string().uuid().optional(),
-  farmer_id: z.string().uuid(),
+  id: z.number().int().optional(),
+  farmer_id: z.number().int(),
   season_name: z.string().min(2, "Season name required"),
   season_type: z.enum(["long_rains", "short_rains", "dry_season", "irrigated"]),
   target_crop: z.string().min(2, "Target crop required"),
@@ -23,8 +24,8 @@ export const FarmSeasonSchema = z.object({
 
 // Season Activity Schema
 export const SeasonActivitySchema = z.object({
-  id: z.string().uuid().optional(),
-  season_id: z.string().uuid(),
+  id: z.number().int().optional(),
+  season_id: z.number().int(),
   activity_type: z.enum([
     "land_preparation",
     "planting",
@@ -55,9 +56,9 @@ export const SeasonActivitySchema = z.object({
 
 // Farm Diary Entry Schema
 export const FarmDiaryEntrySchema = z.object({
-  id: z.string().uuid().optional(),
-  farmer_id: z.string().uuid(),
-  season_id: z.string().uuid().optional(),
+  id: z.number().int().optional(),
+  farmer_id: z.number().int(),
+  season_id: z.number().int().optional(),
   entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   title: z.string().optional(),
   entry_type: z.enum(["observation", "issue", "milestone", "weather", "expense", "harvest", "learning"]),
@@ -65,7 +66,7 @@ export const FarmDiaryEntrySchema = z.object({
   weather_condition: z.string().optional(),
   temperature: z.number().optional(),
   rainfall_mm: z.number().optional(),
-  related_activity_id: z.string().uuid().optional(),
+  related_activity_id: z.number().int().optional(),
   tags: z.array(z.string()).optional(),
   images_urls: z.array(z.string()).optional(),
   created_at: z.string().optional(),
@@ -74,10 +75,10 @@ export const FarmDiaryEntrySchema = z.object({
 
 // Farm Alert Schema
 export const FarmAlertSchema = z.object({
-  id: z.string().uuid().optional(),
-  farmer_id: z.string().uuid(),
-  season_id: z.string().uuid().optional(),
-  activity_id: z.string().uuid().optional(),
+  id: z.number().int().optional(),
+  farmer_id: z.number().int(),
+  season_id: z.number().int().optional(),
+  activity_id: z.number().int().optional(),
   alert_type: z.enum(["reminder", "warning", "system", "weather", "market"]),
   title: z.string().min(2, "Title required"),
   message: z.string().min(5, "Message required"),
@@ -90,11 +91,12 @@ export const FarmAlertSchema = z.object({
   action_url: z.string().url().optional(),
   metadata: z.record(z.any()).optional(),
   created_at: z.string().optional(),
+  updated_at: z.string().optional(),
 });
 
 // Crop Planning Request Schema
 export const CropPlanningRequestSchema = z.object({
-  farmer_id: z.string().uuid(),
+  farmer_id: z.number().int(),
   crop_name: z.string().min(2),
   location: z.string().min(2),
   county: z.string().optional(),

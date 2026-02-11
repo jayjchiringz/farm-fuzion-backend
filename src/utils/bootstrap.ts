@@ -903,32 +903,9 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   /* FARM ACTIVITY PLANNING TABLES*/
   /* -- ============================================*/
   await pool.query(`
-    -- 1. FARM_SEASONS: Master table for planting seasons
-    CREATE TABLE IF NOT EXISTS farm_seasons (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        farmer_id UUID REFERENCES farmers(id) ON DELETE CASCADE,
-        season_name VARCHAR(100) NOT NULL, -- e.g., "Long Rains 2024", "Short Rains 2024"
-        season_type VARCHAR(50) NOT NULL, -- 'long_rains', 'short_rains', 'dry_season', 'irrigated'
-        target_crop VARCHAR(100) NOT NULL,
-        location VARCHAR(255) NOT NULL,
-        county VARCHAR(100),
-        sub_county VARCHAR(100),
-        acreage DECIMAL(10,2) NOT NULL,
-        start_date DATE NOT NULL,
-        expected_end_date DATE NOT NULL,
-        status VARCHAR(20) DEFAULT 'planned' CHECK (status IN ('planned', 'active', 'completed', 'cancelled')),
-        notes TEXT,
-        weather_zone VARCHAR(100),
-        soil_type VARCHAR(50),
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-    );
-  `);
-
-  await pool.query(`
-    -- 2. FARM_CROPS: Master catalog of crops with planting guidelines
+    -- 1. FARM_CROPS: Master catalog of crops with planting guidelines
     CREATE TABLE IF NOT EXISTS farm_crops (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        id SERIAL PRIMARY KEY,
         crop_name VARCHAR(100) NOT NULL UNIQUE,
         scientific_name VARCHAR(100),
         category VARCHAR(50) NOT NULL, -- 'cereal', 'legume', 'vegetable', 'fruit', 'tuber'
@@ -948,10 +925,33 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   await pool.query(`
+    -- 2. FARM_SEASONS: Master table for planting seasons
+    CREATE TABLE IF NOT EXISTS farm_seasons (
+        id SERIAL PRIMARY KEY,
+        farmer_id INTEGER REFERENCES farmers(id) ON DELETE CASCADE,
+        season_name VARCHAR(100) NOT NULL,
+        season_type VARCHAR(50) NOT NULL, -- 'long_rains', 'short_rains', 'dry_season', 'irrigated'
+        target_crop VARCHAR(100) NOT NULL,
+        location VARCHAR(255) NOT NULL,
+        county VARCHAR(100),
+        sub_county VARCHAR(100),
+        acreage DECIMAL(10,2) NOT NULL,
+        start_date DATE NOT NULL,
+        expected_end_date DATE NOT NULL,
+        status VARCHAR(20) DEFAULT 'planned' CHECK (status IN ('planned', 'active', 'completed', 'cancelled')),
+        notes TEXT,
+        weather_zone VARCHAR(100),
+        soil_type VARCHAR(50),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
     -- 3. SEASON_ACTIVITIES: Detailed activity plan for each season
     CREATE TABLE IF NOT EXISTS season_activities (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        season_id UUID REFERENCES farm_seasons(id) ON DELETE CASCADE,
+        id SERIAL PRIMARY KEY,
+        season_id INTEGER REFERENCES farm_seasons(id) ON DELETE CASCADE,
         activity_type VARCHAR(50) NOT NULL CHECK (activity_type IN (
             'land_preparation', 'planting', 'fertilizer_application', 'pest_control',
             'weeding', 'irrigation', 'harvesting', 'post_harvest', 'monitoring'
@@ -963,40 +963,23 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
         deadline_date DATE,
         status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'delayed', 'cancelled')),
         priority VARCHAR(10) CHECK (priority IN ('low', 'medium', 'high', 'critical')),
-        assigned_to VARCHAR(100), -- Could be farmer or worker name
+        assigned_to VARCHAR(100),
         notes TEXT,
         cost_estimate DECIMAL(12,2),
         actual_cost DECIMAL(12,2),
         weather_notes TEXT,
         completion_percentage INTEGER DEFAULT 0 CHECK (completion_percentage BETWEEN 0 AND 100),
         created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        INDEX idx_season_status (season_id, status),
-        INDEX idx_planned_date (planned_date)
+        updated_at TIMESTAMP DEFAULT NOW()
     );
   `);
 
   await pool.query(`
-    -- 4. FARM_EQUIPMENT_NEEDS: Equipment/resources needed per activity
-    CREATE TABLE IF NOT EXISTS farm_equipment_needs (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        activity_id UUID REFERENCES season_activities(id) ON DELETE CASCADE,
-        item_name VARCHAR(100) NOT NULL,
-        item_type VARCHAR(50) NOT NULL CHECK (item_type IN ('equipment', 'input', 'tool', 'labor')),
-        quantity DECIMAL(10,2) NOT NULL,
-        unit VARCHAR(50) NOT NULL,
-        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'acquired', 'in_use', 'returned')),
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
-    );
-  `);
-
-  await pool.query(`
-    -- 5. FARM_DIARY_ENTRIES: Daily farm observations and notes
+    -- 4. FARM_DIARY_ENTRIES: Daily farm observations and notes
     CREATE TABLE IF NOT EXISTS farm_diary_entries (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        farmer_id UUID REFERENCES farmers(id) ON DELETE CASCADE,
-        season_id UUID REFERENCES farm_seasons(id) ON DELETE SET NULL,
+        id SERIAL PRIMARY KEY,
+        farmer_id INTEGER REFERENCES farmers(id) ON DELETE CASCADE,
+        season_id INTEGER REFERENCES farm_seasons(id) ON DELETE SET NULL,
         entry_date DATE NOT NULL DEFAULT CURRENT_DATE,
         title VARCHAR(200),
         entry_type VARCHAR(50) NOT NULL CHECK (entry_type IN (
@@ -1006,23 +989,21 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
         weather_condition VARCHAR(50),
         temperature DECIMAL(5,2),
         rainfall_mm DECIMAL(5,2),
-        related_activity_id UUID REFERENCES season_activities(id) ON DELETE SET NULL,
+        related_activity_id INTEGER REFERENCES season_activities(id) ON DELETE SET NULL,
         tags TEXT[], -- Array of tags for filtering
         images_urls TEXT[], -- Array of image URLs
         created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        INDEX idx_farmer_date (farmer_id, entry_date),
-        INDEX idx_season_type (season_id, entry_type)
+        updated_at TIMESTAMP DEFAULT NOW()
     );
   `);
 
   await pool.query(`
-    -- 6. FARM_ALERTS_REMINDERS: System and user-generated alerts
+    -- 5. FARM_ALERTS_REMINDERS: System and user-generated alerts
     CREATE TABLE IF NOT EXISTS farm_alerts_reminders (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        farmer_id UUID REFERENCES farmers(id) ON DELETE CASCADE,
-        season_id UUID REFERENCES farm_seasons(id) ON DELETE CASCADE,
-        activity_id UUID REFERENCES season_activities(id) ON DELETE CASCADE,
+        id SERIAL PRIMARY KEY,
+        farmer_id INTEGER REFERENCES farmers(id) ON DELETE CASCADE,
+        season_id INTEGER REFERENCES farm_seasons(id) ON DELETE CASCADE,
+        activity_id INTEGER REFERENCES season_activities(id) ON DELETE CASCADE,
         alert_type VARCHAR(50) NOT NULL CHECK (alert_type IN ('reminder', 'warning', 'system', 'weather', 'market')),
         title VARCHAR(200) NOT NULL,
         message TEXT NOT NULL,
@@ -1035,7 +1016,24 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
         action_url VARCHAR(500), -- Deep link to related page
         metadata JSONB,
         created_at TIMESTAMP DEFAULT NOW(),
-        INDEX idx_alert_status (alert_date, status, priority)
+        updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- 6. FARM_REGION_DATA: Crop suitability by region
+    CREATE TABLE IF NOT EXISTS farm_region_data (
+        id SERIAL PRIMARY KEY,
+        county VARCHAR(100) NOT NULL,
+        sub_county VARCHAR(100),
+        agro_ecological_zone VARCHAR(100),
+        avg_annual_rainfall_mm INTEGER,
+        avg_temperature_c DECIMAL(5,2),
+        main_soil_type VARCHAR(50),
+        suitable_crops JSONB, -- Array of crop IDs with planting windows
+        planting_calendar JSONB, -- Monthly planting guide
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(county, sub_county)
     );
   `);
 
@@ -1105,6 +1103,23 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     CREATE INDEX IF NOT EXISTS idx_orders_buyer ON marketplace_orders(buyer_id);
     CREATE INDEX IF NOT EXISTS idx_orders_seller ON marketplace_orders(seller_id);
     CREATE INDEX IF NOT EXISTS idx_orders_status ON marketplace_orders(status);
+
+    CREATE INDEX IF NOT EXISTS idx_seasons_farmer_id ON farm_seasons(farmer_id);
+    CREATE INDEX IF NOT EXISTS idx_seasons_status ON farm_seasons(status);
+    CREATE INDEX IF NOT EXISTS idx_seasons_start_date ON farm_seasons(start_date);
+
+    CREATE INDEX IF NOT EXISTS idx_activities_season_id ON season_activities(season_id);
+    CREATE INDEX IF NOT EXISTS idx_activities_status ON season_activities(status);
+    CREATE INDEX IF NOT EXISTS idx_activities_planned_date ON season_activities(planned_date);
+    CREATE INDEX IF NOT EXISTS idx_activities_deadline_date ON season_activities(deadline_date);
+
+    CREATE INDEX IF NOT EXISTS idx_diary_farmer_date ON farm_diary_entries(farmer_id, entry_date);
+    CREATE INDEX IF NOT EXISTS idx_diary_season_id ON farm_diary_entries(season_id);
+    CREATE INDEX IF NOT EXISTS idx_diary_entry_type ON farm_diary_entries(entry_type);
+
+    CREATE INDEX IF NOT EXISTS idx_alerts_farmer_status ON farm_alerts_reminders(farmer_id, status);
+    CREATE INDEX IF NOT EXISTS idx_alerts_date ON farm_alerts_reminders(alert_date);
+    CREATE INDEX IF NOT EXISTS idx_alerts_priority ON farm_alerts_reminders(priority);  
   `);
 
   await pool.query(`
