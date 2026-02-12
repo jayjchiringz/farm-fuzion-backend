@@ -1073,7 +1073,7 @@ export const getFarmActivitiesRouter = (config: {
         name: "farmer_id",
         in: "path",
         required: true,
-        schema: {type: "integer"},
+        schema: {type: "integer"}, // Changed from string to integer
       },
     ],
     responses: {
@@ -1096,25 +1096,58 @@ export const getFarmActivitiesRouter = (config: {
               recent_diary_entries: z.array(FarmDiaryEntrySchema),
               upcoming_alerts: z.array(FarmAlertSchema),
               season_progress: z.array(z.object({
-                season_id: z.number().int(),
+                season_id: z.number(),
                 season_name: z.string(),
                 progress_percentage: z.number(),
-                next_activity: SeasonActivitySchema.optional(),
+                next_activity: SeasonActivitySchema.optional().nullable(),
               })),
             }),
           },
         },
       },
+      400: {description: "Invalid farmer ID"},
+      404: {description: "Farmer not found"},
       500: {description: "Internal server error"},
     },
   });
 
   router.get("/dashboard/:farmer_id", async (req, res) => {
     try {
-      const {farmer_id} = req.params;
+      // Parse farmer_id as integer, removing any curly braces if present
+      let farmerIdParam = req.params.farmer_id;
+
+      // Clean the parameter - remove curly braces if they exist
+      farmerIdParam = farmerIdParam.replace(/[{}]/g, "");
+
+      const farmer_id = parseInt(farmerIdParam, 10);
+
+      // Validate that we got a valid number
+      if (isNaN(farmer_id) || farmer_id <= 0) {
+        return res.status(400).json({
+          error: "Invalid farmer ID",
+          details: "Farmer ID must be a positive integer",
+        });
+      }
+
+      console.log(`Fetching dashboard for farmer ID: ${farmer_id}`);
+
       const today = new Date().toISOString().split("T")[0];
       const nextWeek = new Date();
       nextWeek.setDate(nextWeek.getDate() + 7);
+      const nextWeekStr = nextWeek.toISOString().split("T")[0];
+
+      // First check if farmer exists
+      const farmerCheck = await pool.query(
+        "SELECT id FROM farmers WHERE id = $1",
+        [farmer_id]
+      );
+
+      if (farmerCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: "Farmer not found",
+          details: `No farmer exists with ID: ${farmer_id}`,
+        });
+      }
 
       // Get seasons summary
       const seasonsResult = await pool.query(
@@ -1122,7 +1155,8 @@ export const getFarmActivitiesRouter = (config: {
           COUNT(*) as total,
           COUNT(CASE WHEN status = 'active' THEN 1 END) as active,
           COUNT(CASE WHEN status = 'planned' AND start_date > $2 THEN 1 END) as upcoming
-        FROM farm_seasons WHERE farmer_id = $1`,
+        FROM farm_seasons 
+        WHERE farmer_id = $1`,
         [farmer_id, today]
       );
 
@@ -1130,9 +1164,9 @@ export const getFarmActivitiesRouter = (config: {
       const activitiesResult = await pool.query(
         `SELECT 
           COUNT(*) as total,
-          COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
-          COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
-          COUNT(CASE WHEN status = 'pending' AND deadline_date < $2 THEN 1 END) as overdue
+          COUNT(CASE WHEN sa.status = 'completed' THEN 1 END) as completed,
+          COUNT(CASE WHEN sa.status = 'pending' THEN 1 END) as pending,
+          COUNT(CASE WHEN sa.status = 'pending' AND sa.deadline_date < $2 THEN 1 END) as overdue
         FROM season_activities sa
         JOIN farm_seasons fs ON sa.season_id = fs.id
         WHERE fs.farmer_id = $1`,
@@ -1142,21 +1176,28 @@ export const getFarmActivitiesRouter = (config: {
       // Get recent diary entries (last 5)
       const diaryResult = await pool.query(
         `SELECT * FROM farm_diary_entries 
-         WHERE farmer_id = $1 
-         ORDER BY entry_date DESC, created_at DESC 
-         LIMIT 5`,
+        WHERE farmer_id = $1 
+        ORDER BY entry_date DESC, created_at DESC 
+        LIMIT 5`,
         [farmer_id]
       );
 
       // Get upcoming alerts (next 7 days)
       const alertsResult = await pool.query(
         `SELECT * FROM farm_alerts_reminders 
-         WHERE farmer_id = $1 
-           AND alert_date BETWEEN $2 AND $3
-           AND status IN ('pending', 'sent')
-         ORDER BY alert_date, priority DESC 
-         LIMIT 10`,
-        [farmer_id, today, nextWeek.toISOString().split("T")[0]]
+        WHERE farmer_id = $1 
+          AND alert_date BETWEEN $2 AND $3
+          AND status IN ('pending', 'sent')
+        ORDER BY alert_date, 
+          CASE priority 
+            WHEN 'critical' THEN 1 
+            WHEN 'high' THEN 2 
+            WHEN 'medium' THEN 3 
+            WHEN 'low' THEN 4 
+            ELSE 5 
+          END 
+        LIMIT 10`,
+        [farmer_id, today, nextWeekStr]
       );
 
       // Get season progress
@@ -1187,25 +1228,44 @@ export const getFarmActivitiesRouter = (config: {
           ss.season_id,
           ss.season_name,
           CASE 
-            WHEN ss.total_activities = 0 THEN 0
-            ELSE ROUND((ss.completed_activities::DECIMAL / ss.total_activities) * 100, 1)
+            WHEN ss.total_activities = 0 OR ss.total_activities IS NULL THEN 0
+            ELSE ROUND((ss.completed_activities::DECIMAL / NULLIF(ss.total_activities, 0)) * 100, 1)
           END as progress_percentage,
-          row_to_json(na) as next_activity
+          row_to_json(na.*) as next_activity
         FROM season_stats ss
         LEFT JOIN next_activities na ON ss.season_id = na.season_id`,
         [farmer_id, today]
       );
 
-      res.json({
-        seasons_summary: seasonsResult.rows[0],
-        activities_summary: activitiesResult.rows[0],
+      // Format the response
+      const dashboard = {
+        seasons_summary: {
+          total: parseInt(seasonsResult.rows[0]?.total || "0"),
+          active: parseInt(seasonsResult.rows[0]?.active || "0"),
+          upcoming: parseInt(seasonsResult.rows[0]?.upcoming || "0"),
+        },
+        activities_summary: {
+          total: parseInt(activitiesResult.rows[0]?.total || "0"),
+          completed: parseInt(activitiesResult.rows[0]?.completed || "0"),
+          pending: parseInt(activitiesResult.rows[0]?.pending || "0"),
+          overdue: parseInt(activitiesResult.rows[0]?.overdue || "0"),
+        },
         recent_diary_entries: diaryResult.rows,
         upcoming_alerts: alertsResult.rows,
-        season_progress: progressResult.rows,
-      });
+        season_progress: progressResult.rows.map((row) => ({
+          ...row,
+          progress_percentage: parseFloat(row.progress_percentage) || 0,
+          next_activity: row.next_activity || null,
+        })),
+      };
+
+      return res.json(dashboard);
     } catch (err) {
       console.error("Error fetching dashboard:", err);
-      res.status(500).send("Internal server error");
+      return res.status(500).json({
+        error: "Internal server error",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
     }
   });
 
