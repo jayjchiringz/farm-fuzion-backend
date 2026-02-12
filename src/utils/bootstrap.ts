@@ -1099,7 +1099,6 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );  
   `);
 
-  /*
   await pool.query(`
     -- Insert common crops for Kenya
     INSERT INTO farm_crops (crop_name, scientific_name, category, growth_days, optimal_temp_min, optimal_temp_max, rainfall_min, rainfall_max, spacing_row_cm, spacing_plant_cm, description) VALUES
@@ -1114,7 +1113,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     ('Bananas', 'Musa spp.', 'fruit', 365, 20, 30, 1000, 2500, 300, 300, 'Perennial fruit crop'),
     ('Avocado', 'Persea americana', 'fruit', 730, 20, 30, 1000, 1500, 600, 600, 'Export fruit crop');
   `);
-  */
+  /**/
 
   await pool.query(`
     -- 6. INDEXES FOR PERFORMANCE
