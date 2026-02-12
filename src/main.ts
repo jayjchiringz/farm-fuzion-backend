@@ -129,7 +129,9 @@ export const createMainApp = (secrets: {
     }
   });
 
-  app.use("/farm-activities", getFarmActivitiesRouter);
+  app.use("/farm-activities", (req, res, next) =>
+    getFarmActivitiesRouter((req as any).dbConfig)(req, res, next)
+  );
 
   return app;
 };
