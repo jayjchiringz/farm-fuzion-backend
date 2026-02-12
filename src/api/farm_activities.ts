@@ -1115,13 +1115,9 @@ export const getFarmActivitiesRouter = (config: {
     try {
       // Parse farmer_id as integer, removing any curly braces if present
       let farmerIdParam = req.params.farmer_id;
-
-      // Clean the parameter - remove curly braces if they exist
       farmerIdParam = farmerIdParam.replace(/[{}]/g, "");
-
       const farmer_id = parseInt(farmerIdParam, 10);
 
-      // Validate that we got a valid number
       if (isNaN(farmer_id) || farmer_id <= 0) {
         return res.status(400).json({
           error: "Invalid farmer ID",
@@ -1200,7 +1196,7 @@ export const getFarmActivitiesRouter = (config: {
         [farmer_id, today, nextWeekStr]
       );
 
-      // Get season progress
+      // Get season progress - FIXED ambiguous column references
       const progressResult = await pool.query(
         `WITH season_stats AS (
           SELECT 
@@ -1216,7 +1212,22 @@ export const getFarmActivitiesRouter = (config: {
         next_activities AS (
           SELECT DISTINCT ON (sa.season_id) 
             sa.season_id,
-            sa.*
+            sa.id,
+            sa.activity_type,
+            sa.activity_name,
+            sa.description,
+            sa.planned_date,
+            sa.deadline_date,
+            sa.status,
+            sa.priority,
+            sa.assigned_to,
+            sa.notes,
+            sa.cost_estimate,
+            sa.actual_cost,
+            sa.weather_notes,
+            sa.completion_percentage,
+            sa.created_at,
+            sa.updated_at
           FROM season_activities sa
           JOIN farm_seasons fs ON sa.season_id = fs.id
           WHERE fs.farmer_id = $1 
@@ -1231,7 +1242,24 @@ export const getFarmActivitiesRouter = (config: {
             WHEN ss.total_activities = 0 OR ss.total_activities IS NULL THEN 0
             ELSE ROUND((ss.completed_activities::DECIMAL / NULLIF(ss.total_activities, 0)) * 100, 1)
           END as progress_percentage,
-          row_to_json(na.*) as next_activity
+          jsonb_build_object(
+            'id', na.id,
+            'activity_type', na.activity_type,
+            'activity_name', na.activity_name,
+            'description', na.description,
+            'planned_date', na.planned_date,
+            'deadline_date', na.deadline_date,
+            'status', na.status,
+            'priority', na.priority,
+            'assigned_to', na.assigned_to,
+            'notes', na.notes,
+            'cost_estimate', na.cost_estimate,
+            'actual_cost', na.actual_cost,
+            'weather_notes', na.weather_notes,
+            'completion_percentage', na.completion_percentage,
+            'created_at', na.created_at,
+            'updated_at', na.updated_at
+          ) as next_activity
         FROM season_stats ss
         LEFT JOIN next_activities na ON ss.season_id = na.season_id`,
         [farmer_id, today]
@@ -1252,11 +1280,27 @@ export const getFarmActivitiesRouter = (config: {
         },
         recent_diary_entries: diaryResult.rows,
         upcoming_alerts: alertsResult.rows,
-        season_progress: progressResult.rows.map((row) => ({
-          ...row,
-          progress_percentage: parseFloat(row.progress_percentage) || 0,
-          next_activity: row.next_activity || null,
-        })),
+        season_progress: progressResult.rows.map((row) => {
+          // Parse the JSONB next_activity
+          let nextActivity = null;
+          if (row.next_activity) {
+            try {
+              // If it's already an object, use it directly
+              nextActivity = typeof row.next_activity === "string" ?
+                JSON.parse(row.next_activity) :
+                row.next_activity;
+            } catch (e) {
+              console.error("Error parsing next_activity:", e);
+            }
+          }
+
+          return {
+            season_id: row.season_id,
+            season_name: row.season_name,
+            progress_percentage: parseFloat(row.progress_percentage) || 0,
+            next_activity: nextActivity,
+          };
+        }),
       };
 
       return res.json(dashboard);
