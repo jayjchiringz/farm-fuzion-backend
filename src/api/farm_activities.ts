@@ -252,7 +252,7 @@ export const getFarmActivitiesRouter = (config: {
           "application/json": {
             schema: z.object({
               data: z.array(z.object({
-                id: z.string().uuid(),
+                id: z.number().int(), // 🔥 FIX: Changed from z.string().uuid() to z.number().int()
                 crop_name: z.string(),
                 scientific_name: z.string().optional(),
                 category: z.string(),
@@ -353,7 +353,7 @@ export const getFarmActivitiesRouter = (config: {
         content: {
           "application/json": {
             schema: z.object({
-              season_id: z.string().uuid(),
+              season_id: z.number().int(),
               activity_ids: z.array(z.string().uuid()),
             }),
           },
@@ -725,7 +725,7 @@ export const getFarmActivitiesRouter = (config: {
         description: "Diary entry created",
         content: {
           "application/json": {
-            schema: z.object({id: z.string().uuid()}),
+            schema: z.object({id: z.number().int()}),
           },
         },
       },
@@ -1076,7 +1076,7 @@ export const getFarmActivitiesRouter = (config: {
               recent_diary_entries: z.array(FarmDiaryEntrySchema),
               upcoming_alerts: z.array(FarmAlertSchema),
               season_progress: z.array(z.object({
-                season_id: z.string().uuid(),
+                season_id: z.number().int(),
                 season_name: z.string(),
                 progress_percentage: z.number(),
                 next_activity: SeasonActivitySchema.optional(),
