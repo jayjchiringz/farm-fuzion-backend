@@ -9,12 +9,15 @@ import {initDbPool} from "../utils/db";
 import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
 import {
   FarmSeasonSchema,
+  SeasonActivityCreateSchema, // Add this
   SeasonActivitySchema,
   FarmDiaryEntrySchema,
   FarmAlertSchema,
   CropPlanningRequestSchema,
+  CreateSeasonWithActivitiesSchema, // Add this
   FarmDiaryEntry,
   CropPlanningRequest,
+  CreateSeasonWithActivities,
 } from "../validation/farmActivitySchema";
 
 // ✅ Local registry for farm activities
@@ -26,6 +29,8 @@ farmActivityRegistry.register("SeasonActivity", SeasonActivitySchema);
 farmActivityRegistry.register("FarmDiaryEntry", FarmDiaryEntrySchema);
 farmActivityRegistry.register("FarmAlert", FarmAlertSchema);
 farmActivityRegistry.register("CropPlanningRequest", CropPlanningRequestSchema);
+farmActivityRegistry.register("SeasonActivityCreate", SeasonActivityCreateSchema);
+farmActivityRegistry.register("CreateSeasonWithActivities", CreateSeasonWithActivitiesSchema);
 
 // -------------------------------------
 // Middleware for request body validation
@@ -366,18 +371,21 @@ export const getFarmActivitiesRouter = (config: {
 
   router.post(
     "/seasons",
-    validateRequest(z.object({
-      season: FarmSeasonSchema,
-      activities: z.array(SeasonActivitySchema).optional(),
-    })),
-    async (req, res) => {
+    validateRequest(CreateSeasonWithActivitiesSchema),
+    async (req: Request<object, object, CreateSeasonWithActivities>, res: Response) => {
       const {season, activities = []} = req.body;
 
+      // Log the incoming data for debugging
+      console.log("Creating season for farmer:", season.farmer_id);
+      console.log(`With ${activities.length} activities`);
+
+      const client = await pool.connect();
+
       try {
-        await pool.query("BEGIN");
+        await client.query("BEGIN");
 
         // Create season
-        const seasonResult = await pool.query(
+        const seasonResult = await client.query(
           `INSERT INTO farm_seasons (
             farmer_id, season_name, season_type, target_crop, location, county,
             sub_county, acreage, start_date, expected_end_date, status,
@@ -390,54 +398,66 @@ export const getFarmActivitiesRouter = (config: {
             season.season_type,
             season.target_crop,
             season.location,
-            season.county,
-            season.sub_county,
+            season.county || null,
+            season.sub_county || null,
             season.acreage,
             season.start_date,
             season.expected_end_date,
             season.status || "planned",
-            season.notes,
-            season.weather_zone,
-            season.soil_type,
+            season.notes || null,
+            season.weather_zone || null,
+            season.soil_type || null,
           ]
         );
 
         const seasonId = seasonResult.rows[0].id;
-        const activityIds: string[] = [];
+        const activityIds: number[] = [];
 
-        // Create activities
-        for (const activity of activities) {
-          const activityResult = await pool.query(
-            `INSERT INTO season_activities (
-              season_id, activity_type, activity_name, description,
-              planned_date, deadline_date, status, priority, assigned_to,
-              notes, cost_estimate, completion_percentage, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
-            RETURNING id`,
-            [
-              seasonId,
-              activity.activity_type,
-              activity.activity_name,
-              activity.description,
-              activity.planned_date,
-              activity.deadline_date,
-              activity.status || "pending",
-              activity.priority,
-              activity.assigned_to,
-              activity.notes,
-              activity.cost_estimate || 0,
-              activity.completion_percentage || 0,
-            ]
-          );
-          activityIds.push(activityResult.rows[0].id);
+        // Create activities if any
+        if (activities && activities.length > 0) {
+          for (const activity of activities) {
+            const activityResult = await client.query(
+              `INSERT INTO season_activities (
+                season_id, activity_type, activity_name, description,
+                planned_date, deadline_date, status, priority, assigned_to,
+                notes, cost_estimate, completion_percentage, created_at, updated_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+              RETURNING id`,
+              [
+                seasonId, // Now we set the season_id here
+                activity.activity_type,
+                activity.activity_name,
+                activity.description || null,
+                activity.planned_date,
+                activity.deadline_date || null,
+                activity.status || "pending",
+                activity.priority || null,
+                activity.assigned_to || null,
+                activity.notes || null,
+                activity.cost_estimate || 0,
+                activity.completion_percentage || 0,
+              ]
+            );
+            activityIds.push(activityResult.rows[0].id);
+          }
         }
 
-        await pool.query("COMMIT");
-        res.status(201).json({season_id: seasonId, activity_ids: activityIds});
+        await client.query("COMMIT");
+
+        res.status(201).json({
+          season_id: seasonId,
+          activity_ids: activityIds,
+          message: `Season created successfully with ${activityIds.length} activities`,
+        });
       } catch (err) {
-        await pool.query("ROLLBACK");
+        await client.query("ROLLBACK");
         console.error("Error creating season:", err);
-        res.status(500).send("Internal server error");
+        res.status(500).json({
+          error: "Internal server error",
+          details: err instanceof Error ? err.message : "Unknown error",
+        });
+      } finally {
+        client.release();
       }
     }
   );

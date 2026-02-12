@@ -22,10 +22,10 @@ export const FarmSeasonSchema = z.object({
   updated_at: z.string().optional(),
 });
 
-// Season Activity Schema
-export const SeasonActivitySchema = z.object({
+// Season Activity Schema - For CREATION (season_id optional)
+export const SeasonActivityCreateSchema = z.object({
   id: z.number().int().optional(),
-  season_id: z.number().int(),
+  season_id: z.number().int().optional(), // Make optional for creation
   activity_type: z.enum([
     "land_preparation",
     "planting",
@@ -52,6 +52,18 @@ export const SeasonActivitySchema = z.object({
   completion_percentage: z.number().min(0).max(100).optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
+});
+
+// Season Activity Schema - For READ operations (season_id required)
+export const SeasonActivitySchema = SeasonActivityCreateSchema.extend({
+  season_id: z.number().int(), // Required for existing records
+  id: z.number().int(), // Required for existing records
+});
+
+// Combined schema for season creation with activities
+export const CreateSeasonWithActivitiesSchema = z.object({
+  season: FarmSeasonSchema,
+  activities: z.array(SeasonActivityCreateSchema).optional().default([]),
 });
 
 // Farm Diary Entry Schema
@@ -110,6 +122,8 @@ export const CropPlanningRequestSchema = z.object({
 // Export types
 export type FarmSeason = z.infer<typeof FarmSeasonSchema>;
 export type SeasonActivity = z.infer<typeof SeasonActivitySchema>;
+export type SeasonActivityCreate = z.infer<typeof SeasonActivityCreateSchema>;
 export type FarmDiaryEntry = z.infer<typeof FarmDiaryEntrySchema>;
 export type FarmAlert = z.infer<typeof FarmAlertSchema>;
 export type CropPlanningRequest = z.infer<typeof CropPlanningRequestSchema>;
+export type CreateSeasonWithActivities = z.infer<typeof CreateSeasonWithActivitiesSchema>;
