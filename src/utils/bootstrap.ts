@@ -40,19 +40,19 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
 
   // ... ✅ Run table creation scripts
   await pool.query(`
-      CREATE TABLE IF NOT EXISTS farmers (
-        id SERIAL PRIMARY KEY,
-        first_name VARCHAR(100) NOT NULL,
-        middle_name VARCHAR(100),
-        last_name VARCHAR(100) NOT NULL,
-        dob DATE,
-        id_passport_no VARCHAR(20),
-        location VARCHAR(100),
-        address VARCHAR(100),
-        mobile VARCHAR(20),
-        email VARCHAR(255) UNIQUE NOT NULL
-      );
-    `);
+    CREATE TABLE IF NOT EXISTS farmers (
+      id SERIAL PRIMARY KEY,
+      first_name VARCHAR(100) NOT NULL,
+      middle_name VARCHAR(100),
+      last_name VARCHAR(100) NOT NULL,
+      dob DATE,
+      id_passport_no VARCHAR(20),
+      location VARCHAR(100),
+      address VARCHAR(100),
+      mobile VARCHAR(20),
+      email VARCHAR(255) UNIQUE NOT NULL
+    );
+  `);
 
   await pool.query(`
       CREATE TABLE IF NOT EXISTS directors (
@@ -1037,6 +1037,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+  /*
   await pool.query(`
     -- 7. FARM_WEATHER_DATA: Historical and forecast weather
     CREATE TABLE IF NOT EXISTS farm_weather_data (
@@ -1056,6 +1057,28 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
         notes TEXT,
         created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(farmer_id, location, weather_date)
+    );
+  `);
+  */
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS farm_weather_data (
+      id SERIAL PRIMARY KEY,                    -- Changed from UUID to SERIAL
+      farmer_id INTEGER REFERENCES farmers(id) ON DELETE CASCADE,  -- Changed from UUID to INTEGER
+      location VARCHAR(255) NOT NULL,
+      weather_date DATE NOT NULL,
+      temperature_max DECIMAL(5,2),
+      temperature_min DECIMAL(5,2),
+      rainfall_mm DECIMAL(5,2),
+      humidity_percent INTEGER,
+      wind_speed_kmh DECIMAL(5,2),
+      weather_condition VARCHAR(50),
+      sunrise TIME,
+      sunset TIME,
+      source VARCHAR(50) DEFAULT 'api',
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(farmer_id, location, weather_date)
     );
   `);
 
