@@ -998,6 +998,19 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='farm_diary_entries' AND column_name='metadata'
+      ) THEN
+        ALTER TABLE farm_diary_entries
+          ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+      END IF;
+    END$$;
+  `);
+
+  await pool.query(`
     -- 5. FARM_ALERTS_REMINDERS: System and user-generated alerts
     CREATE TABLE IF NOT EXISTS farm_alerts_reminders (
         id SERIAL PRIMARY KEY,

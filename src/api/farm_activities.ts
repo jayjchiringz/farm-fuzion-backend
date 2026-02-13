@@ -771,6 +771,7 @@ export const getFarmActivitiesRouter = (config: {
         related_activity_id,
         tags,
         images_urls,
+        metadata, // Add this
       } = req.body;
 
       try {
@@ -778,14 +779,14 @@ export const getFarmActivitiesRouter = (config: {
           `INSERT INTO farm_diary_entries (
             farmer_id, season_id, entry_date, title, entry_type, content,
             weather_condition, temperature, rainfall_mm, related_activity_id,
-            tags, images_urls, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+            tags, images_urls, metadata, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
           RETURNING id`,
           [
             farmer_id,
             season_id || null,
             entry_date || new Date().toISOString().split("T")[0],
-            title,
+            title || null,
             entry_type,
             content,
             weather_condition || null,
@@ -794,6 +795,7 @@ export const getFarmActivitiesRouter = (config: {
             related_activity_id || null,
             tags || [],
             images_urls || [],
+            metadata || {}, // Store as JSONB
           ]
         );
 
@@ -890,11 +892,18 @@ export const getFarmActivitiesRouter = (config: {
       // Get paginated data
       params.push(limit);
       params.push(offset);
+
+      // In the GET query, make sure metadata is selected
       const result = await pool.query(
-        `SELECT * ${query} 
-         ORDER BY entry_date DESC, created_at DESC
-         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-        params
+        `SELECT 
+          id, farmer_id, season_id, entry_date, title, entry_type, content,
+          weather_condition, temperature, rainfall_mm, related_activity_id,
+          tags, images_urls, metadata, created_at, updated_at
+        FROM farm_diary_entries 
+        WHERE farmer_id = $1 
+        ORDER BY entry_date DESC, created_at DESC
+        LIMIT $2 OFFSET $3`,
+        [farmer_id, limit, offset]
       );
 
       res.json({data: result.rows, total, page, limit});
