@@ -500,28 +500,67 @@ export const getFarmActivitiesRouter = (config: {
     },
   });
 
+  // ==========================
+  // GET /farm-activities/seasons/farmer/:farmer_id
+  // ==========================
   router.get("/seasons/farmer/:farmer_id", async (req, res) => {
     try {
-      const {farmer_id} = req.params;
+      // Clean and validate the farmer_id parameter
+      let farmerIdParam = req.params.farmer_id;
+
+      // Remove any curly braces or whitespace
+      farmerIdParam = farmerIdParam.replace(/[{}]/g, "").trim();
+
+      // Parse to integer
+      const farmer_id = parseInt(farmerIdParam, 10);
+
+      // Validate that we got a valid positive integer
+      if (isNaN(farmer_id) || farmer_id <= 0) {
+        console.error(`Invalid farmer ID format: "${req.params.farmer_id}"`);
+        return res.status(400).json({
+          error: "Invalid farmer ID",
+          details: "Farmer ID must be a positive integer",
+        });
+      }
+
       const {status, year} = req.query;
 
       let query = "FROM farm_seasons WHERE farmer_id = $1";
       const params: any[] = [farmer_id];
+      let paramIndex = 2;
 
-      if (status) {
-        params.push(status);
-        query += ` AND status = $${params.length}`;
+      // Validate and add status filter if provided
+      if (status && typeof status === "string") {
+        const validStatuses = ["planned", "active", "completed", "cancelled"];
+        if (validStatuses.includes(status)) {
+          params.push(status);
+          query += ` AND status = $${paramIndex}`;
+          paramIndex++;
+        }
       }
 
+      // Validate and add year filter if provided
       if (year) {
-        params.push(`${year}-01-01`);
-        params.push(`${year}-12-31`);
-        query += ` AND start_date BETWEEN $${params.length - 1} AND $${params.length}`;
+        const yearNum = parseInt(year as string, 10);
+        if (!isNaN(yearNum) && yearNum > 2000 && yearNum < 2100) {
+          params.push(`${yearNum}-01-01`);
+          params.push(`${yearNum}-12-31`);
+          query += ` AND start_date BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+          paramIndex += 2;
+        }
       }
 
-      // Get seasons
+      // Get seasons with ordering
       const result = await pool.query(
-        `SELECT * ${query} ORDER BY start_date DESC`,
+        `SELECT * ${query} ORDER BY 
+          CASE status 
+            WHEN 'active' THEN 1 
+            WHEN 'planned' THEN 2 
+            WHEN 'completed' THEN 3 
+            WHEN 'cancelled' THEN 4 
+            ELSE 5 
+          END,
+          start_date DESC`,
         params
       );
 
@@ -536,13 +575,16 @@ export const getFarmActivitiesRouter = (config: {
         [farmer_id]
       );
 
-      res.json({
+      return res.json({
         data: result.rows,
         summary: summaryResult.rows[0],
       });
     } catch (err) {
       console.error("Error fetching seasons:", err);
-      res.status(500).send("Internal server error");
+      return res.status(500).json({
+        error: "Internal server error",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
     }
   });
 
