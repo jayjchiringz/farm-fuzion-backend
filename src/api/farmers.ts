@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 /* eslint-disable camelcase */
 import {FarmerSchema} from "../validation/farmerSchema";
 import express from "express";
@@ -104,6 +105,77 @@ export const getFarmersRouter = (config: {
     } catch (err) {
       console.error("Error fetching farmers:", err);
       res.status(500).send("Internal server error");
+    }
+  });
+
+  // ✅ NEW ENDPOINT: Get farmer by user ID (UUID)
+  router.get("/by-user/:userId", async (req, res) => {
+    try {
+      const {userId} = req.params;
+
+      console.log("Looking up farmer for user ID:", userId);
+
+      // Validate userId format (basic UUID check)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(userId)) {
+        return res.status(400).json({
+          error: "Invalid user ID format",
+          details: "User ID must be a valid UUID",
+        });
+      }
+
+      const result = await pool.query(
+        `SELECT id, first_name, last_name, email, mobile 
+         FROM farmers 
+         WHERE user_id = $1`,
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          error: "Farmer not found",
+          details: `No farmer found for user ID: ${userId}`,
+        });
+      }
+
+      // Return the numeric farmer ID and basic info
+      return res.json({
+        farmer_id: result.rows[0].id,
+        first_name: result.rows[0].first_name,
+        last_name: result.rows[0].last_name,
+        email: result.rows[0].email,
+        mobile: result.rows[0].mobile,
+      });
+    } catch (err) {
+      console.error("Error fetching farmer by user ID:", err);
+      return res.status(500).json({
+        error: "Internal server error",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  });
+
+  // ✅ Optional: Get farmer by email (useful for login flow)
+  router.get("/by-email/:email", async (req, res) => {
+    try {
+      const {email} = req.params;
+
+      const result = await pool.query(
+        `SELECT f.id, f.first_name, f.last_name, f.email, f.mobile, u.id as user_id
+         FROM farmers f
+         JOIN users u ON f.user_id = u.id
+         WHERE f.email = $1 OR u.email = $1`,
+        [email]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({error: "Farmer not found"});
+      }
+
+      return res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error fetching farmer by email:", err);
+      return res.status(500).json({error: "Internal server error"});
     }
   });
 
