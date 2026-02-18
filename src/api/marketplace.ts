@@ -161,14 +161,19 @@ export const getMarketplaceRouter = (config: {
       }
 
       try {
-        // First, check if farmer_id is numeric or UUID
-        let userId = farmer_id;
+        // STEP 1: Get the numeric farmer ID
+        let numericFarmerId: number;
 
-        // If farmer_id is numeric (like 1196), get the UUID from farmers table
+        // Check if farmer_id is already numeric (like 1196) or UUID
         if (!isNaN(Number(farmer_id))) {
-          console.log("Looking up UUID for numeric farmer_id:", farmer_id);
+          // It's already numeric
+          numericFarmerId = parseInt(farmer_id, 10);
+          console.log("Using numeric farmer_id:", numericFarmerId);
+        } else {
+          // It's a UUID, look up the numeric ID
+          console.log("Looking up numeric ID for UUID:", farmer_id);
           const farmerResult = await pool.query(
-            "SELECT user_id FROM farmers WHERE id = $1",
+            "SELECT id FROM farmers WHERE user_id = $1",
             [farmer_id]
           );
 
@@ -176,18 +181,18 @@ export const getMarketplaceRouter = (config: {
             return res.status(404).json({error: "Farmer not found"});
           }
 
-          userId = farmerResult.rows[0].user_id;
-          console.log("Mapped to user_id:", userId);
+          numericFarmerId = farmerResult.rows[0].id;
+          console.log("Found numeric farmer_id:", numericFarmerId);
         }
 
-        // 1. Verify farm product exists and belongs to farmer
-        // Note: farm_products.farmer_id might be integer, not uuid
+        // STEP 2: Verify farm product exists and belongs to farmer
+        // farm_products.farmer_id stores the NUMERIC farmer ID
         const farmProductQuery = await pool.query(
           `SELECT fp.*, f.location 
           FROM farm_products fp
           LEFT JOIN farmers f ON fp.farmer_id = f.id
-          WHERE fp.id = $1 AND fp.farmer_id = $2::text`,
-          [farm_product_id, userId] // Cast userId to text for comparison
+          WHERE fp.id = $1 AND fp.farmer_id = $2`,
+          [farm_product_id, numericFarmerId] // Use numeric ID here
         );
 
         const farmProduct = farmProductQuery.rows[0];
@@ -198,20 +203,32 @@ export const getMarketplaceRouter = (config: {
           });
         }
 
-        // 2. Check if already published
-        const existing = await getOneOrNone(
-          pool,
+        // STEP 3: Check if already published
+        const existingQuery = await pool.query(
           "SELECT id FROM marketplace_products WHERE farm_product_id = $1 AND status != 'hidden'",
           [farm_product_id]
         );
 
-        if (existing) {
+        if (existingQuery.rows.length > 0) {
           return res.status(409).json({
             error: "This product is already published to marketplace",
           });
         }
 
-        // 3. Publish to marketplace - use userId (UUID) for farmer_id
+        // STEP 4: Get the UUID for marketplace_products.farmer_id
+        // marketplace_products.farmer_id stores the UUID
+        const userQuery = await pool.query(
+          "SELECT user_id FROM farmers WHERE id = $1",
+          [numericFarmerId]
+        );
+
+        const userId = userQuery.rows[0]?.user_id;
+
+        if (!userId) {
+          return res.status(404).json({error: "User ID not found"});
+        }
+
+        // STEP 5: Publish to marketplace
         const result = await pool.query(
           `INSERT INTO marketplace_products (
             farm_product_id, farmer_id, product_name, quantity, unit,
@@ -220,7 +237,7 @@ export const getMarketplaceRouter = (config: {
           RETURNING id`,
           [
             farm_product_id,
-            userId, // Use userId (UUID) here
+            userId, // Use UUID here for marketplace_products
             farmProduct.product_name,
             farmProduct.quantity,
             farmProduct.unit,
