@@ -191,7 +191,7 @@ export const getMarketplaceRouter = (config: {
           `SELECT fp.*, f.location 
           FROM farm_products fp
           LEFT JOIN farmers f ON fp.farmer_id = f.id
-          WHERE fp.id = $1 AND fp.farmer_id = $2`,
+          WHERE fp.id = $1::uuid AND fp.farmer_id = $2`,
           [farm_product_id, numericFarmerId] // Use numeric ID here
         );
 
@@ -203,9 +203,9 @@ export const getMarketplaceRouter = (config: {
           });
         }
 
-        // STEP 3: Check if already published
+        // STEP 3: Check if already published - with explicit UUID casting
         const existingQuery = await pool.query(
-          "SELECT id FROM marketplace_products WHERE farm_product_id = $1 AND status != 'hidden'",
+          "SELECT id FROM marketplace_products WHERE farm_product_id = $1::uuid AND status != 'hidden'",
           [farm_product_id]
         );
 
@@ -233,11 +233,11 @@ export const getMarketplaceRouter = (config: {
           `INSERT INTO marketplace_products (
             farm_product_id, farmer_id, product_name, quantity, unit,
             price, category, status, location
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          ) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9)
           RETURNING id`,
           [
             farm_product_id,
-            userId, // Use UUID here for marketplace_products
+            userId,
             farmProduct.product_name,
             farmProduct.quantity,
             farmProduct.unit,
