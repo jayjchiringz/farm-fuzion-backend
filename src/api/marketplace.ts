@@ -143,6 +143,7 @@ export const getMarketplaceRouter = (config: {
     },
   });
 
+  // In the POST /products/publish endpoint, update the query:
   router.post(
     "/products/publish",
     validateRequest(PublishToMarketplaceSchema),
@@ -155,14 +156,27 @@ export const getMarketplaceRouter = (config: {
       }
 
       try {
-        // 1. Verify farm product exists and belongs to farmer
+        // First, get the user_id (UUID) from the farmers table using the numeric ID
+        const farmerResult = await pool.query(
+          "SELECT user_id FROM farmers WHERE id = $1",
+          [farmer_id]
+        );
+
+        if (farmerResult.rows.length === 0) {
+          return res.status(404).json({error: "Farmer not found"});
+        }
+
+        const userId = farmerResult.rows[0].user_id;
+        console.log("Mapped farmer_id to user_id:", userId);
+
+        // Now use the UUID (userId) to query farm_products
         const farmProduct = await getOneOrNone(
           pool,
           `SELECT fp.*, f.location 
           FROM farm_products fp
           LEFT JOIN farmers f ON fp.farmer_id = f.id
           WHERE fp.id = $1 AND fp.farmer_id = $2`,
-          [farm_product_id, farmer_id]
+          [farm_product_id, userId] // Use userId (UUID) here, not the numeric farmer_id
         );
 
         if (!farmProduct) {
@@ -184,7 +198,7 @@ export const getMarketplaceRouter = (config: {
           });
         }
 
-        // 3. Publish to marketplace
+        // 3. Publish to marketplace - use userId (UUID) for farmer_id
         const result = await pool.query(
           `INSERT INTO marketplace_products (
             farm_product_id, farmer_id, product_name, quantity, unit,
@@ -193,7 +207,7 @@ export const getMarketplaceRouter = (config: {
           RETURNING id`,
           [
             farm_product_id,
-            farmer_id,
+            userId, // Use userId (UUID) here, not the numeric farmer_id
             farmProduct.product_name,
             farmProduct.quantity,
             farmProduct.unit,
@@ -204,13 +218,13 @@ export const getMarketplaceRouter = (config: {
           ]
         );
 
-        return res.status(201).json({ // Add return
+        return res.status(201).json({
           id: result.rows[0].id,
           message: "Product published successfully to marketplace",
         });
       } catch (err) {
         console.error("Error publishing product:", err);
-        return res.status(500).json({error: "Internal server error"}); // Add return
+        return res.status(500).json({error: "Internal server error"});
       }
     }
   );
