@@ -161,6 +161,14 @@ export const getMarketplaceRouter = (config: {
       }
 
       try {
+        // Validate farm_product_id format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(farm_product_id)) {
+          return res.status(400).json({
+            error: "Invalid farm product ID format",
+          });
+        }
+
         // STEP 1: Get the numeric farmer ID
         let numericFarmerId: number;
 
@@ -192,7 +200,7 @@ export const getMarketplaceRouter = (config: {
           FROM farm_products fp
           LEFT JOIN farmers f ON fp.farmer_id = f.id
           WHERE fp.id = $1::uuid AND fp.farmer_id = $2`,
-          [farm_product_id, numericFarmerId] // Use numeric ID here
+          [farm_product_id, numericFarmerId]
         );
 
         const farmProduct = farmProductQuery.rows[0];
@@ -204,10 +212,12 @@ export const getMarketplaceRouter = (config: {
         }
 
         // STEP 3: Check if already published - with explicit UUID casting
+        console.log("Checking if already published for farm_product_id:", farm_product_id);
         const existingQuery = await pool.query(
           "SELECT id FROM marketplace_products WHERE farm_product_id = $1::uuid AND status != 'hidden'",
           [farm_product_id]
         );
+        console.log("Existing query rows:", existingQuery.rows.length);
 
         if (existingQuery.rows.length > 0) {
           return res.status(409).json({
