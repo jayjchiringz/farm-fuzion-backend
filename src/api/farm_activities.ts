@@ -955,6 +955,108 @@ export const getFarmActivitiesRouter = (config: {
     }
   });
 
+  // GET single diary entry
+  router.get("/diary/:id", async (req, res) => {
+    try {
+      const {id} = req.params;
+
+      const result = await pool.query(
+        "SELECT * FROM farm_diary_entries WHERE id = $1",
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({error: "Entry not found"});
+      }
+
+      return res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error fetching diary entry:", err);
+      return res.status(500).json({error: "Internal server error"});
+    }
+  });
+
+  // UPDATE diary entry
+  router.put("/diary/:id", validateRequest(FarmDiaryEntrySchema.partial()), async (req, res) => {
+    try {
+      const {id} = req.params;
+      const updates = req.body;
+
+      // Build dynamic update query
+      const fields = [];
+      const values = [];
+      let paramIndex = 1;
+
+      const fieldMap: Record<string, string> = {
+        season_id: "season_id",
+        entry_date: "entry_date",
+        title: "title",
+        entry_type: "entry_type",
+        content: "content",
+        weather_condition: "weather_condition",
+        temperature: "temperature",
+        rainfall_mm: "rainfall_mm",
+        related_activity_id: "related_activity_id",
+        tags: "tags",
+        images_urls: "images_urls",
+        metadata: "metadata",
+      };
+
+      for (const [key, value] of Object.entries(updates)) {
+        if (fieldMap[key] && value !== undefined) {
+          fields.push(`${fieldMap[key]} = $${paramIndex}`);
+          values.push(value);
+          paramIndex++;
+        }
+      }
+
+      if (fields.length === 0) {
+        return res.status(400).json({error: "No valid fields to update"});
+      }
+
+      fields.push("updated_at = NOW()");
+      values.push(id);
+
+      const result = await pool.query(
+        `UPDATE farm_diary_entries 
+        SET ${fields.join(", ")}
+        WHERE id = $${paramIndex}
+        RETURNING *`,
+        values
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({error: "Entry not found"});
+      }
+
+      return res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating diary entry:", err);
+      return res.status(500).json({error: "Internal server error"});
+    }
+  });
+
+  // DELETE diary entry
+  router.delete("/diary/:id", async (req, res) => {
+    try {
+      const {id} = req.params;
+
+      const result = await pool.query(
+        "DELETE FROM farm_diary_entries WHERE id = $1 RETURNING id",
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({error: "Entry not found"});
+      }
+
+      return res.json({success: true, id: result.rows[0].id});
+    } catch (err) {
+      console.error("Error deleting diary entry:", err);
+      return res.status(500).json({error: "Internal server error"});
+    }
+  });
+
   // ==========================
   // GET /farm-activities/alerts/farmer/:farmer_id
   // ==========================
