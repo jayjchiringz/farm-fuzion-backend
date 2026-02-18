@@ -81,8 +81,8 @@ class FarmActivityGenerator {
     return result.rows[0] || null;
   }
 
-  // Generate timeline for common crops in Kenya
-  generateTimeline(startDate: Date, cropName: string, acreage: number, regionData?: any) {
+  // Also update the generateTimeline method to optionally use farming_method:
+  generateTimeline(startDate: Date, cropName: string, acreage: number, regionData?: any, farmingMethod?: string) {
     const start = new Date(startDate);
 
     // Common activity patterns for Kenyan crops
@@ -175,7 +175,9 @@ class FarmActivityGenerator {
 
   // Generate full season plan
   async generateSeasonPlan(request: CropPlanningRequest) {
-    const {crop_name, location, county, acreage, start_date} = request;
+    const {crop_name, location, county, acreage, start_date, farming_method} = request;
+
+    console.log("Generating plan with farming_method:", farming_method); // Add debug log
 
     // 1. Get crop details
     const crop = await this.getCropDetails(crop_name);
@@ -186,13 +188,35 @@ class FarmActivityGenerator {
     // 2. Get region data for planting window
     const regionData = await this.getRegionData(location, county);
 
-    // 3. Determine season type based on month
-    const startMonth = new Date(start_date).getMonth() + 1;
-    let seasonType = "irrigated";
-    if (regionData) {
-      // Simple logic: Long rains (Mar-May), Short rains (Oct-Dec)
-      if (startMonth >= 3 && startMonth <= 5) seasonType = "long_rains";
-      else if (startMonth >= 10 && startMonth <= 12) seasonType = "short_rains";
+    // 3. Determine season type based on farming_method AND month
+    let seasonType = "irrigated"; // Default
+
+    if (farming_method === "rainfed") {
+      // For rainfed, determine by season
+      const startMonth = new Date(start_date).getMonth() + 1;
+      if (regionData) {
+        // Simple logic: Long rains (Mar-May), Short rains (Oct-Dec)
+        if (startMonth >= 3 && startMonth <= 5) {
+          seasonType = "long_rains";
+        } else if (startMonth >= 10 && startMonth <= 12) {
+          seasonType = "short_rains";
+        } else {
+          seasonType = "dry_season"; // Rainfed farming in dry months is risky
+        }
+      } else {
+        // If no region data, still try to determine by month
+        if (startMonth >= 3 && startMonth <= 5) {
+          seasonType = "long_rains";
+        } else if (startMonth >= 10 && startMonth <= 12) {
+          seasonType = "short_rains";
+        } else {
+          seasonType = "dry_season";
+        }
+      }
+    } else if (farming_method === "irrigated") {
+      seasonType = "irrigated";
+    } else if (farming_method === "greenhouse") {
+      seasonType = "irrigated"; // Greenhouse is typically irrigated
     }
 
     // 4. Calculate expected end date
@@ -202,12 +226,13 @@ class FarmActivityGenerator {
     // 5. Generate season name
     const seasonName = `${seasonType.replace("_", " ").toUpperCase()} ${crop_name} ${new Date().getFullYear()}`;
 
-    // 6. Generate activities timeline
+    // 6. Generate activities timeline (optionally pass farming_method to adjust activities)
     const activities = this.generateTimeline(
       new Date(start_date),
       crop_name,
       acreage,
-      regionData
+      regionData,
+      farming_method // Pass farming_method to timeline generator
     );
 
     return {
