@@ -181,15 +181,16 @@ export const getMarketplaceRouter = (config: {
         }
 
         // 1. Verify farm product exists and belongs to farmer
-        // Note: farm_products.farmer_id stores the UUID (user_id)
-        const farmProduct = await getOneOrNone(
-          pool,
+        // Note: farm_products.farmer_id might be integer, not uuid
+        const farmProductQuery = await pool.query(
           `SELECT fp.*, f.location 
           FROM farm_products fp
           LEFT JOIN farmers f ON fp.farmer_id = f.id
-          WHERE fp.id = $1 AND fp.farmer_id = $2`,
-          [farm_product_id, userId] // Use userId (UUID) here
+          WHERE fp.id = $1 AND fp.farmer_id = $2::text`,
+          [farm_product_id, userId] // Cast userId to text for comparison
         );
+
+        const farmProduct = farmProductQuery.rows[0];
 
         if (!farmProduct) {
           return res.status(404).json({
