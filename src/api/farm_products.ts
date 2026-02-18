@@ -232,6 +232,7 @@ export const getFarmProductsRouter = (config: {
     },
   });
 
+  // In your backend farm_products.ts, add better error handling:
   router.get("/farmer/:farmer_id", async (req, res) => {
     try {
       const {farmer_id} = req.params;
@@ -239,14 +240,27 @@ export const getFarmProductsRouter = (config: {
       const limit = parseInt(req.query.limit as string) || 10;
       const offset = (page - 1) * limit;
 
-      // ✅ Count total
+      // First check if farmer exists
+      const farmerCheck = await pool.query(
+        "SELECT id FROM farmers WHERE id = $1",
+        [farmer_id]
+      );
+
+      if (farmerCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: "Farmer not found",
+          details: `No farmer exists with ID: ${farmer_id}`,
+        });
+      }
+
+      // Count total
       const countResult = await pool.query(
         "SELECT COUNT(*) FROM farm_products WHERE farmer_id = $1",
         [farmer_id]
       );
       const total = parseInt(countResult.rows[0].count, 10);
 
-      // ✅ Paginated data
+      // Get paginated data
       const result = await pool.query(
         `SELECT * FROM farm_products 
         WHERE farmer_id = $1
@@ -255,10 +269,18 @@ export const getFarmProductsRouter = (config: {
         [farmer_id, limit, offset]
       );
 
-      res.json({data: result.rows, total, page, limit});
+      return res.json({
+        data: result.rows,
+        total,
+        page,
+        limit,
+      });
     } catch (err) {
       console.error("Error fetching farmer products:", err);
-      res.status(500).send("Internal server error");
+      return res.status(500).json({
+        error: "Internal server error",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
     }
   });
 

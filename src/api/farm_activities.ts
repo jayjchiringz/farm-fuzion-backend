@@ -977,10 +977,17 @@ export const getFarmActivitiesRouter = (config: {
   });
 
   // UPDATE diary entry
-  router.put("/diary/:id", validateRequest(FarmDiaryEntrySchema.partial()), async (req, res) => {
+  router.put("/diary/:id", async (req, res) => {
     try {
       const {id} = req.params;
       const updates = req.body;
+
+      console.log("Updating diary entry:", id, updates);
+
+      // Remove id and timestamps from updates
+      delete updates.id;
+      delete updates.created_at;
+      delete updates.updated_at;
 
       // Build dynamic update query
       const fields = [];
@@ -1004,7 +1011,12 @@ export const getFarmActivitiesRouter = (config: {
 
       for (const [key, value] of Object.entries(updates)) {
         if (fieldMap[key] && value !== undefined) {
-          fields.push(`${fieldMap[key]} = $${paramIndex}`);
+          // Handle JSON fields
+          if (key === "tags" || key === "images_urls" || key === "metadata") {
+            fields.push(`${fieldMap[key]} = $${paramIndex}::jsonb`);
+          } else {
+            fields.push(`${fieldMap[key]} = $${paramIndex}`);
+          }
           values.push(value);
           paramIndex++;
         }
@@ -1017,13 +1029,17 @@ export const getFarmActivitiesRouter = (config: {
       fields.push("updated_at = NOW()");
       values.push(id);
 
-      const result = await pool.query(
-        `UPDATE farm_diary_entries 
+      const query = `
+        UPDATE farm_diary_entries 
         SET ${fields.join(", ")}
         WHERE id = $${paramIndex}
-        RETURNING *`,
-        values
-      );
+        RETURNING *
+      `;
+
+      console.log("Update query:", query);
+      console.log("Update values:", values);
+
+      const result = await pool.query(query, values);
 
       if (result.rows.length === 0) {
         return res.status(404).json({error: "Entry not found"});
@@ -1032,7 +1048,10 @@ export const getFarmActivitiesRouter = (config: {
       return res.json(result.rows[0]);
     } catch (err) {
       console.error("Error updating diary entry:", err);
-      return res.status(500).json({error: "Internal server error"});
+      return res.status(500).json({
+        error: "Internal server error",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
     }
   });
 
