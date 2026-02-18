@@ -66,7 +66,7 @@ export const getFarmProductsRouter = (config: {
     validateRequest(FarmProductSchema),
     async (req: Request<object, object, FarmProduct>, res: Response) => {
       const {
-        farmer_id,
+        farmer_id, // This comes as "1196" from frontend
         product_name,
         quantity,
         unit,
@@ -78,16 +78,31 @@ export const getFarmProductsRouter = (config: {
       } = req.body;
 
       try {
+        console.log("Creating product for farmer_id:", farmer_id);
+
+        // Get the user_id (UUID) from farmers table
+        const farmerResult = await pool.query(
+          "SELECT user_id FROM farmers WHERE id = $1",
+          [farmer_id]
+        );
+
+        if (farmerResult.rows.length === 0) {
+          return res.status(404).json({error: "Farmer not found"});
+        }
+
+        const userId = farmerResult.rows[0].user_id;
+        console.log("Mapped numeric ID to user_id:", userId);
+
         const result = await pool.query(
           `INSERT INTO farm_products 
             (
               farmer_id, product_name, quantity, unit, harvest_date,
               storage_location, category, price, status, created_at, updated_at
             )
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
-           RETURNING id`,
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
+          RETURNING id`,
           [
-            farmer_id,
+            userId, // Use the user_id UUID
             product_name,
             quantity,
             unit,
@@ -98,10 +113,13 @@ export const getFarmProductsRouter = (config: {
             status || "available",
           ]
         );
-        res.status(201).json({id: result.rows[0].id});
+        return res.status(201).json({id: result.rows[0].id});
       } catch (err) {
         console.error("Error adding farm product:", err);
-        res.status(500).send("Internal server error");
+        return res.status(500).json({
+          error: "Internal server error",
+          details: err instanceof Error ? err.message : "Unknown error",
+        });
       }
     }
   );
@@ -232,7 +250,7 @@ export const getFarmProductsRouter = (config: {
     },
   });
 
-  // In your backend farm_products.ts, add better error handling:
+  // Update the GET endpoint to also use user_id:
   router.get("/farmer/:farmer_id", async (req, res) => {
     try {
       const {farmer_id} = req.params;
@@ -240,37 +258,56 @@ export const getFarmProductsRouter = (config: {
       const limit = parseInt(req.query.limit as string) || 10;
       const offset = (page - 1) * limit;
 
-      // First check if farmer exists
-      const farmerCheck = await pool.query(
-        "SELECT id FROM farmers WHERE id = $1",
+      console.log("Fetching products for farmer:", farmer_id);
+
+      // Get the user_id from farmers table
+      const farmerResult = await pool.query(
+        "SELECT user_id FROM farmers WHERE id = $1",
         [farmer_id]
       );
 
-      if (farmerCheck.rows.length === 0) {
-        return res.status(404).json({
-          error: "Farmer not found",
-          details: `No farmer exists with ID: ${farmer_id}`,
-        });
+      if (farmerResult.rows.length === 0) {
+        return res.status(404).json({error: "Farmer not found"});
       }
 
-      // Count total
+      const userId = farmerResult.rows[0].user_id;
+
+      // Get total count
       const countResult = await pool.query(
         "SELECT COUNT(*) FROM farm_products WHERE farmer_id = $1",
-        [farmer_id]
+        [userId]
       );
       const total = parseInt(countResult.rows[0].count, 10);
 
-      // Get paginated data
+      // Get paginated products
       const result = await pool.query(
-        `SELECT * FROM farm_products 
+        `SELECT 
+          id,
+          farmer_id,
+          product_name,
+          quantity::int,
+          unit,
+          harvest_date,
+          storage_location,
+          category,
+          price::float,
+          status,
+          created_at,
+          updated_at,
+          spoilage_reason
+        FROM farm_products 
         WHERE farmer_id = $1
         ORDER BY created_at DESC
         LIMIT $2 OFFSET $3`,
-        [farmer_id, limit, offset]
+        [userId, limit, offset]
       );
 
+      // Return with the original numeric ID for frontend consistency
       return res.json({
-        data: result.rows,
+        data: result.rows.map((row) => ({
+          ...row,
+          farmer_id: parseInt(farmer_id), // Send back numeric ID
+        })),
         total,
         page,
         limit,
