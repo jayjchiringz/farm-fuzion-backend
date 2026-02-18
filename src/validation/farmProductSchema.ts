@@ -3,7 +3,7 @@ import {z} from "zod";
 // ✅ Farm Product Schema (no .openapi here)
 export const FarmProductSchema = z.object({
   id: z.string().uuid().optional(), // DB assigns UUID
-  farmer_id: z.string().uuid(),
+  farmer_id: z.number().int().positive(),
   product_name: z.string().min(1, "Product name required"),
   quantity: z.number().positive("Quantity must be greater than 0"),
   unit: z.string().min(1, "Unit of measurement required"),
