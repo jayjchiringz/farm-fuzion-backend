@@ -69,6 +69,14 @@ export interface components {
             rating: number;
             /** @default 0 */
             total_sales: number;
+            /** @default 0 */
+            external_sales: number;
+            /** @default 0 */
+            manual_adjustments: number;
+            /** Format: date-time */
+            last_synced_at?: string;
+            /** @default true */
+            auto_sync: boolean;
             created_at?: string;
             updated_at?: string;
         };
@@ -78,6 +86,8 @@ export interface components {
             price: number;
             /** @default true */
             is_public: boolean;
+            /** @default true */
+            auto_sync: boolean;
         };
         AddToCart: {
             /** Format: uuid */
