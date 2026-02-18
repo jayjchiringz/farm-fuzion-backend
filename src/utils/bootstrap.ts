@@ -1212,6 +1212,68 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     CREATE UNIQUE INDEX if not exists idx_market_intelligence_mv ON market_intelligence_mv(product_name, region, month);
   `);
 
+  await pool.query(`
+    -- Add new columns to marketplace_products table
+    ALTER TABLE marketplace_products 
+    ADD COLUMN IF NOT EXISTS external_sales INTEGER DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS manual_adjustments INTEGER DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS auto_sync BOOLEAN DEFAULT true;
+  `);
+
+  await pool.query(`
+    -- Create inventory_adjustments table for audit trail
+    CREATE TABLE IF NOT EXISTS inventory_adjustments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      marketplace_product_id UUID REFERENCES marketplace_products(id) ON DELETE CASCADE,
+      farm_product_id UUID REFERENCES farm_products(id) ON DELETE SET NULL,
+      previous_quantity INTEGER NOT NULL,
+      new_quantity INTEGER NOT NULL,
+      change_amount INTEGER NOT NULL,
+      reason TEXT NOT NULL CHECK (reason IN ('marketplace_sale', 'external_sale', 'inventory_correction', 'damage', 'other')),
+      notes TEXT,
+      farmer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Create index for faster queries
+    CREATE INDEX IF NOT EXISTS idx_inventory_adjustments_product 
+    ON inventory_adjustments(marketplace_product_id, created_at DESC);
+  `);// Add these ALTER TABLE statements to your bootstrap.ts
+
+  await pool.query(`
+    -- Add new columns to marketplace_products table
+    ALTER TABLE marketplace_products 
+    ADD COLUMN IF NOT EXISTS external_sales INTEGER DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS manual_adjustments INTEGER DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS auto_sync BOOLEAN DEFAULT true;
+  `);
+
+  await pool.query(`
+    -- Create inventory_adjustments table for audit trail
+    CREATE TABLE IF NOT EXISTS inventory_adjustments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      marketplace_product_id UUID REFERENCES marketplace_products(id) ON DELETE CASCADE,
+      farm_product_id UUID REFERENCES farm_products(id) ON DELETE SET NULL,
+      previous_quantity INTEGER NOT NULL,
+      new_quantity INTEGER NOT NULL,
+      change_amount INTEGER NOT NULL,
+      reason TEXT NOT NULL CHECK (reason IN ('marketplace_sale', 'external_sale', 'inventory_correction', 'damage', 'other')),
+      notes TEXT,
+      farmer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Create index for faster queries
+    CREATE INDEX IF NOT EXISTS idx_inventory_adjustments_product 
+    ON inventory_adjustments(marketplace_product_id, created_at DESC);
+  `);
+
   // 🧪 Insert the tag only if not forced
   if (!force) {
     await pool.query(

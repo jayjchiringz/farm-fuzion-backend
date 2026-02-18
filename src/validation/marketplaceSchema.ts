@@ -19,20 +19,53 @@ export const MarketplaceProductSchema = z.object({
   location: z.string().optional(),
   rating: z.number().min(0).max(5).optional().default(0),
   total_sales: z.number().int().nonnegative().optional().default(0),
+  // 🔥 NEW FIELDS FOR HYBRID TRACKING
+  external_sales: z.number().int().nonnegative().optional().default(0),
+  manual_adjustments: z.number().int().nonnegative().optional().default(0),
+  last_synced_at: z.string().datetime().optional(),
+  auto_sync: z.boolean().optional().default(true),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
 });
 
 export type MarketplaceProduct = z.infer<typeof MarketplaceProductSchema>;
 
-// For publishing from farm_products to marketplace
+// For publishing from farm_products to marketplace (UPDATED)
 export const PublishToMarketplaceSchema = z.object({
   farm_product_id: z.string().uuid(),
   price: z.number().positive("Price must be greater than 0"),
   is_public: z.boolean().optional().default(true),
+  auto_sync: z.boolean().optional().default(true), // NEW: Auto-sync with farm inventory
 });
 
 export type PublishToMarketplace = z.infer<typeof PublishToMarketplaceSchema>;
+
+// 🔥 NEW: Manual adjustment schema for external sales/inventory corrections
+export const ManualAdjustmentSchema = z.object({
+  marketplace_product_id: z.string().uuid(),
+  quantity_change: z.number().int(), // Can be negative for sales, positive for additions
+  reason: z.enum(["external_sale", "inventory_correction", "damage", "other"]),
+  notes: z.string().optional(),
+  farmer_id: z.string().uuid(),
+});
+
+export type ManualAdjustment = z.infer<typeof ManualAdjustmentSchema>;
+
+// 🔥 NEW: Adjustment history schema
+export const InventoryAdjustmentSchema = z.object({
+  id: z.string().uuid().optional(),
+  marketplace_product_id: z.string().uuid(),
+  farm_product_id: z.string().uuid().optional(),
+  previous_quantity: z.number().int(),
+  new_quantity: z.number().int(),
+  change_amount: z.number().int(),
+  reason: z.enum(["marketplace_sale", "external_sale", "inventory_correction", "damage", "other"]),
+  notes: z.string().optional(),
+  farmer_id: z.string().uuid(),
+  created_at: z.string().datetime().optional(),
+});
+
+export type InventoryAdjustment = z.infer<typeof InventoryAdjustmentSchema>;
 
 // ============================================
 // 2. SHOPPING CART SCHEMAS
@@ -160,3 +193,22 @@ export const OrderStatusUpdateSchema = z.object({
 });
 
 export type OrderStatusUpdate = z.infer<typeof OrderStatusUpdateSchema>;
+
+// ============================================
+// 7. SYNC SCHEMAS (NEW)
+// ============================================
+
+export const SyncRequestSchema = z.object({
+  marketplace_product_id: z.string().uuid(),
+  farmer_id: z.string().uuid(),
+});
+
+export type SyncRequest = z.infer<typeof SyncRequestSchema>;
+
+export const SyncResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  new_quantity: z.number().int(),
+});
+
+export type SyncResponse = z.infer<typeof SyncResponseSchema>;
