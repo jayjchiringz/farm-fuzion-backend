@@ -211,18 +211,27 @@ export const getMarketplaceRouter = (config: {
           });
         }
 
-        // STEP 3: Check if already published - with explicit UUID casting
+        // STEP 3: Check if already published - with explicit UUID casting and debugging
         console.log("Checking if already published for farm_product_id:", farm_product_id);
-        const existingQuery = await pool.query(
-          "SELECT id FROM marketplace_products WHERE farm_product_id = $1::uuid AND status != 'hidden'",
-          [farm_product_id]
-        );
-        console.log("Existing query rows:", existingQuery.rows.length);
+        console.log("Type of farm_product_id:", typeof farm_product_id);
+        console.log("Length of farm_product_id:", farm_product_id.length);
 
-        if (existingQuery.rows.length > 0) {
-          return res.status(409).json({
-            error: "This product is already published to marketplace",
-          });
+        try {
+          const existingQuery = await pool.query(
+            "SELECT id FROM marketplace_products WHERE farm_product_id = $1::uuid AND status != 'hidden'",
+            [farm_product_id]
+          );
+          console.log("Existing query successful. Rows found:", existingQuery.rows.length);
+
+          if (existingQuery.rows.length > 0) {
+            return res.status(409).json({
+              error: "This product is already published to marketplace",
+            });
+          }
+        } catch (queryError) {
+          console.error("Error in existing query:", queryError);
+          console.error("Query parameters:", {farm_product_id});
+          throw queryError;
         }
 
         // STEP 4: Get the UUID for marketplace_products.farmer_id
