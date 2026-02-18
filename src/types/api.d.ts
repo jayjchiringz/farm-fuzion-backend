@@ -10,8 +10,7 @@ export interface components {
         FarmProduct: {
             /** Format: uuid */
             id?: string;
-            /** Format: uuid */
-            farmer_id: string;
+            farmer_id: number;
             product_name: string;
             quantity: number;
             unit: string;
