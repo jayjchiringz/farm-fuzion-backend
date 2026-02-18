@@ -148,7 +148,7 @@ export const getMarketplaceRouter = (config: {
     },
   });
 
-  // In the POST /products/publish endpoint, update the query:
+  // POST /marketplace/products/publish
   router.post(
     "/products/publish",
     validateRequest(PublishToMarketplaceSchema),
@@ -161,27 +161,34 @@ export const getMarketplaceRouter = (config: {
       }
 
       try {
-        // First, get the user_id (UUID) from the farmers table using the numeric ID
-        const farmerResult = await pool.query(
-          "SELECT user_id FROM farmers WHERE id = $1",
-          [farmer_id]
-        );
+        // First, check if farmer_id is numeric or UUID
+        let userId = farmer_id;
 
-        if (farmerResult.rows.length === 0) {
-          return res.status(404).json({error: "Farmer not found"});
+        // If farmer_id is numeric (like 1196), get the UUID from farmers table
+        if (!isNaN(Number(farmer_id))) {
+          console.log("Looking up UUID for numeric farmer_id:", farmer_id);
+          const farmerResult = await pool.query(
+            "SELECT user_id FROM farmers WHERE id = $1",
+            [farmer_id]
+          );
+
+          if (farmerResult.rows.length === 0) {
+            return res.status(404).json({error: "Farmer not found"});
+          }
+
+          userId = farmerResult.rows[0].user_id;
+          console.log("Mapped to user_id:", userId);
         }
 
-        const userId = farmerResult.rows[0].user_id;
-        console.log("Mapped farmer_id to user_id:", userId);
-
-        // Now use the UUID (userId) to query farm_products
+        // 1. Verify farm product exists and belongs to farmer
+        // Note: farm_products.farmer_id stores the UUID (user_id)
         const farmProduct = await getOneOrNone(
           pool,
           `SELECT fp.*, f.location 
           FROM farm_products fp
           LEFT JOIN farmers f ON fp.farmer_id = f.id
           WHERE fp.id = $1 AND fp.farmer_id = $2`,
-          [farm_product_id, userId] // Use userId (UUID) here, not the numeric farmer_id
+          [farm_product_id, userId] // Use userId (UUID) here
         );
 
         if (!farmProduct) {
@@ -212,7 +219,7 @@ export const getMarketplaceRouter = (config: {
           RETURNING id`,
           [
             farm_product_id,
-            userId, // Use userId (UUID) here, not the numeric farmer_id
+            userId, // Use userId (UUID) here
             farmProduct.product_name,
             farmProduct.quantity,
             farmProduct.unit,
