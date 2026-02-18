@@ -93,8 +93,13 @@ const getOneOrNone = async <T = Record<string, unknown>>(
   query: string,
   params: unknown[] = []
 ): Promise<T | null> => {
-  const result = await pool.query(query, params);
-  return result.rows.length > 0 ? result.rows[0] as T : null;
+  try {
+    const result = await pool.query(query, params);
+    return result.rows.length > 0 ? result.rows[0] as T : null;
+  } catch (error) {
+    console.error("Error in getOneOrNone:", error);
+    throw error;
+  }
 };
 
 // Update the router factory signature:
