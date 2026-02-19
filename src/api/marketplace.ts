@@ -604,21 +604,29 @@ export const getMarketplaceRouter = (config: {
     },
   });
 
-  // Then, update the cart endpoint to use explicit type casting:
+  // GET /marketplace/cart/:buyerId
   router.get("/cart/:buyerId", async (req: Request, res: Response) => {
     try {
       const {buyerId} = req.params;
       const resolvedBuyerId = await resolveFarmerId(pool, buyerId);
 
-      // Get all active carts for this buyer
+      console.log("Fetching cart for buyer:", resolvedBuyerId);
+
+      // Get all active carts for this buyer - FIXED JOIN
       const cartsResult = await pool.query(
-        `SELECT sc.*, f.first_name, f.last_name, f.mobile
+        `SELECT 
+          sc.*,
+          f.first_name,
+          f.last_name,
+          f.mobile
         FROM shopping_carts sc
-        LEFT JOIN farmers f ON sc.seller_id = f.id
+        LEFT JOIN farmers f ON sc.seller_id = f.user_id  -- Changed from f.id to f.user_id
         WHERE sc.buyer_id = $1::uuid AND sc.status = 'active'
         ORDER BY sc.created_at DESC`,
-        [resolvedBuyerId] // Use the resolved ID directly
+        [resolvedBuyerId]
       );
+
+      console.log(`Found ${cartsResult.rows.length} carts`);
 
       const cartsWithItems = await Promise.all(
         cartsResult.rows.map(async (cart: any) => {
@@ -640,7 +648,12 @@ export const getMarketplaceRouter = (config: {
           );
 
           return {
-            cart,
+            id: cart.id,
+            buyer_id: cart.buyer_id,
+            seller_id: cart.seller_id,
+            status: cart.status,
+            created_at: cart.created_at,
+            updated_at: cart.updated_at,
             items: itemsResult.rows,
             seller: {
               first_name: cart.first_name,
@@ -652,10 +665,10 @@ export const getMarketplaceRouter = (config: {
         })
       );
 
-      res.json({carts: cartsWithItems});
+      // Return the carts array directly, not wrapped in {carts: ...}
+      res.json(cartsWithItems);
     } catch (err) {
       console.error("Error fetching cart:", err);
-      // Add more detailed error logging
       if (err instanceof Error) {
         console.error("Error details:", {
           message: err.message,
