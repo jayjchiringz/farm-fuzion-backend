@@ -56,33 +56,39 @@ const generateOrderNumber = (): string => {
 // Helper: Resolve farmer ID
 // -------------------------------------
 // First, update the resolveFarmerId function to handle UUIDs better:
+// Update resolveFarmerId to be more robust
 async function resolveFarmerId(db: Pool | PoolClient, farmerId: string | number): Promise<string> {
-  const normalized = String(farmerId);
+  const normalized = String(farmerId).trim();
+  console.log("🔵 [resolveFarmerId] Input:", normalized);
 
-  // Check if it's already a valid UUID format
+  // Check if it's already a valid UUID
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (uuidRegex.test(normalized)) {
+    console.log("🟢 [resolveFarmerId] Input is already valid UUID");
     return normalized;
   }
 
   try {
+    // Try to find by numeric ID or auth_id
     const result = await db.query(
-      `SELECT id FROM farmers 
+      `SELECT user_id FROM farmers 
        WHERE id::text = $1 
           OR auth_id::text = $1 
-          OR user_id::text = $1 
-          OR CAST(id AS text) = $1
+          OR user_id::text = $1
        LIMIT 1`,
       [normalized]
     );
 
     if (result.rows.length > 0) {
-      return result.rows[0].id;
+      console.log("🟢 [resolveFarmerId] Resolved to UUID:", result.rows[0].user_id);
+      return result.rows[0].user_id;
     }
 
+    // If not found, assume input is already a UUID (even if format is slightly off)
+    console.log("🟡 [resolveFarmerId] No farmer found, using input as UUID");
     return normalized;
   } catch (err) {
-    console.error("Error resolving farmer ID:", err);
+    console.error("🔴 [resolveFarmerId] Error:", err);
     return normalized;
   }
 }
@@ -608,84 +614,189 @@ export const getMarketplaceRouter = (config: {
   router.get("/cart/:buyerId", async (req: Request, res: Response) => {
     try {
       const {buyerId} = req.params;
-      console.log("1️⃣ Cart request for buyer:", buyerId);
+      console.log("🔵 [CART] Request received for buyer:", buyerId);
 
-      const resolvedBuyerId = await resolveFarmerId(pool, buyerId);
-      console.log("2️⃣ Resolved buyer ID:", resolvedBuyerId);
+      // Step 1: Resolve buyer ID
+      let resolvedBuyerId: string;
+      try {
+        resolvedBuyerId = await resolveFarmerId(pool, buyerId);
+        console.log("🟢 [CART] Resolved buyer ID:", resolvedBuyerId);
+      } catch (error) {
+        console.error("🔴 [CART] Error resolving farmer ID:", error);
+        return res.status(400).json({error: "Invalid buyer ID format"});
+      }
 
-      // First, check if the farmer exists
-      const farmerCheck = await pool.query(
-        "SELECT id, user_id FROM farmers WHERE user_id = $1::uuid OR id::text = $1",
+      // Step 2: Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(resolvedBuyerId)) {
+        console.error("🔴 [CART] Invalid UUID format:", resolvedBuyerId);
+        return res.status(400).json({error: "Invalid buyer ID format - must be UUID"});
+      }
+
+      // Step 3: Check if buyer exists
+      const buyerCheck = await pool.query(
+        `SELECT id, user_id, first_name, last_name 
+        FROM farmers 
+        WHERE user_id = $1::uuid`,
         [resolvedBuyerId]
       );
-      console.log("3️⃣ Farmer check:", farmerCheck.rows);
 
-      // Get all active carts
-      console.log("4️⃣ Querying shopping_carts...");
+      if (buyerCheck.rows.length === 0) {
+        console.log("🟡 [CART] Buyer not found in farmers table:", resolvedBuyerId);
+        // Continue anyway - buyer might not have profile yet
+      } else {
+        console.log("🟢 [CART] Buyer found:", buyerCheck.rows[0].first_name);
+      }
+
+      // Step 4: Get all active carts for this buyer
+      console.log("🔵 [CART] Fetching active carts...");
       const cartsResult = await pool.query(
         `SELECT 
-          sc.*,
+          sc.id,
+          sc.buyer_id,
+          sc.seller_id,
+          sc.status,
+          sc.created_at,
+          sc.updated_at,
           f.first_name,
           f.last_name,
-          f.mobile
+          f.mobile,
+          f.user_id as seller_user_id
         FROM shopping_carts sc
         LEFT JOIN farmers f ON sc.seller_id = f.user_id
-        WHERE sc.buyer_id = $1::uuid AND sc.status = 'active'
+        WHERE sc.buyer_id = $1::uuid 
+          AND sc.status = 'active'
         ORDER BY sc.created_at DESC`,
         [resolvedBuyerId]
       );
-      console.log("5️⃣ Carts found:", cartsResult.rows.length);
 
+      console.log(`🟢 [CART] Found ${cartsResult.rows.length} active carts`);
+
+      // Step 5: If no carts, return empty array
+      if (cartsResult.rows.length === 0) {
+        console.log("🟡 [CART] No active carts found");
+        return res.json([]);
+      }
+
+      // Step 6: Fetch items for each cart
       const cartsWithItems = await Promise.all(
         cartsResult.rows.map(async (cart: any) => {
-          console.log("6️⃣ Processing cart:", cart.id);
+          console.log(`🔵 [CART] Fetching items for cart ${cart.id}`);
 
-          const itemsResult = await pool.query(
-            `SELECT 
-              ci.*,
-              mp.product_name,
-              mp.unit,
-              mp.farmer_id as seller_id,
-              (ci.quantity * ci.unit_price) as item_total
-            FROM cart_items ci
-            LEFT JOIN marketplace_products mp ON ci.marketplace_product_id = mp.id
-            WHERE ci.cart_id = $1::uuid`,
-            [cart.id]
-          );
-          console.log(`7️⃣ Items found for cart ${cart.id}:`, itemsResult.rows.length);
+          try {
+            const itemsResult = await pool.query(
+              `SELECT 
+                ci.id,
+                ci.cart_id,
+                ci.marketplace_product_id,
+                ci.quantity,
+                ci.unit_price,
+                ci.created_at as item_created_at,
+                mp.product_name,
+                mp.unit,
+                mp.farmer_id as product_seller_id,
+                mp.quantity as available_quantity,
+                (ci.quantity * ci.unit_price) as item_total
+              FROM cart_items ci
+              LEFT JOIN marketplace_products mp ON ci.marketplace_product_id = mp.id
+              WHERE ci.cart_id = $1::uuid`,
+              [cart.id]
+            );
 
-          const total = itemsResult.rows.reduce((sum: number, item: any) =>
-            sum + (item.quantity * item.unit_price), 0
-          );
+            console.log(`🟢 [CART] Found ${itemsResult.rows.length} items for cart ${cart.id}`);
 
-          return {
-            id: cart.id,
-            buyer_id: cart.buyer_id,
-            seller_id: cart.seller_id,
-            status: cart.status,
-            created_at: cart.created_at,
-            updated_at: cart.updated_at,
-            items: itemsResult.rows,
-            seller: {
-              first_name: cart.first_name,
-              last_name: cart.last_name,
-              mobile: cart.mobile,
-            },
-            total,
-          };
+            const total = itemsResult.rows.reduce((sum: number, item: any) => {
+              return sum + (item.quantity * item.unit_price);
+            }, 0);
+
+            return {
+              id: cart.id,
+              buyer_id: cart.buyer_id,
+              seller_id: cart.seller_id,
+              status: cart.status,
+              created_at: cart.created_at,
+              updated_at: cart.updated_at,
+              items: itemsResult.rows.map((item) => ({
+                id: item.id,
+                cart_id: item.cart_id,
+                marketplace_product_id: item.marketplace_product_id,
+                quantity: item.quantity,
+                unit_price: parseFloat(item.unit_price),
+                product_name: item.product_name || "Unknown Product",
+                unit: item.unit || "unit",
+                item_total: parseFloat(item.item_total || (item.quantity * item.unit_price)),
+              })),
+              seller: cart.first_name ? {
+                first_name: cart.first_name,
+                last_name: cart.last_name,
+                mobile: cart.mobile,
+              } : null,
+              total: total,
+            };
+          } catch (itemError) {
+            console.error(`🔴 [CART] Error fetching items for cart ${cart.id}:`, itemError);
+            // Return cart with empty items rather than failing completely
+            return {
+              id: cart.id,
+              buyer_id: cart.buyer_id,
+              seller_id: cart.seller_id,
+              status: cart.status,
+              created_at: cart.created_at,
+              updated_at: cart.updated_at,
+              items: [],
+              seller: cart.first_name ? {
+                first_name: cart.first_name,
+                last_name: cart.last_name,
+                mobile: cart.mobile,
+              } : null,
+              total: 0,
+            };
+          }
         })
       );
 
-      console.log("8️⃣ Success! Returning", cartsWithItems.length, "carts");
-      res.json(cartsWithItems);
+      console.log(`🟢 [CART] Successfully processed ${cartsWithItems.length} carts`);
+      return res.json(cartsWithItems);
     } catch (err) {
-      console.error("❌ ERROR in cart endpoint:", err);
+      console.error("🔴 [CART] FATAL ERROR:", err);
+
+      // Detailed error logging
       if (err instanceof Error) {
+        console.error("Error name:", err.name);
         console.error("Error message:", err.message);
         console.error("Error stack:", err.stack);
-        console.error("Error code:", (err as any).code);
+
+        // Check for PostgreSQL specific errors
+        const pgError = err as any;
+        if (pgError.code) {
+          console.error("PostgreSQL error code:", pgError.code);
+          console.error("PostgreSQL error detail:", pgError.detail);
+
+          // Handle specific PostgreSQL errors
+          switch (pgError.code) {
+          case "22P02": // invalid_text_representation
+            return res.status(400).json({
+              error: "Invalid UUID format in database query",
+              details: "The buyer ID format is incorrect",
+            });
+          case "42883": // undefined_function
+            return res.status(500).json({
+              error: "Database function error",
+              details: "Missing database function or operator",
+            });
+          default:
+            return res.status(500).json({
+              error: "Database error",
+              code: pgError.code,
+            });
+          }
+        }
       }
-      res.status(500).json({error: "Internal server error"});
+
+      return res.status(500).json({
+        error: "Internal server error",
+        message: err instanceof Error ? err.message : "Unknown error",
+      });
     }
   });
 
