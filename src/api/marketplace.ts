@@ -61,10 +61,10 @@ async function resolveFarmerId(db: Pool | PoolClient, farmerId: string | number)
   const normalized = String(farmerId).trim();
   console.log("🔵 [resolveFarmerId] Input:", normalized);
 
-  // Check if it's already a valid UUID
+  // If it's already a valid UUID, return it as-is (no casting needed in queries)
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (uuidRegex.test(normalized)) {
-    console.log("🟢 [resolveFarmerId] Input is already valid UUID");
+    console.log("🟢 [resolveFarmerId] Input is valid UUID");
     return normalized;
   }
 
@@ -73,23 +73,28 @@ async function resolveFarmerId(db: Pool | PoolClient, farmerId: string | number)
     const result = await db.query(
       `SELECT user_id FROM farmers 
        WHERE id::text = $1 
-          OR auth_id::text = $1 
+          OR auth_id = $1 
           OR user_id::text = $1
        LIMIT 1`,
       [normalized]
     );
 
     if (result.rows.length > 0) {
-      console.log("🟢 [resolveFarmerId] Resolved to UUID:", result.rows[0].user_id);
-      return result.rows[0].user_id;
+      const uuid = result.rows[0].user_id;
+      console.log("🟢 [resolveFarmerId] Resolved to UUID:", uuid);
+      return uuid;
     }
 
-    // If not found, assume input is already a UUID (even if format is slightly off)
-    console.log("🟡 [resolveFarmerId] No farmer found, using input as UUID");
-    return normalized;
+    // If not found but looks like UUID-ish, return as-is
+    if (normalized.includes("-") && normalized.length === 36) {
+      console.log("🟡 [resolveFarmerId] Using input as UUID (format matches)");
+      return normalized;
+    }
+
+    throw new Error(`Could not resolve farmer ID: ${normalized}`);
   } catch (err) {
     console.error("🔴 [resolveFarmerId] Error:", err);
-    return normalized;
+    throw err;
   }
 }
 
@@ -626,29 +631,14 @@ export const getMarketplaceRouter = (config: {
         return res.status(400).json({error: "Invalid buyer ID format"});
       }
 
-      // Step 2: Validate UUID format
+      // Step 2: Validate and sanitize UUID
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(resolvedBuyerId)) {
         console.error("🔴 [CART] Invalid UUID format:", resolvedBuyerId);
         return res.status(400).json({error: "Invalid buyer ID format - must be UUID"});
       }
 
-      // Step 3: Check if buyer exists
-      const buyerCheck = await pool.query(
-        `SELECT id, user_id, first_name, last_name 
-        FROM farmers 
-        WHERE user_id = $1::uuid`,
-        [resolvedBuyerId]
-      );
-
-      if (buyerCheck.rows.length === 0) {
-        console.log("🟡 [CART] Buyer not found in farmers table:", resolvedBuyerId);
-        // Continue anyway - buyer might not have profile yet
-      } else {
-        console.log("🟢 [CART] Buyer found:", buyerCheck.rows[0].first_name);
-      }
-
-      // Step 4: Get all active carts for this buyer
+      // Step 3: Get all active carts for this buyer - WITHOUT ::uuid CAST
       console.log("🔵 [CART] Fetching active carts...");
       const cartsResult = await pool.query(
         `SELECT 
@@ -664,21 +654,21 @@ export const getMarketplaceRouter = (config: {
           f.user_id as seller_user_id
         FROM shopping_carts sc
         LEFT JOIN farmers f ON sc.seller_id = f.user_id
-        WHERE sc.buyer_id = $1::uuid 
+        WHERE sc.buyer_id = $1 
           AND sc.status = 'active'
         ORDER BY sc.created_at DESC`,
-        [resolvedBuyerId]
+        [resolvedBuyerId] // Remove the ::uuid cast, let PostgreSQL handle it
       );
 
       console.log(`🟢 [CART] Found ${cartsResult.rows.length} active carts`);
 
-      // Step 5: If no carts, return empty array
+      // Step 4: If no carts, return empty array
       if (cartsResult.rows.length === 0) {
         console.log("🟡 [CART] No active carts found");
         return res.json([]);
       }
 
-      // Step 6: Fetch items for each cart
+      // Step 5: Fetch items for each cart - WITHOUT ::uuid CAST
       const cartsWithItems = await Promise.all(
         cartsResult.rows.map(async (cart: any) => {
           console.log(`🔵 [CART] Fetching items for cart ${cart.id}`);
@@ -699,14 +689,14 @@ export const getMarketplaceRouter = (config: {
                 (ci.quantity * ci.unit_price) as item_total
               FROM cart_items ci
               LEFT JOIN marketplace_products mp ON ci.marketplace_product_id = mp.id
-              WHERE ci.cart_id = $1::uuid`,
+              WHERE ci.cart_id = $1`, // Remove ::uuid cast
               [cart.id]
             );
 
             console.log(`🟢 [CART] Found ${itemsResult.rows.length} items for cart ${cart.id}`);
 
             const total = itemsResult.rows.reduce((sum: number, item: any) => {
-              return sum + (item.quantity * item.unit_price);
+              return sum + (parseFloat(item.unit_price) * item.quantity);
             }, 0);
 
             return {
@@ -720,7 +710,7 @@ export const getMarketplaceRouter = (config: {
                 id: item.id,
                 cart_id: item.cart_id,
                 marketplace_product_id: item.marketplace_product_id,
-                quantity: item.quantity,
+                quantity: parseInt(item.quantity),
                 unit_price: parseFloat(item.unit_price),
                 product_name: item.product_name || "Unknown Product",
                 unit: item.unit || "unit",
@@ -731,11 +721,10 @@ export const getMarketplaceRouter = (config: {
                 last_name: cart.last_name,
                 mobile: cart.mobile,
               } : null,
-              total: total,
+              total: parseFloat(total.toString()),
             };
           } catch (itemError) {
             console.error(`🔴 [CART] Error fetching items for cart ${cart.id}:`, itemError);
-            // Return cart with empty items rather than failing completely
             return {
               id: cart.id,
               buyer_id: cart.buyer_id,
@@ -760,13 +749,11 @@ export const getMarketplaceRouter = (config: {
     } catch (err) {
       console.error("🔴 [CART] FATAL ERROR:", err);
 
-      // Detailed error logging
       if (err instanceof Error) {
         console.error("Error name:", err.name);
         console.error("Error message:", err.message);
         console.error("Error stack:", err.stack);
 
-        // Check for PostgreSQL specific errors
         const pgError = err as any;
         if (pgError.code) {
           console.error("PostgreSQL error code:", pgError.code);
@@ -774,20 +761,17 @@ export const getMarketplaceRouter = (config: {
 
           // Handle specific PostgreSQL errors
           switch (pgError.code) {
-          case "22P02": // invalid_text_representation
-            return res.status(400).json({
-              error: "Invalid UUID format in database query",
-              details: "The buyer ID format is incorrect",
-            });
           case "42883": // undefined_function
             return res.status(500).json({
               error: "Database function error",
-              details: "Missing database function or operator",
+              details: "Invalid UUID comparison. Check that buyer_id is stored as UUID type.",
+              solution: "Ensure database columns are UUID type or remove ::uuid casts",
             });
           default:
             return res.status(500).json({
               error: "Database error",
               code: pgError.code,
+              detail: pgError.detail,
             });
           }
         }
