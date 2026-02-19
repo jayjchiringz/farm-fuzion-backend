@@ -608,11 +608,20 @@ export const getMarketplaceRouter = (config: {
   router.get("/cart/:buyerId", async (req: Request, res: Response) => {
     try {
       const {buyerId} = req.params;
+      console.log("1️⃣ Cart request for buyer:", buyerId);
+
       const resolvedBuyerId = await resolveFarmerId(pool, buyerId);
+      console.log("2️⃣ Resolved buyer ID:", resolvedBuyerId);
 
-      console.log("Fetching cart for buyer:", resolvedBuyerId);
+      // First, check if the farmer exists
+      const farmerCheck = await pool.query(
+        "SELECT id, user_id FROM farmers WHERE user_id = $1::uuid OR id::text = $1",
+        [resolvedBuyerId]
+      );
+      console.log("3️⃣ Farmer check:", farmerCheck.rows);
 
-      // Get all active carts for this buyer - FIXED JOIN
+      // Get all active carts
+      console.log("4️⃣ Querying shopping_carts...");
       const cartsResult = await pool.query(
         `SELECT 
           sc.*,
@@ -620,16 +629,17 @@ export const getMarketplaceRouter = (config: {
           f.last_name,
           f.mobile
         FROM shopping_carts sc
-        LEFT JOIN farmers f ON sc.seller_id = f.user_id  -- Changed from f.id to f.user_id
+        LEFT JOIN farmers f ON sc.seller_id = f.user_id
         WHERE sc.buyer_id = $1::uuid AND sc.status = 'active'
         ORDER BY sc.created_at DESC`,
         [resolvedBuyerId]
       );
-
-      console.log(`Found ${cartsResult.rows.length} carts`);
+      console.log("5️⃣ Carts found:", cartsResult.rows.length);
 
       const cartsWithItems = await Promise.all(
         cartsResult.rows.map(async (cart: any) => {
+          console.log("6️⃣ Processing cart:", cart.id);
+
           const itemsResult = await pool.query(
             `SELECT 
               ci.*,
@@ -642,6 +652,7 @@ export const getMarketplaceRouter = (config: {
             WHERE ci.cart_id = $1::uuid`,
             [cart.id]
           );
+          console.log(`7️⃣ Items found for cart ${cart.id}:`, itemsResult.rows.length);
 
           const total = itemsResult.rows.reduce((sum: number, item: any) =>
             sum + (item.quantity * item.unit_price), 0
@@ -665,16 +676,14 @@ export const getMarketplaceRouter = (config: {
         })
       );
 
-      // Return the carts array directly, not wrapped in {carts: ...}
+      console.log("8️⃣ Success! Returning", cartsWithItems.length, "carts");
       res.json(cartsWithItems);
     } catch (err) {
-      console.error("Error fetching cart:", err);
+      console.error("❌ ERROR in cart endpoint:", err);
       if (err instanceof Error) {
-        console.error("Error details:", {
-          message: err.message,
-          stack: err.stack,
-          code: (err as any).code,
-        });
+        console.error("Error message:", err.message);
+        console.error("Error stack:", err.stack);
+        console.error("Error code:", (err as any).code);
       }
       res.status(500).json({error: "Internal server error"});
     }
