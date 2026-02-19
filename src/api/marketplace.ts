@@ -164,7 +164,7 @@ export const getMarketplaceRouter = (config: {
     "/products/publish",
     validateRequest(PublishToMarketplaceSchema),
     async (req: Request<object, object, PublishToMarketplace & { farmer_id: string }>, res: Response) => {
-      const {farm_product_id, price, is_public = true} = req.body;
+      const {farm_product_id, is_public = true} = req.body;
       const farmer_id = req.body.farmer_id || (req as any).user?.farmer_id;
 
       if (!farmer_id) {
@@ -236,6 +236,9 @@ export const getMarketplaceRouter = (config: {
           });
         }
 
+        // Calculate unit price (total price / quantity)
+        const unitPrice = farmProduct.price / farmProduct.quantity;
+
         // STEP 3: Check if already published
         console.log("Checking if already published for farm_product_id:", farm_product_id);
         const existingQuery = await pool.query(
@@ -250,20 +253,21 @@ export const getMarketplaceRouter = (config: {
           });
         }
 
-        // STEP 4: Publish to marketplace
+        // Publish to marketplace with UNIT PRICE
         const result = await pool.query(
           `INSERT INTO marketplace_products (
             farm_product_id, farmer_id, product_name, quantity, unit,
-            price, category, status, location
+            price,  -- This stores UNIT PRICE
+            category, status, location
           ) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9)
           RETURNING id`,
           [
             farm_product_id,
-            farmerUuid, // Use UUID here
+            farmerUuid,
             farmProduct.product_name,
-            farmProduct.quantity,
+            farmProduct.quantity, // Initial marketplace quantity equals farm quantity
             farmProduct.unit,
-            price,
+            unitPrice, // UNIT PRICE (total/quantity)
             farmProduct.category || "produce",
             is_public ? "available" : "hidden",
             farmProduct.storage_location || farmProduct.location || "Unknown",
@@ -666,19 +670,21 @@ export const getMarketplaceRouter = (config: {
           console.log(`🔵 [CART] Fetching items for cart ${cart.id}`);
 
           try {
+            // In GET /cart/:buyerId - fix the items query to calculate correctly
             const itemsResult = await pool.query(
               `SELECT 
                 ci.id,
                 ci.cart_id,
                 ci.marketplace_product_id,
-                ci.quantity,
+                ci.quantity as cart_quantity,
                 ci.unit_price,
-                ci.created_at as item_created_at,
                 mp.product_name,
                 mp.unit,
+                mp.price as current_unit_price,
+                mp.quantity as available_quantity,
                 (ci.quantity * ci.unit_price) as item_total
               FROM cart_items ci
-              LEFT JOIN marketplace_products mp ON ci.marketplace_product_id::text = mp.id::text  -- CAST TO TEXT
+              LEFT JOIN marketplace_products mp ON ci.marketplace_product_id::text = mp.id::text
               WHERE ci.cart_id::text = $1`,
               [cart.id]
             );
@@ -700,11 +706,11 @@ export const getMarketplaceRouter = (config: {
                 id: item.id,
                 cart_id: item.cart_id,
                 marketplace_product_id: item.marketplace_product_id,
-                quantity: parseInt(item.quantity),
+                quantity: parseInt(item.cart_quantity),
                 unit_price: parseFloat(item.unit_price),
                 product_name: item.product_name || "Unknown Product",
                 unit: item.unit || "unit",
-                item_total: parseFloat(item.item_total || (item.quantity * item.unit_price)),
+                item_total: parseFloat(item.item_total),
               })),
               seller: cart.first_name ? {
                 first_name: cart.first_name,
@@ -793,11 +799,11 @@ export const getMarketplaceRouter = (config: {
         const product = await getOneOrNone<{
           id: string;
           farmer_id: string;
-          market_quantity: number;
-          price: number;
-          farm_quantity?: number;
+          market_quantity: number; // Current available quantity in marketplace
+          price: number; // UNIT PRICE (price per unit, e.g., KSh 50 per kg)
+          farm_quantity?: number; // Original farm quantity (for reference)
           product_name?: string;
-          unit?: string;
+          unit?: string; // e.g., "kg", "bag", "piece"
           category?: string;
           status?: string;
           location?: string;
@@ -808,9 +814,21 @@ export const getMarketplaceRouter = (config: {
           farm_product_id?: string;
         }>(pool,
           `SELECT 
-            mp.*,
-            fp.quantity as farm_quantity,
-            mp.quantity as market_quantity
+            mp.id,
+            mp.farmer_id,
+            mp.quantity as market_quantity,  -- Available stock
+            mp.price,                         -- UNIT PRICE (e.g., 50.00 for KSh 50/kg)
+            mp.product_name,
+            mp.unit,
+            mp.category,
+            mp.status,
+            mp.location,
+            mp.rating,
+            mp.total_sales,
+            mp.created_at,
+            mp.updated_at,
+            mp.farm_product_id,
+            fp.quantity as farm_quantity      -- Original farm quantity for reference
           FROM marketplace_products mp
           LEFT JOIN farm_products fp ON mp.farm_product_id = fp.id
           WHERE mp.id = $1 AND mp.status = 'available'`,
@@ -821,11 +839,24 @@ export const getMarketplaceRouter = (config: {
           return res.status(404).json({error: "Product not available"});
         }
 
+        // Validate stock
         if (product.market_quantity < quantity) {
           return res.status(400).json({
-            error: `Insufficient stock. Only ${product.market_quantity} available`,
+            error: `Insufficient stock. Only ${product.market_quantity} ${product.unit}(s) available`,
           });
         }
+
+        // Calculate total price for this transaction
+        const totalPrice = product.price * quantity; // UNIT PRICE × quantity
+
+        console.log("Adding to cart:", {
+          product_id: product.id,
+          product_name: product.product_name,
+          unit_price: product.price,
+          quantity: quantity,
+          total_price: totalPrice,
+          available_stock: product.market_quantity,
+        });
 
         // 2. Get or create cart for this buyer-seller pair
         const cartResult = await pool.query(
