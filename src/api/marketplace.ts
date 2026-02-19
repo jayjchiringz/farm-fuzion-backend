@@ -615,7 +615,7 @@ export const getMarketplaceRouter = (config: {
     },
   });
 
-  // GET /marketplace/cart/:buyerId
+  // GET /marketplace/cart/:buyerId - FIXED VERSION
   router.get("/cart/:buyerId", async (req: Request, res: Response) => {
     try {
       const {buyerId} = req.params;
@@ -631,14 +631,7 @@ export const getMarketplaceRouter = (config: {
         return res.status(400).json({error: "Invalid buyer ID format"});
       }
 
-      // Step 2: Validate and sanitize UUID
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(resolvedBuyerId)) {
-        console.error("🔴 [CART] Invalid UUID format:", resolvedBuyerId);
-        return res.status(400).json({error: "Invalid buyer ID format - must be UUID"});
-      }
-
-      // Step 3: Get all active carts for this buyer - WITHOUT ::uuid CAST
+      // Step 2: Get all active carts for this buyer - WITH EXPLICIT TEXT CASTING
       console.log("🔵 [CART] Fetching active carts...");
       const cartsResult = await pool.query(
         `SELECT 
@@ -650,25 +643,24 @@ export const getMarketplaceRouter = (config: {
           sc.updated_at,
           f.first_name,
           f.last_name,
-          f.mobile,
-          f.user_id as seller_user_id
+          f.mobile
         FROM shopping_carts sc
-        LEFT JOIN farmers f ON sc.seller_id = f.user_id
-        WHERE sc.buyer_id = $1 
+        LEFT JOIN farmers f ON sc.seller_id::text = f.user_id::text  -- BOTH SIDES CAST TO TEXT
+        WHERE sc.buyer_id::text = $1  -- CAST TO TEXT
           AND sc.status = 'active'
         ORDER BY sc.created_at DESC`,
-        [resolvedBuyerId] // Remove the ::uuid cast, let PostgreSQL handle it
+        [resolvedBuyerId]
       );
 
       console.log(`🟢 [CART] Found ${cartsResult.rows.length} active carts`);
 
-      // Step 4: If no carts, return empty array
+      // Step 3: If no carts, return empty array
       if (cartsResult.rows.length === 0) {
         console.log("🟡 [CART] No active carts found");
         return res.json([]);
       }
 
-      // Step 5: Fetch items for each cart - WITHOUT ::uuid CAST
+      // Step 4: Fetch items for each cart
       const cartsWithItems = await Promise.all(
         cartsResult.rows.map(async (cart: any) => {
           console.log(`🔵 [CART] Fetching items for cart ${cart.id}`);
@@ -684,12 +676,10 @@ export const getMarketplaceRouter = (config: {
                 ci.created_at as item_created_at,
                 mp.product_name,
                 mp.unit,
-                mp.farmer_id as product_seller_id,
-                mp.quantity as available_quantity,
                 (ci.quantity * ci.unit_price) as item_total
               FROM cart_items ci
-              LEFT JOIN marketplace_products mp ON ci.marketplace_product_id = mp.id
-              WHERE ci.cart_id = $1`, // Remove ::uuid cast
+              LEFT JOIN marketplace_products mp ON ci.marketplace_product_id::text = mp.id::text  -- CAST TO TEXT
+              WHERE ci.cart_id::text = $1`,
               [cart.id]
             );
 
@@ -748,35 +738,6 @@ export const getMarketplaceRouter = (config: {
       return res.json(cartsWithItems);
     } catch (err) {
       console.error("🔴 [CART] FATAL ERROR:", err);
-
-      if (err instanceof Error) {
-        console.error("Error name:", err.name);
-        console.error("Error message:", err.message);
-        console.error("Error stack:", err.stack);
-
-        const pgError = err as any;
-        if (pgError.code) {
-          console.error("PostgreSQL error code:", pgError.code);
-          console.error("PostgreSQL error detail:", pgError.detail);
-
-          // Handle specific PostgreSQL errors
-          switch (pgError.code) {
-          case "42883": // undefined_function
-            return res.status(500).json({
-              error: "Database function error",
-              details: "Invalid UUID comparison. Check that buyer_id is stored as UUID type.",
-              solution: "Ensure database columns are UUID type or remove ::uuid casts",
-            });
-          default:
-            return res.status(500).json({
-              error: "Database error",
-              code: pgError.code,
-              detail: pgError.detail,
-            });
-          }
-        }
-      }
-
       return res.status(500).json({
         error: "Internal server error",
         message: err instanceof Error ? err.message : "Unknown error",
