@@ -6,6 +6,7 @@
 /* eslint-disable camelcase */
 import express, {Request, Response, NextFunction} from "express";
 import {z} from "zod";
+import axios from "axios";
 import {initDbPool} from "../utils/db";
 import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
 import {
@@ -1360,59 +1361,115 @@ export const getMarketplaceRouter = (config: {
     }
   });
 
-  // POST /marketplace/orders/:orderId/pay
+  // POST /marketplace/orders/:orderId/pay - FIXED WITH WALLET INTEGRATION
   router.post(
     "/orders/:orderId/pay",
     validateRequest(PaymentRequestSchema),
     async (req: Request, res: Response) => {
       const {orderId} = req.params;
-      const {payment_method} = req.body;
       const buyer_id = req.body.buyer_id || (req as any).user?.farmer_id;
 
       if (!buyer_id) {
         return res.status(400).json({error: "Buyer ID is required"});
       }
 
-      try {
-        const resolvedBuyerId = await resolveFarmerId(pool, buyer_id);
+      const client = await pool.connect();
 
-        // Get order details
-        const orderResult = await pool.query(
+      try {
+        await client.query("BEGIN");
+
+        const resolvedBuyerId = await resolveFarmerId(client, buyer_id);
+
+        // Get order details with amount
+        const orderResult = await client.query(
           `SELECT * FROM marketplace_orders 
-          WHERE id = $1 AND buyer_id = $2 AND payment_status = 'pending'`,
+          WHERE id::text = $1 AND buyer_id::text = $2 AND payment_status = 'pending'`,
           [orderId, resolvedBuyerId]
         );
 
         if (orderResult.rows.length === 0) {
+          await client.query("ROLLBACK");
           return res.status(404).json({error: "Order not found or already paid"});
         }
 
-        // Use existing wallet payment endpoint
-        // For now, simulate payment success
-        await pool.query(
-          `UPDATE marketplace_orders 
-          SET payment_status = 'paid',
-              payment_method = $1,
-              updated_at = NOW()
-          WHERE id = $2`,
-          [payment_method, orderId]
+        const order = orderResult.rows[0];
+
+        // Get seller UUID for wallet transfer
+        const sellerResult = await client.query(
+          "SELECT user_id FROM farmers WHERE id::text = $1",
+          [order.seller_id]
         );
 
-        // Record wallet transaction (using your existing wallet logic)
-        // This would integrate with your /wallet/payment endpoint
+        if (sellerResult.rows.length === 0) {
+          await client.query("ROLLBACK");
+          return res.status(404).json({error: "Seller not found"});
+        }
 
-        // Call your existing wallet payment endpoint
-        // await processWalletPayment(walletTransaction);
+        const sellerUuid = sellerResult.rows[0].user_id;
 
-        return res.json({ // Add return
-          success: true,
-          message: "Payment processed successfully",
-          order_id: orderId,
-          payment_status: "paid",
-        });
+        // Call wallet payment endpoint
+        try {
+          // Make HTTP request to your wallet payment endpoint
+          const walletResponse = await axios.post(
+            "https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api/wallet/payment",
+            {
+              farmer_id: resolvedBuyerId,
+              amount: order.total_amount,
+              destination: sellerUuid,
+              service: "marketplace_purchase",
+              merchant: `Order ${order.order_number}`,
+              mock: false,
+            },
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (!walletResponse.data.success) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({
+              error: "Wallet payment failed",
+              details: walletResponse.data.error,
+            });
+          }
+
+          // Update order payment status
+          await client.query(
+            `UPDATE marketplace_orders 
+            SET payment_status = 'paid',
+                updated_at = NOW()
+            WHERE id::text = $1`,
+            [orderId]
+          );
+
+          await client.query("COMMIT");
+
+          return res.json({
+            success: true,
+            message: "Payment processed successfully",
+            order_id: orderId,
+            payment_status: "paid",
+            transaction: walletResponse.data.transaction,
+          });
+        } catch (walletError) {
+          await client.query("ROLLBACK");
+          console.error("Wallet payment error:", walletError);
+          return res.status(500).json({
+            error: "Wallet payment failed",
+            details: walletError instanceof Error ? walletError.message : "Unknown error",
+          });
+        }
       } catch (err) {
+        await client.query("ROLLBACK").catch(() => {});
         console.error("Error processing payment:", err);
-        return res.status(500).json({error: "Internal server error"}); // Add return
+        return res.status(500).json({
+          error: "Internal server error",
+          details: err instanceof Error ? err.message : "Unknown error",
+        });
+      } finally {
+        client.release();
       }
     }
   );

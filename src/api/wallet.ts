@@ -415,19 +415,27 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
   });
 
-  // 🧾 Unified Payment (internal services + external merchants)
+  // 🧾 Unified Payment (internal services + external merchants) - IMPROVED
   router.post("/payment", async (req, res) => {
-    const {farmer_id, destination, amount, service, merchant, mock} = req.body;
+    const {farmer_id, amount, destination, service, merchant, mock} = req.body;
     const amt = Number(amount);
 
+    console.log("💰 Payment request received:", {farmer_id, amount, destination, service, merchant});
+
     if (!farmer_id || isNaN(amt) || amt <= 0) {
-      res.status(400).json({error: "Invalid payment request"});
-      return;
+      return res.status(400).json({error: "Invalid payment request", details: "Missing farmer_id or invalid amount"});
+    }
+
+    if (!destination) {
+      return res.status(400).json({error: "Invalid payment request", details: "Missing destination"});
     }
 
     try {
       // ✅ Resolve farmer
       const payerId = await resolveFarmerId(db, farmer_id);
+      const recipientId = await resolveFarmerId(db, destination);
+
+      console.log("Resolved IDs:", {payerId, recipientId});
 
       // ✅ Check wallet balance
       const wallet = await db.oneOrNone(
@@ -435,31 +443,38 @@ export const getWalletRouter = async (dbConfig: any) => {
         [payerId]
       );
 
-      if (!wallet || Number(wallet.balance) < amt) {
-        res.status(400).json({error: "Insufficient funds"});
-        return;
+      const currentBalance = wallet ? Number(wallet.balance) : 0;
+      console.log("Current balance:", currentBalance);
+
+      if (currentBalance < amt) {
+        return res.status(400).json({
+          error: "Insufficient funds",
+          details: `Available: ${currentBalance}, Required: ${amt}`,
+        });
       }
 
-      // 🧩 Meta data: unify info for internal vs external
+      // 🧩 Meta data
       const meta: any = {
-        service: service || null, // e.g. "fertilizer_purchase"
-        merchant: merchant || null, // e.g. "Paybill:12345"
+        service: service || null,
+        merchant: merchant || null,
         mock: !!mock,
+        timestamp: new Date().toISOString(),
       };
 
-      // 🔁 Mock or live: for now always mock success
+      // 🔁 Process payment
       const result = {
-        transaction_id: `PAY-${Date.now()}`,
+        transaction_id: `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         status: "completed",
-        message: mock ? "Simulated payment success" : "Payment initiated",
+        message: mock ? "Simulated payment success" : "Payment processed successfully",
       };
 
       await db.tx(async (t) => {
+        // Debit sender
         await t.none(
           `INSERT INTO wallet_transactions
             (farmer_id, type, amount, destination, direction, method, status, meta)
-          VALUES ($1, 'paybill', $2, $3, 'out', 'wallet', $4, $5)`,
-          [payerId, amt, destination || merchant || service || "unknown", result.status, JSON.stringify({...meta, ...result})]
+          VALUES ($1, 'payment', $2, $3, 'out', 'wallet', $4, $5)`,
+          [payerId, amt, recipientId, result.status, JSON.stringify({...meta, ...result})]
         );
 
         await t.none(
@@ -467,12 +482,51 @@ export const getWalletRouter = async (dbConfig: any) => {
           WHERE farmer_id = $2`,
           [amt, payerId]
         );
+
+        // Credit recipient
+        await t.none(
+          `INSERT INTO wallet_transactions
+            (farmer_id, type, amount, source, direction, method, status, meta)
+          VALUES ($1, 'payment_received', $2, $3, 'in', 'wallet', $4, $5)`,
+          [recipientId, amt, payerId, result.status, JSON.stringify({...meta, ...result})]
+        );
+
+        // Check if recipient has wallet
+        const destWallet = await t.oneOrNone(
+          "SELECT balance FROM wallets WHERE farmer_id = $1",
+          [recipientId]
+        );
+
+        if (destWallet) {
+          await t.none(
+            `UPDATE wallets SET balance = balance + $1, updated_at = NOW()
+            WHERE farmer_id = $2`,
+            [amt, recipientId]
+          );
+        } else {
+          await t.none(
+            "INSERT INTO wallets(farmer_id, balance) VALUES ($1, $2)",
+            [recipientId, amt]
+          );
+        }
       });
 
-      res.json({success: true, transaction: result});
+      console.log("✅ Payment successful:", result.transaction_id);
+      return res.json({
+        success: true,
+        transaction: {
+          ...result,
+          amount: amt,
+          from: payerId,
+          to: recipientId,
+        },
+      });
     } catch (err) {
       console.error("💥 Payment error:", err);
-      res.status(500).json({error: "Payment failed"});
+      return res.status(500).json({
+        error: "Payment failed",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
     }
   });
 
