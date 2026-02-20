@@ -1361,12 +1361,13 @@ export const getMarketplaceRouter = (config: {
     }
   });
 
-  // POST /marketplace/orders/:orderId/pay - FIXED WITH WALLET INTEGRATION
   router.post(
     "/orders/:orderId/pay",
     validateRequest(PaymentRequestSchema),
     async (req: Request, res: Response) => {
       const {orderId} = req.params;
+      // The validated body already includes all required fields from schema
+      const {phone_number, account_number} = req.body;
       const buyer_id = req.body.buyer_id || (req as any).user?.farmer_id;
 
       if (!buyer_id) {
@@ -1407,9 +1408,8 @@ export const getMarketplaceRouter = (config: {
 
         const sellerUuid = sellerResult.rows[0].user_id;
 
-        // Call wallet payment endpoint
+        // Call wallet payment endpoint with ALL required fields
         try {
-          // Make HTTP request to your wallet payment endpoint
           const walletResponse = await axios.post(
             "https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api/wallet/payment",
             {
@@ -1418,6 +1418,8 @@ export const getMarketplaceRouter = (config: {
               destination: sellerUuid,
               service: "marketplace_purchase",
               merchant: `Order ${order.order_number}`,
+              phone_number: phone_number || null, // Include from validated body
+              account_number: account_number || null, // Include from validated body
               mock: false,
             },
             {

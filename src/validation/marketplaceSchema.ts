@@ -154,7 +154,7 @@ export const CheckoutSchema = z.object({
 export type Checkout = z.infer<typeof CheckoutSchema>;
 
 export const PaymentRequestSchema = z.object({
-  order_id: z.string().uuid(),
+  order_id: z.string().uuid().optional(),
   payment_method: z.enum(["wallet", "mpesa", "paybill", "cash"]),
   // For M-Pesa/Paybill
   phone_number: z.string().optional(),
