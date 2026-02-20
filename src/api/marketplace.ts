@@ -1183,7 +1183,7 @@ export const getMarketplaceRouter = (config: {
     }
   );
 
-  // GET /marketplace/orders/buyer/:buyerId
+  // GET /marketplace/orders/buyer/:buyerId - FIXED WITH PROPER TYPE CASTING
   router.get("/orders/buyer/:buyerId", async (req: Request, res: Response) => {
     try {
       const {buyerId} = req.params;
@@ -1194,39 +1194,51 @@ export const getMarketplaceRouter = (config: {
       const limitNum = parseInt(limit as string) || 20;
       const offset = (pageNum - 1) * limitNum;
 
-      let whereClause = "WHERE buyer_id = $1";
+      // Build WHERE clause with TEXT casting
+      let whereClause = "WHERE mo.buyer_id::text = $1";
       const params: any[] = [resolvedBuyerId];
       let paramCount = 1;
 
       if (status) {
         paramCount++;
-        whereClause += ` AND status = $${paramCount}`;
+        whereClause += ` AND mo.status::text = $${paramCount}`;
         params.push(status);
       }
 
       // Get total count
       const countResult = await pool.query(
-        `SELECT COUNT(*) FROM marketplace_orders ${whereClause}`,
+        `SELECT COUNT(*) FROM marketplace_orders mo ${whereClause}`,
         params
       );
       const total = parseInt(countResult.rows[0].count, 10);
 
-      // Get orders
+      // Get orders with proper joins - FIX THE JOIN CONDITIONS
       params.push(limitNum);
       params.push(offset);
 
       const ordersResult = await pool.query(
         `SELECT 
-          mo.*,
+          mo.id::text,
+          mo.order_number,
+          mo.buyer_id::text,
+          mo.seller_id::text,
+          mo.status,
+          mo.total_amount,
+          mo.shipping_address,
+          mo.payment_method,
+          mo.payment_status,
+          mo.notes,
+          mo.created_at,
+          mo.updated_at,
           f.first_name as seller_first_name,
           f.last_name as seller_last_name,
           f.mobile as seller_mobile
-         FROM marketplace_orders mo
-         LEFT JOIN farmers f ON mo.seller_id = f.id
-         ${whereClause}
-         ORDER BY mo.created_at DESC
-         LIMIT $${params.length - 1}
-         OFFSET $${params.length}`,
+        FROM marketplace_orders mo
+        LEFT JOIN farmers f ON mo.seller_id::text = f.user_id::text  -- FIXED: Compare TEXT with TEXT
+        ${whereClause}
+        ORDER BY mo.created_at DESC
+        LIMIT $${params.length - 1}
+        OFFSET $${params.length}`,
         params
       );
 
@@ -1234,7 +1246,17 @@ export const getMarketplaceRouter = (config: {
       const ordersWithItems = await Promise.all(
         ordersResult.rows.map(async (order: any) => {
           const itemsResult = await pool.query(
-            "SELECT * FROM order_items WHERE order_id = $1",
+            `SELECT 
+              oi.id::text,
+              oi.order_id::text,
+              oi.marketplace_product_id::text,
+              oi.product_name,
+              oi.quantity,
+              oi.unit_price,
+              oi.total_price,
+              oi.created_at
+            FROM order_items oi
+            WHERE oi.order_id::text = $1`,
             [order.id]
           );
           return {...order, items: itemsResult.rows};
@@ -1250,6 +1272,19 @@ export const getMarketplaceRouter = (config: {
       });
     } catch (err) {
       console.error("Error fetching buyer orders:", err);
+
+      // Detailed error logging
+      if (err instanceof Error) {
+        console.error("Error message:", err.message);
+        console.error("Error stack:", err.stack);
+
+        const pgError = err as any;
+        if (pgError.code) {
+          console.error("PostgreSQL error code:", pgError.code);
+          console.error("PostgreSQL error detail:", pgError.detail);
+        }
+      }
+
       res.status(500).json({error: "Internal server error"});
     }
   });
