@@ -415,14 +415,13 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
   });
 
-  // In wallet.ts - optimize the payment endpoint
+  // In wallet.ts - USE 'transfer' INSTEAD OF 'payment'
   router.post("/payment", async (req, res) => {
     console.log("💰 [WALLET] Payment request received");
 
     const {farmer_id, amount, destination} = req.body;
     const amt = Number(amount);
 
-    // Quick validation
     if (!farmer_id || !destination || isNaN(amt) || amt <= 0) {
       return res.status(400).json({
         success: false,
@@ -431,11 +430,10 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
 
     try {
-      // Resolve IDs quickly
       const payerId = await resolveFarmerId(db, farmer_id);
       const recipientId = await resolveFarmerId(db, destination);
 
-      // Quick balance check
+      // Check balance
       const payerWallet = await db.oneOrNone(
         "SELECT balance FROM wallets WHERE farmer_id = $1",
         [payerId]
@@ -448,15 +446,14 @@ export const getWalletRouter = async (dbConfig: any) => {
         });
       }
 
-      // Process transaction - use simple queries without heavy JSON
       const transactionId = `PAY-${Date.now()}`;
 
       await db.tx(async (t) => {
-        // Debit payer
+        // Debit payer - USE 'transfer' (allowed)
         await t.none(
           `INSERT INTO wallet_transactions
             (farmer_id, type, amount, destination, direction, method, status)
-          VALUES ($1, 'marketplace_payment', $2, $3, 'out', 'wallet', 'completed')`,
+          VALUES ($1, 'transfer', $2, $3, 'out', 'wallet', 'completed')`,
           [payerId, amt, recipientId]
         );
 
@@ -465,11 +462,11 @@ export const getWalletRouter = async (dbConfig: any) => {
           [amt, payerId]
         );
 
-        // Credit recipient
+        // Credit recipient - USE 'transfer' (allowed)
         await t.none(
           `INSERT INTO wallet_transactions
             (farmer_id, type, amount, source, direction, method, status)
-          VALUES ($1, 'marketplace_payment_received', $2, $3, 'in', 'wallet', 'completed')`,
+          VALUES ($1, 'transfer', $2, $3, 'in', 'wallet', 'completed')`,
           [recipientId, amt, payerId]
         );
 
@@ -482,7 +479,13 @@ export const getWalletRouter = async (dbConfig: any) => {
       console.log("✅ [WALLET] Payment successful");
       return res.json({
         success: true,
-        transaction: {id: transactionId},
+        transaction: {
+          id: transactionId,
+          type: "transfer",
+          amount: amt,
+          from: payerId,
+          to: recipientId,
+        },
       });
     } catch (err) {
       console.error("💥 [WALLET] Payment error:", err);
