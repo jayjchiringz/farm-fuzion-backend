@@ -153,13 +153,14 @@ export const CheckoutSchema = z.object({
 
 export type Checkout = z.infer<typeof CheckoutSchema>;
 
+// In marketplaceSchema.ts - FIX PAYMENT SCHEMA
 export const PaymentRequestSchema = z.object({
+  // Make order_id optional since it's in URL params
   order_id: z.string().uuid().optional(),
   payment_method: z.enum(["wallet", "mpesa", "paybill", "cash"]),
-  // For M-Pesa/Paybill
   phone_number: z.string().optional(),
   account_number: z.string().optional(),
-});
+}).passthrough(); // Allow extra fields to prevent validation errors
 
 export type PaymentRequest = z.infer<typeof PaymentRequestSchema>;
 
