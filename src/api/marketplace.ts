@@ -1183,13 +1183,18 @@ export const getMarketplaceRouter = (config: {
     }
   );
 
-  // GET /marketplace/orders/buyer/:buyerId - FIXED WITH PROPER TYPE CASTING
+  // GET /marketplace/orders/buyer/:buyerId - FIXED
   router.get("/orders/buyer/:buyerId", async (req: Request, res: Response) => {
     try {
       const {buyerId} = req.params;
       const {status, page = 1, limit = 20} = req.query;
 
+      console.log("Fetching buyer orders for:", buyerId);
+
+      // Resolve the buyer ID to UUID if needed
       const resolvedBuyerId = await resolveFarmerId(pool, buyerId);
+      console.log("Resolved buyer ID:", resolvedBuyerId);
+
       const pageNum = parseInt(page as string) || 1;
       const limitNum = parseInt(limit as string) || 20;
       const offset = (pageNum - 1) * limitNum;
@@ -1212,7 +1217,7 @@ export const getMarketplaceRouter = (config: {
       );
       const total = parseInt(countResult.rows[0].count, 10);
 
-      // Get orders with proper joins - FIX THE JOIN CONDITIONS
+      // Get orders with proper joins
       params.push(limitNum);
       params.push(offset);
 
@@ -1234,7 +1239,7 @@ export const getMarketplaceRouter = (config: {
           f.last_name as seller_last_name,
           f.mobile as seller_mobile
         FROM marketplace_orders mo
-        LEFT JOIN farmers f ON mo.seller_id::text = f.user_id::text  -- FIXED: Compare TEXT with TEXT
+        LEFT JOIN farmers f ON mo.seller_id::text = f.user_id::text
         ${whereClause}
         ORDER BY mo.created_at DESC
         LIMIT $${params.length - 1}
@@ -1263,7 +1268,7 @@ export const getMarketplaceRouter = (config: {
         })
       );
 
-      res.json({
+      return res.json({
         data: ordersWithItems,
         total,
         page: pageNum,
@@ -1285,69 +1290,94 @@ export const getMarketplaceRouter = (config: {
         }
       }
 
-      res.status(500).json({error: "Internal server error"});
+      return res.status(500).json({
+        error: "Internal server error",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
     }
   });
 
-  // GET /marketplace/orders/seller/:sellerId
+  // GET /marketplace/orders/seller/:sellerId - FIXED
   router.get("/orders/seller/:sellerId", async (req: Request, res: Response) => {
     try {
       const {sellerId} = req.params;
       const {status, page = 1, limit = 20} = req.query;
 
+      console.log("Fetching seller orders for:", sellerId);
+
       const resolvedSellerId = await resolveFarmerId(pool, sellerId);
+      console.log("Resolved seller ID:", resolvedSellerId);
+
       const pageNum = parseInt(page as string) || 1;
       const limitNum = parseInt(limit as string) || 20;
       const offset = (pageNum - 1) * limitNum;
 
-      let whereClause = "WHERE seller_id = $1";
+      let whereClause = "WHERE mo.seller_id::text = $1";
       const params: any[] = [resolvedSellerId];
       let paramCount = 1;
 
       if (status) {
         paramCount++;
-        whereClause += ` AND status = $${paramCount}`;
+        whereClause += ` AND mo.status::text = $${paramCount}`;
         params.push(status);
       }
 
-      // Get total count
       const countResult = await pool.query(
-        `SELECT COUNT(*) FROM marketplace_orders ${whereClause}`,
+        `SELECT COUNT(*) FROM marketplace_orders mo ${whereClause}`,
         params
       );
       const total = parseInt(countResult.rows[0].count, 10);
 
-      // Get orders
       params.push(limitNum);
       params.push(offset);
 
       const ordersResult = await pool.query(
         `SELECT 
-          mo.*,
+          mo.id::text,
+          mo.order_number,
+          mo.buyer_id::text,
+          mo.seller_id::text,
+          mo.status,
+          mo.total_amount,
+          mo.shipping_address,
+          mo.payment_method,
+          mo.payment_status,
+          mo.notes,
+          mo.created_at,
+          mo.updated_at,
           f.first_name as buyer_first_name,
           f.last_name as buyer_last_name,
           f.mobile as buyer_mobile
-         FROM marketplace_orders mo
-         LEFT JOIN farmers f ON mo.buyer_id = f.id
-         ${whereClause}
-         ORDER BY mo.created_at DESC
-         LIMIT $${params.length - 1}
-         OFFSET $${params.length}`,
+        FROM marketplace_orders mo
+        LEFT JOIN farmers f ON mo.buyer_id::text = f.user_id::text
+        ${whereClause}
+        ORDER BY mo.created_at DESC
+        LIMIT $${params.length - 1}
+        OFFSET $${params.length}`,
         params
       );
 
-      // Get items for each order
       const ordersWithItems = await Promise.all(
         ordersResult.rows.map(async (order: any) => {
           const itemsResult = await pool.query(
-            "SELECT * FROM order_items WHERE order_id = $1",
+            `SELECT 
+              oi.id::text,
+              oi.order_id::text,
+              oi.marketplace_product_id::text,
+              oi.product_name,
+              oi.quantity,
+              oi.unit_price,
+              oi.total_price,
+              oi.created_at
+            FROM order_items oi
+            WHERE oi.order_id::text = $1`,
             [order.id]
           );
           return {...order, items: itemsResult.rows};
         })
       );
 
-      res.json({
+      return res.json({
         data: ordersWithItems,
         total,
         page: pageNum,
@@ -1356,7 +1386,10 @@ export const getMarketplaceRouter = (config: {
       });
     } catch (err) {
       console.error("Error fetching seller orders:", err);
-      res.status(500).json({error: "Internal server error"});
+      return res.status(500).json({
+        error: "Internal server error",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
     }
   });
 
