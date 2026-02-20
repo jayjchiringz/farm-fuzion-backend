@@ -82,13 +82,14 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
   });
 
-  // In wallet.ts - GET TRANSACTION HISTORY
+  // In wallet.ts - update the GET /:farmerId/transactions endpoint
   router.get("/:farmerId/transactions", async (req, res) => {
     const {farmerId} = req.params;
     const {limit = 50, offset = 0} = req.query;
 
     try {
       const resolvedId = await resolveFarmerId(db, farmerId);
+      console.log("Fetching transactions for farmer:", resolvedId);
 
       const transactions = await db.any(
         `SELECT 
@@ -102,7 +103,7 @@ export const getWalletRouter = async (dbConfig: any) => {
           source,
           destination,
           status,
-          reference,
+          reference_no as reference,  -- Use reference_no instead of reference
           meta,
           created_at
         FROM wallet_transactions
@@ -132,22 +133,25 @@ export const getWalletRouter = async (dbConfig: any) => {
         [resolvedId]
       );
 
-      res.json({
+      console.log(`Found ${transactions.length} transactions for farmer ${resolvedId}`);
+
+      return res.json({
         success: true,
         balance: Number(balance.balance),
         transactions: transactions.map((t) => ({
           ...t,
           amount: Number(t.amount),
-          // Add friendly description
           description: t.type === "marketplace_purchase" ?
             `Payment to farmer ${t.destination}` :
             t.type === "marketplace_sale" ?
               `Payment from farmer ${t.source}` :
               t.type === "topup" ?
                 "Wallet top-up" :
-                t.type === "withdraw" ?
-                  "Withdrawal" :
-                  "Transaction",
+                t.type === "deduction" ?
+                  "Payment sent" :
+                  t.type === "withdraw" ?
+                    "Withdrawal" :
+                    "Transaction",
         })),
         pagination: {
           total: Number(count.count),
@@ -157,9 +161,10 @@ export const getWalletRouter = async (dbConfig: any) => {
       });
     } catch (err) {
       console.error("💥 Error fetching transactions:", err);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Failed to fetch transactions",
+        details: err instanceof Error ? err.message : "Unknown error",
       });
     }
   });

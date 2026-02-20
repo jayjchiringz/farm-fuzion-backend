@@ -1,15 +1,61 @@
+/* eslint-disable max-len */
+/* eslint-disable require-jsdoc */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable camelcase */
 import express, {Request, Response, NextFunction} from "express";
 import {z} from "zod";
 import {initDbPool} from "../utils/db";
 import {FarmProductSchema, FarmProduct} from "../validation/farmProductSchema";
 import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
+import {Pool, PoolClient} from "pg";
 
 // ✅ Local registry for farm products (merged later in swagger.ts)
 export const farmProductRegistry = new OpenAPIRegistry();
 
 // ✅ Register schema once per feature
 farmProductRegistry.register("FarmProduct", FarmProductSchema);
+
+// Helper function to resolve farmer ID (copy from marketplace.ts)
+async function resolveFarmerId(db: Pool | PoolClient, farmerId: string | number): Promise<string> {
+  const normalized = String(farmerId).trim();
+  console.log("🔍 [resolveFarmerId] Input:", normalized);
+
+  // If it's already a valid UUID, get the numeric ID from farmers table
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(normalized)) {
+    console.log("🟢 Input is valid UUID, looking up numeric ID...");
+    const farmerResult = await db.query(
+      "SELECT id FROM farmers WHERE user_id = $1",
+      [normalized]
+    );
+    if (farmerResult.rows.length > 0) {
+      const numericId = farmerResult.rows[0].id;
+      console.log("✅ Resolved UUID to numeric ID:", numericId);
+      return numericId;
+    }
+  }
+
+  // If it's a numeric ID, return as-is
+  if (!isNaN(Number(normalized))) {
+    return normalized;
+  }
+
+  // Try to find by auth_id or other fields
+  const result = await db.query(
+    `SELECT id FROM farmers 
+     WHERE id::text = $1 
+        OR auth_id = $1 
+        OR user_id::text = $1
+     LIMIT 1`,
+    [normalized]
+  );
+
+  if (result.rows.length > 0) {
+    return String(result.rows[0].id);
+  }
+
+  throw new Error(`Could not resolve farmer ID: ${normalized}`);
+}
 
 // -------------------------------------
 // Middleware for request body validation
@@ -250,7 +296,7 @@ export const getFarmProductsRouter = (config: {
     },
   });
 
-  // Update the GET endpoint to also use user_id:
+  // In farm_products.ts - update the GET /farmer/:farmer_id endpoint
   router.get("/farmer/:farmer_id", async (req, res) => {
     try {
       const {farmer_id} = req.params;
@@ -260,22 +306,14 @@ export const getFarmProductsRouter = (config: {
 
       console.log("Fetching products for farmer:", farmer_id);
 
-      // Get the user_id from farmers table
-      const farmerResult = await pool.query(
-        "SELECT user_id FROM farmers WHERE id = $1",
-        [farmer_id]
-      );
-
-      if (farmerResult.rows.length === 0) {
-        return res.status(404).json({error: "Farmer not found"});
-      }
-
-      const userId = farmerResult.rows[0].user_id;
+      // Use resolveFarmerId to handle both UUID and numeric IDs
+      const resolvedId = await resolveFarmerId(pool, farmer_id);
+      console.log("Resolved farmer ID:", resolvedId);
 
       // Get total count
       const countResult = await pool.query(
         "SELECT COUNT(*) FROM farm_products WHERE farmer_id = $1",
-        [userId]
+        [resolvedId]
       );
       const total = parseInt(countResult.rows[0].count, 10);
 
@@ -299,15 +337,11 @@ export const getFarmProductsRouter = (config: {
         WHERE farmer_id = $1
         ORDER BY created_at DESC
         LIMIT $2 OFFSET $3`,
-        [userId, limit, offset]
+        [resolvedId, limit, offset]
       );
 
-      // Return with the original numeric ID for frontend consistency
       return res.json({
-        data: result.rows.map((row) => ({
-          ...row,
-          farmer_id: parseInt(farmer_id), // Send back numeric ID
-        })),
+        data: result.rows,
         total,
         page,
         limit,
@@ -431,3 +465,4 @@ export const getFarmProductsRouter = (config: {
 
   return router;
 };
+
