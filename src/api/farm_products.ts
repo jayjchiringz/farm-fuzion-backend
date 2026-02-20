@@ -7,7 +7,6 @@ import {z} from "zod";
 import {initDbPool} from "../utils/db";
 import {FarmProductSchema, FarmProduct} from "../validation/farmProductSchema";
 import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
-import {Pool, PoolClient} from "pg";
 
 // ✅ Local registry for farm products (merged later in swagger.ts)
 export const farmProductRegistry = new OpenAPIRegistry();
@@ -16,46 +15,6 @@ export const farmProductRegistry = new OpenAPIRegistry();
 farmProductRegistry.register("FarmProduct", FarmProductSchema);
 
 // Helper function to resolve farmer ID (copy from marketplace.ts)
-async function resolveFarmerId(db: Pool | PoolClient, farmerId: string | number): Promise<string> {
-  const normalized = String(farmerId).trim();
-  console.log("🔍 [resolveFarmerId] Input:", normalized);
-
-  // If it's already a valid UUID, get the numeric ID from farmers table
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (uuidRegex.test(normalized)) {
-    console.log("🟢 Input is valid UUID, looking up numeric ID...");
-    const farmerResult = await db.query(
-      "SELECT id FROM farmers WHERE user_id = $1",
-      [normalized]
-    );
-    if (farmerResult.rows.length > 0) {
-      const numericId = farmerResult.rows[0].id;
-      console.log("✅ Resolved UUID to numeric ID:", numericId);
-      return numericId;
-    }
-  }
-
-  // If it's a numeric ID, return as-is
-  if (!isNaN(Number(normalized))) {
-    return normalized;
-  }
-
-  // Try to find by auth_id or other fields
-  const result = await db.query(
-    `SELECT id FROM farmers 
-     WHERE id::text = $1 
-        OR auth_id = $1 
-        OR user_id::text = $1
-     LIMIT 1`,
-    [normalized]
-  );
-
-  if (result.rows.length > 0) {
-    return String(result.rows[0].id);
-  }
-
-  throw new Error(`Could not resolve farmer ID: ${normalized}`);
-}
 
 // -------------------------------------
 // Middleware for request body validation
@@ -306,39 +265,56 @@ export const getFarmProductsRouter = (config: {
 
       console.log("Fetching products for farmer:", farmer_id);
 
-      // First, resolve the farmer ID to get the numeric ID
-      const resolvedId = await resolveFarmerId(pool, farmer_id);
-      console.log("Resolved farmer ID:", resolvedId);
+      // First, check if this is a UUID or numeric ID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-      // Use the numeric ID in the query (farm_products.farmer_id stores UUID, but we need to join with farmers table)
-      const result = await pool.query(
-        `SELECT 
-          fp.id,
-          fp.farmer_id,
-          fp.product_name,
-          fp.quantity::int,
-          fp.unit,
-          fp.harvest_date,
-          fp.storage_location,
-          fp.category,
-          fp.price::float,
-          fp.status,
-          fp.created_at,
-          fp.updated_at,
-          fp.spoilage_reason
-        FROM farm_products fp
-        WHERE fp.farmer_id = $1  -- farm_products.farmer_id stores UUID, so we need the UUID, not numeric ID
-        ORDER BY fp.created_at DESC
-        LIMIT $2 OFFSET $3`,
-        [farmer_id, limit, offset] // Use original UUID, not resolved numeric ID
-      );
+      let farmerUuid = farmer_id;
+
+      // If it's a numeric ID, look up the UUID
+      if (!uuidRegex.test(farmer_id)) {
+        console.log("Numeric ID detected, looking up UUID for farmer:", farmer_id);
+        const farmerResult = await pool.query(
+          "SELECT user_id FROM farmers WHERE id = $1",
+          [farmer_id]
+        );
+
+        if (farmerResult.rows.length === 0) {
+          return res.status(404).json({error: "Farmer not found"});
+        }
+
+        farmerUuid = farmerResult.rows[0].user_id;
+        console.log("Resolved UUID:", farmerUuid);
+      }
 
       // Get total count
       const countResult = await pool.query(
         "SELECT COUNT(*) FROM farm_products WHERE farmer_id = $1",
-        [farmer_id]
+        [farmerUuid]
       );
       const total = parseInt(countResult.rows[0].count, 10);
+
+      // Get paginated products - use the UUID
+      const result = await pool.query(
+        `SELECT 
+          id,
+          farmer_id,
+          product_name,
+          quantity::int,
+          unit,
+          harvest_date,
+          storage_location,
+          category,
+          price::float,
+          status,
+          created_at,
+          updated_at,
+          spoilage_reason
+        FROM farm_products 
+        WHERE farmer_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3`,
+        [farmerUuid, limit, offset]
+      );
 
       return res.json({
         data: result.rows,
