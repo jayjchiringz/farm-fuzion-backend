@@ -103,12 +103,12 @@ export const getWalletRouter = async (dbConfig: any) => {
           source,
           destination,
           status,
-          reference_no as reference,  -- Use reference_no instead of reference
+          reference_no as reference,
           meta,
-          created_at
+          timestamp as created_at  -- Use timestamp column and alias as created_at
         FROM wallet_transactions
         WHERE farmer_id = $1
-        ORDER BY created_at DESC
+        ORDER BY timestamp DESC  -- Order by timestamp
         LIMIT $2 OFFSET $3`,
         [resolvedId, parseInt(limit as string), parseInt(offset as string)]
       );
@@ -141,6 +141,7 @@ export const getWalletRouter = async (dbConfig: any) => {
         transactions: transactions.map((t) => ({
           ...t,
           amount: Number(t.amount),
+          created_at: t.created_at, // Now this exists because of the alias
           description: t.type === "marketplace_purchase" ?
             `Payment to farmer ${t.destination}` :
             t.type === "marketplace_sale" ?

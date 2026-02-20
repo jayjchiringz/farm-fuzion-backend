@@ -306,39 +306,39 @@ export const getFarmProductsRouter = (config: {
 
       console.log("Fetching products for farmer:", farmer_id);
 
-      // Use resolveFarmerId to handle both UUID and numeric IDs
+      // First, resolve the farmer ID to get the numeric ID
       const resolvedId = await resolveFarmerId(pool, farmer_id);
       console.log("Resolved farmer ID:", resolvedId);
+
+      // Use the numeric ID in the query (farm_products.farmer_id stores UUID, but we need to join with farmers table)
+      const result = await pool.query(
+        `SELECT 
+          fp.id,
+          fp.farmer_id,
+          fp.product_name,
+          fp.quantity::int,
+          fp.unit,
+          fp.harvest_date,
+          fp.storage_location,
+          fp.category,
+          fp.price::float,
+          fp.status,
+          fp.created_at,
+          fp.updated_at,
+          fp.spoilage_reason
+        FROM farm_products fp
+        WHERE fp.farmer_id = $1  -- farm_products.farmer_id stores UUID, so we need the UUID, not numeric ID
+        ORDER BY fp.created_at DESC
+        LIMIT $2 OFFSET $3`,
+        [farmer_id, limit, offset] // Use original UUID, not resolved numeric ID
+      );
 
       // Get total count
       const countResult = await pool.query(
         "SELECT COUNT(*) FROM farm_products WHERE farmer_id = $1",
-        [resolvedId]
+        [farmer_id]
       );
       const total = parseInt(countResult.rows[0].count, 10);
-
-      // Get paginated products
-      const result = await pool.query(
-        `SELECT 
-          id,
-          farmer_id,
-          product_name,
-          quantity::int,
-          unit,
-          harvest_date,
-          storage_location,
-          category,
-          price::float,
-          status,
-          created_at,
-          updated_at,
-          spoilage_reason
-        FROM farm_products 
-        WHERE farmer_id = $1
-        ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3`,
-        [resolvedId, limit, offset]
-      );
 
       return res.json({
         data: result.rows,
