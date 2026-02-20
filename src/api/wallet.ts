@@ -415,66 +415,86 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
   });
 
-  // 🧾 Unified Payment (internal services + external merchants) - IMPROVED
+  // In wallet.ts - add this debug version
   router.post("/payment", async (req, res) => {
-    const {farmer_id, amount, destination, service, merchant, mock} = req.body;
+    console.log("💰 [WALLET] Payment request received:", req.body);
+
+    const {farmer_id, amount, destination, service, merchant} = req.body;
     const amt = Number(amount);
 
-    console.log("💰 Payment request received:", {farmer_id, amount, destination, service, merchant});
-
     if (!farmer_id || isNaN(amt) || amt <= 0) {
-      return res.status(400).json({error: "Invalid payment request", details: "Missing farmer_id or invalid amount"});
+      res.status(400).json({
+        error: "Invalid payment request",
+        details: "Missing farmer_id or invalid amount",
+      });
+      return;
     }
 
     if (!destination) {
-      return res.status(400).json({error: "Invalid payment request", details: "Missing destination"});
+      res.status(400).json({
+        error: "Invalid payment request",
+        details: "Missing destination",
+      });
+      return;
     }
 
     try {
-      // ✅ Resolve farmer
+      // Resolve both farmer IDs
       const payerId = await resolveFarmerId(db, farmer_id);
       const recipientId = await resolveFarmerId(db, destination);
 
-      console.log("Resolved IDs:", {payerId, recipientId});
+      console.log("🟢 [WALLET] Resolved IDs:", {payerId, recipientId});
 
-      // ✅ Check wallet balance
-      const wallet = await db.oneOrNone(
+      // Check if both farmers exist
+      const payerCheck = await db.oneOrNone(
+        "SELECT id FROM farmers WHERE id::text = $1 OR user_id::text = $1",
+        [payerId]
+      );
+
+      const recipientCheck = await db.oneOrNone(
+        "SELECT id FROM farmers WHERE id::text = $1 OR user_id::text = $1",
+        [recipientId]
+      );
+
+      if (!payerCheck) {
+        return res.status(404).json({error: "Payer not found", farmer_id: payerId});
+      }
+
+      if (!recipientCheck) {
+        return res.status(404).json({error: "Recipient not found", farmer_id: recipientId});
+      }
+
+      // Check payer's wallet balance
+      const payerWallet = await db.oneOrNone(
         "SELECT balance FROM wallets WHERE farmer_id = $1",
         [payerId]
       );
 
-      const currentBalance = wallet ? Number(wallet.balance) : 0;
-      console.log("Current balance:", currentBalance);
+      const payerBalance = payerWallet ? Number(payerWallet.balance) : 0;
+      console.log("💰 [WALLET] Payer balance:", payerBalance);
 
-      if (currentBalance < amt) {
+      if (payerBalance < amt) {
         return res.status(400).json({
           error: "Insufficient funds",
-          details: `Available: ${currentBalance}, Required: ${amt}`,
+          details: `Available: ${payerBalance}, Required: ${amt}`,
         });
       }
 
-      // 🧩 Meta data
-      const meta: any = {
-        service: service || null,
-        merchant: merchant || null,
-        mock: !!mock,
-        timestamp: new Date().toISOString(),
-      };
-
-      // 🔁 Process payment
-      const result = {
-        transaction_id: `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        status: "completed",
-        message: mock ? "Simulated payment success" : "Payment processed successfully",
-      };
+      // Process the transfer
+      const transactionId = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       await db.tx(async (t) => {
-        // Debit sender
+        // Debit payer
         await t.none(
           `INSERT INTO wallet_transactions
             (farmer_id, type, amount, destination, direction, method, status, meta)
-          VALUES ($1, 'payment', $2, $3, 'out', 'wallet', $4, $5)`,
-          [payerId, amt, recipientId, result.status, JSON.stringify({...meta, ...result})]
+          VALUES ($1, 'marketplace_payment', $2, $3, 'out', 'wallet', 'completed', $4)`,
+          [payerId, amt, recipientId, JSON.stringify({
+            transaction_id: transactionId,
+            service,
+            merchant,
+            timestamp: new Date().toISOString(),
+          })]
         );
 
         await t.none(
@@ -487,17 +507,22 @@ export const getWalletRouter = async (dbConfig: any) => {
         await t.none(
           `INSERT INTO wallet_transactions
             (farmer_id, type, amount, source, direction, method, status, meta)
-          VALUES ($1, 'payment_received', $2, $3, 'in', 'wallet', $4, $5)`,
-          [recipientId, amt, payerId, result.status, JSON.stringify({...meta, ...result})]
+          VALUES ($1, 'marketplace_payment_received', $2, $3, 'in', 'wallet', 'completed', $4)`,
+          [recipientId, amt, payerId, JSON.stringify({
+            transaction_id: transactionId,
+            service,
+            merchant,
+            timestamp: new Date().toISOString(),
+          })]
         );
 
         // Check if recipient has wallet
-        const destWallet = await t.oneOrNone(
+        const recipientWallet = await t.oneOrNone(
           "SELECT balance FROM wallets WHERE farmer_id = $1",
           [recipientId]
         );
 
-        if (destWallet) {
+        if (recipientWallet) {
           await t.none(
             `UPDATE wallets SET balance = balance + $1, updated_at = NOW()
             WHERE farmer_id = $2`,
@@ -511,18 +536,19 @@ export const getWalletRouter = async (dbConfig: any) => {
         }
       });
 
-      console.log("✅ Payment successful:", result.transaction_id);
+      console.log("✅ [WALLET] Payment successful:", transactionId);
       return res.json({
         success: true,
         transaction: {
-          ...result,
+          id: transactionId,
           amount: amt,
           from: payerId,
           to: recipientId,
+          status: "completed",
         },
       });
     } catch (err) {
-      console.error("💥 Payment error:", err);
+      console.error("💥 [WALLET] Payment error:", err);
       return res.status(500).json({
         error: "Payment failed",
         details: err instanceof Error ? err.message : "Unknown error",

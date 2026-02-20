@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-empty-function */
 /* eslint-disable require-jsdoc */
@@ -6,7 +7,6 @@
 /* eslint-disable camelcase */
 import express, {Request, Response, NextFunction} from "express";
 import {z} from "zod";
-import axios from "axios";
 import {initDbPool} from "../utils/db";
 import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
 import {
@@ -1366,9 +1366,15 @@ export const getMarketplaceRouter = (config: {
     validateRequest(PaymentRequestSchema),
     async (req: Request, res: Response) => {
       const {orderId} = req.params;
-      // The validated body already includes all required fields from schema
-      const {phone_number, account_number} = req.body;
+      const {payment_method, phone_number, account_number} = req.body;
       const buyer_id = req.body.buyer_id || (req as any).user?.farmer_id;
+
+      console.log("🔵 [PAYMENT] Request received:", {
+        orderId,
+        buyer_id,
+        payment_method,
+        body: req.body,
+      });
 
       if (!buyer_id) {
         return res.status(400).json({error: "Buyer ID is required"});
@@ -1380,54 +1386,84 @@ export const getMarketplaceRouter = (config: {
         await client.query("BEGIN");
 
         const resolvedBuyerId = await resolveFarmerId(client, buyer_id);
+        console.log("🟢 [PAYMENT] Resolved buyer ID:", resolvedBuyerId);
 
-        // Get order details with amount
-        const orderResult = await client.query(
+        // Get order details with amount - include seller_id which is UUID
+        const orderQuery = await client.query(
           `SELECT * FROM marketplace_orders 
           WHERE id::text = $1 AND buyer_id::text = $2 AND payment_status = 'pending'`,
           [orderId, resolvedBuyerId]
         );
 
-        if (orderResult.rows.length === 0) {
+        console.log("🔵 [PAYMENT] Order query result:", {
+          found: orderQuery.rows.length > 0,
+          order: orderQuery.rows[0],
+        });
+
+        if (orderQuery.rows.length === 0) {
           await client.query("ROLLBACK");
           return res.status(404).json({error: "Order not found or already paid"});
         }
 
-        const order = orderResult.rows[0];
+        const order = orderQuery.rows[0];
 
-        // Get seller UUID for wallet transfer
-        const sellerResult = await client.query(
-          "SELECT user_id FROM farmers WHERE id::text = $1",
-          [order.seller_id]
+        // The seller_id in orders should already be a UUID (user_id)
+        const sellerUuid = order.seller_id;
+
+        console.log("🟢 [PAYMENT] Transaction details:", {
+          order_id: order.id,
+          order_number: order.order_number,
+          buyer_id: resolvedBuyerId,
+          seller_id: sellerUuid,
+          amount: order.total_amount,
+        });
+
+        // Verify seller exists in farmers table (optional, for validation)
+        const sellerCheck = await client.query(
+          `SELECT user_id, first_name, last_name FROM farmers 
+          WHERE user_id::text = $1`,
+          [sellerUuid]
         );
 
-        if (sellerResult.rows.length === 0) {
+        if (sellerCheck.rows.length === 0) {
+          console.error("🔴 [PAYMENT] Seller not found in farmers table:", sellerUuid);
           await client.query("ROLLBACK");
-          return res.status(404).json({error: "Seller not found"});
+          return res.status(404).json({
+            error: "Seller not found",
+            details: `Seller ID ${sellerUuid} does not exist in farmers table`,
+          });
         }
 
-        const sellerUuid = sellerResult.rows[0].user_id;
+        console.log("🟢 [PAYMENT] Seller verified:", sellerCheck.rows[0]);
 
-        // Call wallet payment endpoint with ALL required fields
+        // Call wallet payment endpoint
         try {
-          const walletResponse = await axios.post(
-            "https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api/wallet/payment",
-            {
-              farmer_id: resolvedBuyerId,
-              amount: order.total_amount,
-              destination: sellerUuid,
-              service: "marketplace_purchase",
-              merchant: `Order ${order.order_number}`,
-              phone_number: phone_number || null, // Include from validated body
-              account_number: account_number || null, // Include from validated body
-              mock: false,
+          const axios = require("axios");
+          const walletEndpoint = "https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api/wallet/payment";
+
+          const walletPayload = {
+            farmer_id: resolvedBuyerId, // Buyer pays
+            amount: order.total_amount,
+            destination: sellerUuid, // Seller receives
+            service: "marketplace_purchase",
+            merchant: `Order ${order.order_number}`,
+            phone_number: phone_number || null,
+            account_number: account_number || null,
+            mock: false,
+          };
+
+          console.log("🔵 [PAYMENT] Calling wallet endpoint:", {
+            url: walletEndpoint,
+            payload: walletPayload,
+          });
+
+          const walletResponse = await axios.post(walletEndpoint, walletPayload, {
+            headers: {
+              "Content-Type": "application/json",
             },
-            {
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
+          });
+
+          console.log("🟢 [PAYMENT] Wallet response:", walletResponse.data);
 
           if (!walletResponse.data.success) {
             await client.query("ROLLBACK");
@@ -1455,17 +1491,21 @@ export const getMarketplaceRouter = (config: {
             payment_status: "paid",
             transaction: walletResponse.data.transaction,
           });
-        } catch (walletError) {
+        } catch (walletError: any) {
           await client.query("ROLLBACK");
-          console.error("Wallet payment error:", walletError);
+          console.error("🔴 [PAYMENT] Wallet payment error:", {
+            message: walletError.message,
+            response: walletError.response?.data,
+            status: walletError.response?.status,
+          });
           return res.status(500).json({
             error: "Wallet payment failed",
-            details: walletError instanceof Error ? walletError.message : "Unknown error",
+            details: walletError.response?.data?.error || walletError.message,
           });
         }
       } catch (err) {
         await client.query("ROLLBACK").catch(() => {});
-        console.error("Error processing payment:", err);
+        console.error("🔴 [PAYMENT] Error processing payment:", err);
         return res.status(500).json({
           error: "Internal server error",
           details: err instanceof Error ? err.message : "Unknown error",
