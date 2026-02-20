@@ -447,7 +447,7 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
   });
 
-  // In wallet.ts - COMPLETE TWO-SIDED TRANSACTIONS WITH PROPER RETURNS
+  // In wallet.ts - CORRECTED FOR YOUR SCHEMA
   router.post("/payment", async (req, res) => {
     console.log("💰 [WALLET] Payment request received:", req.body);
 
@@ -488,26 +488,30 @@ export const getWalletRouter = async (dbConfig: any) => {
         });
       }
 
-      // Generate a single transaction reference for both records
-      const transactionRef = `MP-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+      // Generate reference for linking transactions
+      const reference_no = `MP-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
 
       await db.tx(async (t) => {
         // 1. DEBIT transaction for BUYER (money leaves buyer's wallet)
         await t.none(
           `INSERT INTO wallet_transactions
-            (farmer_id, type, amount, destination, direction, method, status, reference, meta)
-          VALUES ($1, 'marketplace_purchase', $2, $3, 'out', 'wallet', 'completed', $4, $5)`,
+            (farmer_id, type, amount, destination, direction, method, status, meta, reference_no)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
             buyerId,
+            "deduction", // Using 'deduction' which is in your allowed types
             amt,
             sellerId,
-            transactionRef,
+            "out",
+            "wallet",
+            "completed",
             JSON.stringify({
               service,
               merchant,
+              transactionType: "marketplace_purchase",
               description: `Payment for ${merchant || "marketplace purchase"}`,
-              counterparty: sellerId,
             }),
+            reference_no,
           ]
         );
 
@@ -523,19 +527,23 @@ export const getWalletRouter = async (dbConfig: any) => {
         // 2. CREDIT transaction for SELLER (money goes to seller's wallet)
         await t.none(
           `INSERT INTO wallet_transactions
-            (farmer_id, type, amount, source, direction, method, status, reference, meta)
-          VALUES ($1, 'marketplace_sale', $2, $3, 'in', 'wallet', 'completed', $4, $5)`,
+            (farmer_id, type, amount, source, direction, method, status, meta, reference_no)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
             sellerId,
+            "topup", // Using 'topup' which is in your allowed types
             amt,
             buyerId,
-            transactionRef,
+            "in",
+            "wallet",
+            "completed",
             JSON.stringify({
               service,
               merchant,
+              transactionType: "marketplace_sale",
               description: `Received payment for ${merchant || "marketplace sale"}`,
-              counterparty: buyerId,
             }),
+            reference_no,
           ]
         );
 
@@ -564,26 +572,23 @@ export const getWalletRouter = async (dbConfig: any) => {
       });
 
       console.log("✅ [WALLET] Payment completed successfully:", {
-        transactionRef,
+        reference_no,
         buyer: buyerId,
         seller: sellerId,
         amount: amt,
       });
 
-      // ADDED: Return statement here
       return res.json({
         success: true,
         transaction: {
-          reference: transactionRef,
+          reference: reference_no,
           amount: amt,
           from: buyerId,
           to: sellerId,
-          type: "marketplace_payment",
         },
       });
     } catch (err) {
       console.error("💥 [WALLET] Payment error:", err);
-      // ADDED: Return statement here
       return res.status(500).json({
         success: false,
         error: "Payment failed",
