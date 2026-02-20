@@ -82,53 +82,85 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
   });
 
-  // Unified Get transactions
+  // In wallet.ts - GET TRANSACTION HISTORY
   router.get("/:farmerId/transactions", async (req, res) => {
     const {farmerId} = req.params;
-    const {type, start, end} = req.query;
+    const {limit = 50, offset = 0} = req.query;
 
     try {
       const resolvedId = await resolveFarmerId(db, farmerId);
 
-      const conditions = ["farmer_id = $1"];
-      const params: any[] = [resolvedId];
-      let i = 2;
-
-      if (type) {
-        conditions.push(`type = $${i++}`);
-        params.push(type as string);
-      }
-
-      if (start) {
-        conditions.push(`timestamp >= $${i++}`);
-        params.push(start as string);
-      }
-
-      if (end) {
-        conditions.push(`timestamp <= $${i++}`);
-        params.push(end as string);
-      }
-
-      const where = conditions.length ? `
-        WHERE ${conditions.join(" AND ")}` : "";
-
-      const txns = await db.any(
-        `SELECT * FROM wallet_transactions ${where} ORDER BY timestamp DESC`,
-        params
+      const transactions = await db.any(
+        `SELECT 
+          id,
+          type,
+          amount,
+          CASE 
+            WHEN direction = 'in' THEN 'Received'
+            WHEN direction = 'out' THEN 'Sent'
+          END as transaction_type,
+          source,
+          destination,
+          status,
+          reference,
+          meta,
+          created_at
+        FROM wallet_transactions
+        WHERE farmer_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3`,
+        [resolvedId, parseInt(limit as string), parseInt(offset as string)]
       );
 
-      console.log("📦 Raw txns from DB:", txns); // 👈 add this
+      // Get total count for pagination
+      const count = await db.one(
+        "SELECT COUNT(*) FROM wallet_transactions WHERE farmer_id = $1",
+        [resolvedId]
+      );
 
-      res.json(
-        txns.map((t: any, idx: number) => ({
-          id: t.id || `row-${idx}`, // 👈 fallback if missing
+      // Get current balance
+      const balance = await db.one(
+        `SELECT COALESCE(SUM(
+          CASE 
+            WHEN direction = 'in' AND status = 'completed' THEN amount
+            WHEN direction = 'out' AND status = 'completed' THEN -amount
+            ELSE 0
+          END
+        ), 0) as balance
+        FROM wallet_transactions
+        WHERE farmer_id = $1`,
+        [resolvedId]
+      );
+
+      res.json({
+        success: true,
+        balance: Number(balance.balance),
+        transactions: transactions.map((t) => ({
           ...t,
           amount: Number(t.amount),
-        }))
-      );
+          // Add friendly description
+          description: t.type === "marketplace_purchase" ?
+            `Payment to farmer ${t.destination}` :
+            t.type === "marketplace_sale" ?
+              `Payment from farmer ${t.source}` :
+              t.type === "topup" ?
+                "Wallet top-up" :
+                t.type === "withdraw" ?
+                  "Withdrawal" :
+                  "Transaction",
+        })),
+        pagination: {
+          total: Number(count.count),
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+        },
+      });
     } catch (err) {
-      console.error("💥 Tx fetch error:", err);
-      res.status(500).json({error: "Unable to fetch transactions"});
+      console.error("💥 Error fetching transactions:", err);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch transactions",
+      });
     }
   });
 
@@ -415,11 +447,11 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
   });
 
-  // In wallet.ts - USE 'transfer' INSTEAD OF 'payment'
+  // In wallet.ts - COMPLETE TWO-SIDED TRANSACTIONS WITH PROPER RETURNS
   router.post("/payment", async (req, res) => {
-    console.log("💰 [WALLET] Payment request received");
+    console.log("💰 [WALLET] Payment request received:", req.body);
 
-    const {farmer_id, amount, destination} = req.body;
+    const {farmer_id, amount, destination, service, merchant} = req.body;
     const amt = Number(amount);
 
     if (!farmer_id || !destination || isNaN(amt) || amt <= 0) {
@@ -430,68 +462,132 @@ export const getWalletRouter = async (dbConfig: any) => {
     }
 
     try {
-      const payerId = await resolveFarmerId(db, farmer_id);
-      const recipientId = await resolveFarmerId(db, destination);
+      // Resolve both farmer IDs (buyer and seller)
+      const buyerId = await resolveFarmerId(db, farmer_id);
+      const sellerId = await resolveFarmerId(db, destination);
 
-      // Check balance
-      const payerWallet = await db.oneOrNone(
+      console.log("🟢 [WALLET] Resolved IDs:", {
+        buyer: buyerId,
+        seller: sellerId,
+        amount: amt,
+      });
+
+      // Check buyer's wallet balance
+      const buyerWallet = await db.oneOrNone(
         "SELECT balance FROM wallets WHERE farmer_id = $1",
-        [payerId]
+        [buyerId]
       );
 
-      if (!payerWallet || Number(payerWallet.balance) < amt) {
+      const buyerBalance = buyerWallet ? Number(buyerWallet.balance) : 0;
+
+      if (buyerBalance < amt) {
         return res.status(400).json({
           success: false,
           error: "Insufficient funds",
+          details: `Buyer balance: ${buyerBalance}, Required: ${amt}`,
         });
       }
 
-      const transactionId = `PAY-${Date.now()}`;
+      // Generate a single transaction reference for both records
+      const transactionRef = `MP-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
 
       await db.tx(async (t) => {
-        // Debit payer - USE 'transfer' (allowed)
+        // 1. DEBIT transaction for BUYER (money leaves buyer's wallet)
         await t.none(
           `INSERT INTO wallet_transactions
-            (farmer_id, type, amount, destination, direction, method, status)
-          VALUES ($1, 'transfer', $2, $3, 'out', 'wallet', 'completed')`,
-          [payerId, amt, recipientId]
+            (farmer_id, type, amount, destination, direction, method, status, reference, meta)
+          VALUES ($1, 'marketplace_purchase', $2, $3, 'out', 'wallet', 'completed', $4, $5)`,
+          [
+            buyerId,
+            amt,
+            sellerId,
+            transactionRef,
+            JSON.stringify({
+              service,
+              merchant,
+              description: `Payment for ${merchant || "marketplace purchase"}`,
+              counterparty: sellerId,
+            }),
+          ]
         );
 
+        // Update buyer's wallet balance
         await t.none(
-          "UPDATE wallets SET balance = balance - $1 WHERE farmer_id = $2",
-          [amt, payerId]
+          `UPDATE wallets 
+          SET balance = balance - $1, 
+              updated_at = NOW() 
+          WHERE farmer_id = $2`,
+          [amt, buyerId]
         );
 
-        // Credit recipient - USE 'transfer' (allowed)
+        // 2. CREDIT transaction for SELLER (money goes to seller's wallet)
         await t.none(
           `INSERT INTO wallet_transactions
-            (farmer_id, type, amount, source, direction, method, status)
-          VALUES ($1, 'transfer', $2, $3, 'in', 'wallet', 'completed')`,
-          [recipientId, amt, payerId]
+            (farmer_id, type, amount, source, direction, method, status, reference, meta)
+          VALUES ($1, 'marketplace_sale', $2, $3, 'in', 'wallet', 'completed', $4, $5)`,
+          [
+            sellerId,
+            amt,
+            buyerId,
+            transactionRef,
+            JSON.stringify({
+              service,
+              merchant,
+              description: `Received payment for ${merchant || "marketplace sale"}`,
+              counterparty: buyerId,
+            }),
+          ]
         );
 
-        await t.none(
-          "UPDATE wallets SET balance = balance + $1 WHERE farmer_id = $2",
-          [amt, recipientId]
+        // Update seller's wallet balance (create wallet if doesn't exist)
+        const sellerWallet = await t.oneOrNone(
+          "SELECT balance FROM wallets WHERE farmer_id = $1",
+          [sellerId]
         );
+
+        if (sellerWallet) {
+          await t.none(
+            `UPDATE wallets 
+            SET balance = balance + $1, 
+                updated_at = NOW() 
+            WHERE farmer_id = $2`,
+            [amt, sellerId]
+          );
+        } else {
+          // Create wallet for seller if they don't have one
+          await t.none(
+            `INSERT INTO wallets (farmer_id, balance, created_at, updated_at)
+            VALUES ($1, $2, NOW(), NOW())`,
+            [sellerId, amt]
+          );
+        }
       });
 
-      console.log("✅ [WALLET] Payment successful");
+      console.log("✅ [WALLET] Payment completed successfully:", {
+        transactionRef,
+        buyer: buyerId,
+        seller: sellerId,
+        amount: amt,
+      });
+
+      // ADDED: Return statement here
       return res.json({
         success: true,
         transaction: {
-          id: transactionId,
-          type: "transfer",
+          reference: transactionRef,
           amount: amt,
-          from: payerId,
-          to: recipientId,
+          from: buyerId,
+          to: sellerId,
+          type: "marketplace_payment",
         },
       });
     } catch (err) {
       console.error("💥 [WALLET] Payment error:", err);
+      // ADDED: Return statement here
       return res.status(500).json({
         success: false,
         error: "Payment failed",
+        details: err instanceof Error ? err.message : "Unknown error",
       });
     }
   });
