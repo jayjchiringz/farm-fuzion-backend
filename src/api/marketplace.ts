@@ -1015,12 +1015,22 @@ export const getMarketplaceRouter = (config: {
         await client.query("BEGIN");
         const resolvedBuyerId = await resolveFarmerId(client, buyer_id);
 
-        // 1. Verify cart exists and get items
+        // 1. Verify cart exists and get items - WITH PROPER TEXT CASTING
         const cartResult = await client.query(
-          `SELECT sc.*, f.first_name as seller_name 
+          `SELECT 
+            sc.id::text,
+            sc.buyer_id::text,
+            sc.seller_id::text,
+            sc.status,
+            sc.created_at,
+            sc.updated_at,
+            f.first_name as seller_name,
+            f.user_id::text as seller_uuid
           FROM shopping_carts sc
-          LEFT JOIN farmers f ON sc.seller_id = f.id
-          WHERE sc.id = $1 AND sc.buyer_id = $2 AND sc.status = 'active'`,
+          LEFT JOIN farmers f ON sc.seller_id::text = f.user_id::text  -- FIXED: Compare TEXT with TEXT
+          WHERE sc.id::text = $1 
+            AND sc.buyer_id::text = $2 
+            AND sc.status = 'active'`,
           [cart_id, resolvedBuyerId]
         );
 
@@ -1031,16 +1041,21 @@ export const getMarketplaceRouter = (config: {
 
         const cart = cartResult.rows[0];
 
+        // Get cart items - WITH TEXT CASTING
         const cartItemsResult = await client.query(
           `SELECT 
-            ci.*,
+            ci.id::text,
+            ci.cart_id::text,
+            ci.marketplace_product_id::text,
+            ci.quantity,
+            ci.unit_price,
             mp.product_name,
             mp.quantity as available_quantity,
-            mp.farmer_id,
+            mp.farmer_id::text,
             mp.price as current_price
           FROM cart_items ci
-          LEFT JOIN marketplace_products mp ON ci.marketplace_product_id = mp.id
-          WHERE ci.cart_id = $1`,
+          LEFT JOIN marketplace_products mp ON ci.marketplace_product_id::text = mp.id::text  -- FIXED: Compare TEXT with TEXT
+          WHERE ci.cart_id::text = $1`,
           [cart_id]
         );
 
@@ -1057,38 +1072,39 @@ export const getMarketplaceRouter = (config: {
           if (item.quantity > item.available_quantity) {
             await client.query("ROLLBACK");
             return res.status(400).json({
-              error: `Insufficient stock for ${item.product_name}`,
+              error: `Insufficient stock for ${item.product_name}. Only ${item.available_quantity} available.`,
             });
           }
 
-          const itemTotal = item.quantity * item.unit_price;
+          const itemTotal = item.quantity * parseFloat(item.unit_price);
           totalAmount += itemTotal;
 
           orderItems.push({
             marketplace_product_id: item.marketplace_product_id,
             product_name: item.product_name,
             quantity: item.quantity,
-            unit_price: item.unit_price,
+            unit_price: parseFloat(item.unit_price),
             total_price: itemTotal,
           });
         }
 
-        // 3. Create order
+        // 3. Create order - WITH TEXT CASTING
         const orderNumber = generateOrderNumber();
         const orderResult = await client.query(
           `INSERT INTO marketplace_orders (
             order_number, buyer_id, seller_id, total_amount,
-            shipping_address, payment_method, notes
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING id`,
+            shipping_address, payment_method, notes, payment_status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          RETURNING id::text, order_number, total_amount`,
           [
             orderNumber,
             resolvedBuyerId,
             cart.seller_id,
             totalAmount,
-            shipping_address,
+            shipping_address || null,
             payment_method,
-            notes,
+            notes || null,
+            "pending",
           ]
         );
 
@@ -1111,37 +1127,56 @@ export const getMarketplaceRouter = (config: {
             ]
           );
 
-          // 5. Update marketplace product quantity
+          // 5. Update marketplace product quantity - WITH TEXT CASTING
           await client.query(
             `UPDATE marketplace_products 
             SET quantity = quantity - $1,
+                total_sales = total_sales + $1,
                 updated_at = NOW()
-            WHERE id = $2`,
+            WHERE id::text = $2`,
             [item.quantity, item.marketplace_product_id]
           );
         }
 
-        // 6. Update cart status
+        // 6. Update cart status - WITH TEXT CASTING
         await client.query(
           `UPDATE shopping_carts 
-          SET status = 'pending', updated_at = NOW()
-          WHERE id = $1`,
+          SET status = 'completed', updated_at = NOW()
+          WHERE id::text = $1`,
           [cart_id]
         );
 
         await client.query("COMMIT");
 
-        return res.json({ // Add return
+        return res.json({
+          success: true,
           order_id: orderId,
-          order_number: orderNumber,
+          order_number: orderResult.rows[0].order_number,
           total_amount: totalAmount,
-          payment_required: payment_method === "wallet",
+          payment_status: "pending",
           message: "Order created successfully",
         });
       } catch (err) {
         await client.query("ROLLBACK").catch(() => {});
         console.error("Error during checkout:", err);
-        return res.status(500).json({error: "Internal server error"}); // Add return
+
+        // Detailed error logging
+        if (err instanceof Error) {
+          console.error("Error message:", err.message);
+          console.error("Error stack:", err.stack);
+
+          // Check for PostgreSQL specific error
+          const pgError = err as any;
+          if (pgError.code) {
+            console.error("PostgreSQL error code:", pgError.code);
+            console.error("PostgreSQL error detail:", pgError.detail);
+          }
+        }
+
+        return res.status(500).json({
+          error: "Internal server error",
+          details: err instanceof Error ? err.message : "Unknown error",
+        });
       } finally {
         client.release();
       }
