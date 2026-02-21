@@ -1338,33 +1338,36 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
 
   await pool.query(`  
     -- Store conversations for fine-tuning
+    DROP TABLE IF EXISTS knowledge_conversations CASCADE;
     CREATE TABLE IF NOT EXISTS knowledge_conversations (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      farmer_id UUID REFERENCES farmers(id),
+      farmer_id INTEGER REFERENCES farmers(id), -- INTEGER to match farmers.id
       query TEXT NOT NULL,
       response TEXT NOT NULL,
-      sources JSONB, -- References to documents used
-      feedback_score INTEGER, -- 1-5 star rating from farmer
+      sources JSONB,
+      feedback_score INTEGER,
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
 
   await pool.query(`
     -- Store documents/knowledge base
+    DROP TABLE IF EXISTS knowledge_documents CASCADE;
     CREATE TABLE IF NOT EXISTS knowledge_documents (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       title TEXT NOT NULL,
       content TEXT NOT NULL,
-      category TEXT, -- crop, livestock, weather, market
-      source TEXT, -- government, research, extension
-      embedding vector(1536), -- For semantic search
+      category TEXT,
+      source TEXT,
+      embedding vector(1536),
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
 
   await pool.query(`
     -- Track fine-tuning jobs
-    CREATE TABLE IF NOT EXISTSfine_tuning_jobs (
+    DROP TABLE IF EXISTS fine_tuning_jobs CASCADE;
+    CREATE TABLE IF NOT EXISTS fine_tuning_jobs ( -- Fixed typo
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       model_name TEXT NOT NULL,
       base_model TEXT NOT NULL,
