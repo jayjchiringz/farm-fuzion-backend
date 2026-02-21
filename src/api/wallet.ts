@@ -12,19 +12,32 @@ const pgp = pgPromise();
 // Helper to resolve farmerId (accepts both UUID and numeric)
 async function resolveFarmerId(db: any, farmerId: string | number): Promise<string> {
   const normalized = String(farmerId);
-  console.log("🔍 Resolving farmerId:", normalized);
+  console.log("🔍 [resolveFarmerId] Input:", normalized);
 
-  // If direct match works
-  const exists = await db.oneOrNone(
-    "SELECT 1 FROM wallet_transactions WHERE farmer_id::text = $1 LIMIT 1",
-    [normalized]
-  );
-  if (exists) {
-    console.log("✅ Direct match found:", normalized);
+  // Check if it's a UUID
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(normalized)) {
+    console.log("🟢 Input is UUID, looking up numeric ID...");
+    // Try to find the numeric ID from farmers table
+    const farmer = await db.oneOrNone(
+      "SELECT id FROM farmers WHERE user_id::text = $1",
+      [normalized]
+    );
+    if (farmer) {
+      console.log("✅ Resolved UUID to numeric ID:", farmer.id);
+      return String(farmer.id);
+    }
+    console.log("⚠️ UUID not found in farmers table, using as-is");
     return normalized;
   }
 
-  // Try mapping via farmers table
+  // If it's a numeric ID, return as-is
+  if (!isNaN(Number(normalized))) {
+    console.log("🟢 Input is numeric ID:", normalized);
+    return normalized;
+  }
+
+  // Try mapping via farmers table for other formats
   const farmer = await db.oneOrNone(
     "SELECT id FROM farmers WHERE id::text = $1 OR auth_id::text = $1 OR user_id::text = $1",
     [normalized]
@@ -56,9 +69,14 @@ export const getWalletRouter = async (dbConfig: any) => {
   // Get wallet balance
   router.get("/:farmerId/balance", async (req, res) => {
     const {farmerId} = req.params;
-    try {
-      const resolvedId = await resolveFarmerId(db, farmerId);
+    console.log("🔵 [WALLET] Balance request for farmer:", farmerId);
 
+    try {
+      console.log("🔵 [WALLET] Resolving farmer ID:", farmerId);
+      const resolvedId = await resolveFarmerId(db, farmerId);
+      console.log("🟢 [WALLET] Resolved ID:", resolvedId);
+
+      console.log("🔵 [WALLET] Querying balance for farmer:", resolvedId);
       const result = await db.one(
         `
         SELECT 
@@ -75,9 +93,15 @@ export const getWalletRouter = async (dbConfig: any) => {
         [resolvedId]
       );
 
+      console.log("🟢 [WALLET] Balance result:", result);
       res.json({balance: Number(result.balance)});
     } catch (err) {
-      console.error("💥 Balance fetch error:", err);
+      console.error("💥 [WALLET] Balance fetch error:", err);
+      // Log the full error details
+      if (err instanceof Error) {
+        console.error("Error message:", err.message);
+        console.error("Error stack:", err.stack);
+      }
       res.status(500).json({error: "Unable to fetch wallet balance"});
     }
   });
