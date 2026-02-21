@@ -1274,6 +1274,68 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     ON inventory_adjustments(marketplace_product_id, created_at DESC);
   `);
 
+  await pool.query(`
+    -- Credit Providers table
+    CREATE TABLE IF NOT EXISTS credit_providers (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name VARCHAR(255) NOT NULL,
+      logo_url TEXT,
+      description TEXT,
+      website TEXT,
+      api_endpoint TEXT,
+      integration_type VARCHAR(50) DEFAULT 'manual',
+      status VARCHAR(50) DEFAULT 'active',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Credit Products table
+    CREATE TABLE IF NOT EXISTS credit_products (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      provider_id UUID REFERENCES credit_providers(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      min_amount NUMERIC(12,2) NOT NULL,
+      max_amount NUMERIC(12,2) NOT NULL,
+      interest_rate NUMERIC(5,2) NOT NULL,
+      interest_rate_type VARCHAR(20) DEFAULT 'fixed',
+      repayment_period_min INTEGER NOT NULL,
+      repayment_period_max INTEGER NOT NULL,
+      processing_fee NUMERIC(12,2) DEFAULT 0,
+      collateral_required BOOLEAN DEFAULT false,
+      requirements JSONB,
+      status VARCHAR(50) DEFAULT 'available',
+      external_product_id VARCHAR(255),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Credit Applications table
+    CREATE TABLE IF NOT EXISTS credit_applications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      farmer_id UUID NOT NULL,
+      product_id UUID REFERENCES credit_products(id),
+      amount NUMERIC(12,2) NOT NULL,
+      repayment_period INTEGER NOT NULL,
+      purpose TEXT,
+      status VARCHAR(50) DEFAULT 'submitted',
+      external_application_id VARCHAR(255),
+      provider_response JSONB,
+      applied_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Create indexes
+    CREATE INDEX IF NOT EXISTS idx_credit_applications_farmer ON credit_applications(farmer_id);
+    CREATE INDEX IF NOT EXISTS idx_credit_products_provider ON credit_products(provider_id);  
+  `);
+
   // 🧪 Insert the tag only if not forced
   if (!force) {
     await pool.query(
