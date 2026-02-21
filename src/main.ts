@@ -33,6 +33,7 @@ import {getMarketplaceRouter} from "./api/marketplace";
 import {getFarmActivitiesRouter} from "./api/farm_activities";
 import helmet from "helmet";
 import {requestId} from "./middleware/requestId";
+import {getCreditRouter} from "./api/credit";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
@@ -163,6 +164,8 @@ export const createMainApp = (secrets: {
   app.use("/farm-activities", (req, res, next) =>
     getFarmActivitiesRouter((req as any).dbConfig)(req, res, next)
   );
+
+  app.use("/credit", (req, res, next) => getCreditRouter((req as any).dbConfig)(req, res, next));
 
   return app;
 };
