@@ -1,7 +1,9 @@
+/* eslint-disable require-jsdoc */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable camelcase */
 /* eslint-disable max-len */
 // FarmFuzion_Firebase_MVP_Starter/functions/src/api/knowledge.ts
-import express, {Request, Response} from "express";
+import express, {NextFunction, Request, Response} from "express";
 import {initDbPool} from "../utils/db";
 import axios from "axios";
 import {Pool} from "pg";
@@ -18,11 +20,6 @@ const upload = multer({
     }
   },
 });
-
-// Extend Express Request to include multer file
-interface MulterRequest extends Request {
-  file?: Express.Multer.File;
-}
 
 // Define types for our knowledge system
 interface KnowledgeDocument {
@@ -134,28 +131,38 @@ export const getKnowledgeRouter = (config: {
     };
   };
 
-  // POST /knowledge/ask - with multer middleware
-  router.post("/ask", upload.single("image"), async (req: MulterRequest, res: Response) => {
+  // POST /knowledge/ask - handle both JSON and multipart
+  router.post("/ask", (req: Request, res: Response, next: NextFunction) => {
+    // Check if it's multipart form data (has file)
+    if (req.is("multipart/form-data")) {
+      upload.single("image")(req, res, (err) => {
+        if (err) return next(err);
+        handleKnowledgeRequest(req, res);
+      });
+    } else {
+      // Regular JSON request
+      express.json()(req, res, () => handleKnowledgeRequest(req, res));
+    }
+  });
+
+  async function handleKnowledgeRequest(req: Request, res: Response) {
     try {
       const {query, category, farmer_id} = req.body;
-
-      // Access file through multer - now properly typed
-      const imageFile = req.file;
+      const imageFile = (req as any).file;
 
       if (!query && !imageFile) {
         return res.status(400).json({error: "Query or image required"});
       }
 
-      // Handle image upload for disease detection
+      // Handle image upload
       if (imageFile) {
         const imageResult = await analyzePlantImage(imageFile);
         return res.json(imageResult);
       }
 
-      // Text query with RAG
+      // Handle text query
       const result = await queryWithRAG(query, category);
 
-      // Store for fine-tuning
       if (farmer_id) {
         await storeConversation(farmer_id, query, result.answer, result.sources);
       }
@@ -165,7 +172,7 @@ export const getKnowledgeRouter = (config: {
       console.error("Knowledge API error:", error);
       return res.status(500).json({error: "Failed to process query"});
     }
-  });
+  }
 
   // POST /knowledge/feedback
   router.post("/feedback", async (req: Request, res: Response) => {
