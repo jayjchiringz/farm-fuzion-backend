@@ -5,6 +5,9 @@ import express from "express";
 import cors from "cors";
 import {bootstrapDatabase} from "./utils/bootstrap";
 import {setupSwagger} from "./utils/swagger";
+import {sanitizeInput} from "./middleware/sanitize";
+import {apiLimiter, authLimiter} from "./middleware/rateLimit";
+import {safeLogger} from "./utils/logger";
 
 // 🧩 Routers
 import {getGroupsRouter} from "./api/groups";
@@ -28,6 +31,8 @@ import {getWalletRouter} from "./api/wallet";
 import {getMarketPricesRouter} from "./api/market_prices";
 import {getMarketplaceRouter} from "./api/marketplace";
 import {getFarmActivitiesRouter} from "./api/farm_activities";
+import helmet from "helmet";
+import {requestId} from "./middleware/requestId";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
@@ -55,6 +60,32 @@ export const createMainApp = (secrets: {
       credentials: true,
     })
   );
+
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:"],
+        scriptSrc: ["'self'"],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  }));
+
+  app.use(requestId);
+
+  // Apply after CORS and helmet
+  app.use(sanitizeInput);
+  app.use("/api", apiLimiter);
+  app.use("/auth", authLimiter);
+
+  app.use(safeLogger);
 
   // ✅ ensure OPTIONS preflight always handled
   app.options("*", cors());
