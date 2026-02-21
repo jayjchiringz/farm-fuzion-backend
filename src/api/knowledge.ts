@@ -1,13 +1,17 @@
 /* eslint-disable require-jsdoc */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable camelcase */
 /* eslint-disable max-len */
 // FarmFuzion_Firebase_MVP_Starter/functions/src/api/knowledge.ts
-import express, {NextFunction, Request, Response} from "express";
+import express, {Request, Response, NextFunction} from "express";
 import {initDbPool} from "../utils/db";
 import axios from "axios";
 import {Pool} from "pg";
 import multer from "multer";
+
+// Extend Express Request to include multer file
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
 
 // Configure multer for file uploads
 const upload = multer({
@@ -20,6 +24,34 @@ const upload = multer({
     }
   },
 });
+
+// Helper to resolve farmer ID (UUID to numeric)
+async function resolveFarmerId(db: Pool, farmerId: string | number): Promise<number> {
+  const normalized = String(farmerId).trim();
+  console.log("🔍 [resolveFarmerId] Input:", normalized);
+
+  // If it's already a number, return it
+  if (!isNaN(Number(normalized)) && normalized !== "") {
+    return parseInt(normalized, 10);
+  }
+
+  // Check if it's a UUID and look up the numeric ID
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(normalized)) {
+    console.log("🟢 Input is UUID, looking up numeric ID...");
+    const farmerResult = await db.query(
+      "SELECT id FROM farmers WHERE user_id = $1",
+      [normalized]
+    );
+    if (farmerResult.rows.length > 0) {
+      const numericId = farmerResult.rows[0].id;
+      console.log("✅ Resolved UUID to numeric ID:", numericId);
+      return numericId;
+    }
+  }
+
+  throw new Error(`Could not resolve farmer ID: ${normalized}`);
+}
 
 // Define types for our knowledge system
 interface KnowledgeDocument {
@@ -54,12 +86,20 @@ export const getKnowledgeRouter = (config: {
     response: string,
     sources: unknown[]
   ): Promise<void> => {
-    await pool.query(
-      `INSERT INTO knowledge_conversations 
-       (farmer_id, query, response, sources) 
-       VALUES ($1, $2, $3, $4)`,
-      [farmerId, query, response, JSON.stringify(sources)]
-    );
+    try {
+      // First resolve the farmer ID to numeric
+      const numericFarmerId = await resolveFarmerId(pool, farmerId);
+
+      await pool.query(
+        `INSERT INTO knowledge_conversations 
+         (farmer_id, query, response, sources) 
+         VALUES ($1, $2, $3, $4)`,
+        [numericFarmerId, query, response, JSON.stringify(sources)]
+      );
+    } catch (error) {
+      console.error("Error storing conversation:", error);
+      // Don't throw - we don't want to fail the response if storage fails
+    }
   };
 
   // Query knowledge base with RAG
@@ -131,24 +171,11 @@ export const getKnowledgeRouter = (config: {
     };
   };
 
-  // POST /knowledge/ask - handle both JSON and multipart
-  router.post("/ask", (req: Request, res: Response, next: NextFunction) => {
-    // Check if it's multipart form data (has file)
-    if (req.is("multipart/form-data")) {
-      upload.single("image")(req, res, (err) => {
-        if (err) return next(err);
-        handleKnowledgeRequest(req, res);
-      });
-    } else {
-      // Regular JSON request
-      express.json()(req, res, () => handleKnowledgeRequest(req, res));
-    }
-  });
-
-  async function handleKnowledgeRequest(req: Request, res: Response) {
+  // Handle knowledge request (used by both JSON and multipart)
+  async function handleKnowledgeRequest(req: MulterRequest, res: Response) {
     try {
       const {query, category, farmer_id} = req.body;
-      const imageFile = (req as any).file;
+      const imageFile = req.file; // Now properly typed!
 
       if (!query && !imageFile) {
         return res.status(400).json({error: "Query or image required"});
@@ -163,6 +190,7 @@ export const getKnowledgeRouter = (config: {
       // Handle text query
       const result = await queryWithRAG(query, category);
 
+      // Store for fine-tuning (with ID resolution)
       if (farmer_id) {
         await storeConversation(farmer_id, query, result.answer, result.sources);
       }
@@ -173,6 +201,20 @@ export const getKnowledgeRouter = (config: {
       return res.status(500).json({error: "Failed to process query"});
     }
   }
+
+  // POST /knowledge/ask - handle both JSON and multipart
+  router.post("/ask", (req: Request, res: Response, next: NextFunction) => {
+    // Check if it's multipart form data (has file)
+    if (req.is("multipart/form-data")) {
+      upload.single("image")(req as MulterRequest, res, (err) => {
+        if (err) return next(err);
+        handleKnowledgeRequest(req as MulterRequest, res);
+      });
+    } else {
+      // Regular JSON request
+      express.json()(req, res, () => handleKnowledgeRequest(req as MulterRequest, res));
+    }
+  });
 
   // POST /knowledge/feedback
   router.post("/feedback", async (req: Request, res: Response) => {

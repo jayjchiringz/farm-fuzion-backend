@@ -1343,7 +1343,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
 
   await pool.query(`  
     -- Store conversations for fine-tuning
-    DROP TABLE IF EXISTS knowledge_conversations CASCADE;
+    -- DROP TABLE IF EXISTS knowledge_conversations CASCADE;
     CREATE TABLE IF NOT EXISTS knowledge_conversations (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       farmer_id INTEGER REFERENCES farmers(id), -- INTEGER to match farmers.id
@@ -1357,7 +1357,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
 
   await pool.query(`
     -- Store documents/knowledge base
-    DROP TABLE IF EXISTS knowledge_documents CASCADE;
+    -- DROP TABLE IF EXISTS knowledge_documents CASCADE;
     CREATE TABLE IF NOT EXISTS knowledge_documents (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       title TEXT NOT NULL,
@@ -1371,7 +1371,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
 
   await pool.query(`
     -- Track fine-tuning jobs
-    DROP TABLE IF EXISTS fine_tuning_jobs CASCADE;
+    -- DROP TABLE IF EXISTS fine_tuning_jobs CASCADE;
     CREATE TABLE IF NOT EXISTS fine_tuning_jobs ( -- Fixed typo
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       model_name TEXT NOT NULL,
