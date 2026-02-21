@@ -1336,6 +1336,44 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     CREATE INDEX IF NOT EXISTS idx_credit_products_provider ON credit_products(provider_id);  
   `);
 
+  await pool.query(`  
+    -- Store conversations for fine-tuning
+    CREATE TABLE IF NOT EXISTS knowledge_conversations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      farmer_id UUID REFERENCES farmers(id),
+      query TEXT NOT NULL,
+      response TEXT NOT NULL,
+      sources JSONB, -- References to documents used
+      feedback_score INTEGER, -- 1-5 star rating from farmer
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Store documents/knowledge base
+    CREATE TABLE IF NOT EXISTS knowledge_documents (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      category TEXT, -- crop, livestock, weather, market
+      source TEXT, -- government, research, extension
+      embedding vector(1536), -- For semantic search
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Track fine-tuning jobs
+    CREATE TABLE IF NOT EXISTSfine_tuning_jobs (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      model_name TEXT NOT NULL,
+      base_model TEXT NOT NULL,
+      training_data_count INTEGER,
+      status TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
   // 🧪 Insert the tag only if not forced
   if (!force) {
     await pool.query(
