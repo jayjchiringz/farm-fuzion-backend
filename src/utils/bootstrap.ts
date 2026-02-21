@@ -38,6 +38,11 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
 
   console.log("🛠️ Bootstrapping DB schema...");
 
+  // Enable pgvector extension for embeddings
+  await pool.query(`
+    CREATE EXTENSION IF NOT EXISTS vector;
+  `);
+
   // ... ✅ Run table creation scripts
   await pool.query(`
     CREATE TABLE IF NOT EXISTS farmers (
