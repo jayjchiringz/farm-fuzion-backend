@@ -34,6 +34,7 @@ import {getFarmActivitiesRouter} from "./api/farm_activities";
 import helmet from "helmet";
 import {requestId} from "./middleware/requestId";
 import {getCreditRouter} from "./api/credit";
+import {getKnowledgeRouter} from "./api/knowledge";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
@@ -166,6 +167,15 @@ export const createMainApp = (secrets: {
   );
 
   app.use("/credit", (req, res, next) => getCreditRouter((req as any).dbConfig)(req, res, next));
+
+  app.use("/knowledge", async (req, res, next) => {
+    try {
+      const router = await getKnowledgeRouter((req as any).dbConfig);
+      return router(req, res, next);
+    } catch (err) {
+      return next(err);
+    }
+  });
 
   return app;
 };
