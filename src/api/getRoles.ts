@@ -75,7 +75,8 @@ export const getRoles = onRequest(
     secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT],
     timeoutSeconds: 60,
     memory: "512MiB",
-    cors: true, // Enable CORS at function level too
+    invoker: "public", // ✅ This is the key! Allows public access
+    cors: true,
   },
   app
 );
