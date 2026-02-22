@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import {onRequest} from "firebase-functions/v2/https";
@@ -15,22 +16,34 @@ const PGPORT = defineSecret("PGPORT");
 
 const app = express();
 
-// ✅ Proper global CORS middleware
+// ✅ More specific CORS configuration
 app.use(
   cors({
     origin: "https://farm-fuzion-abdf3.web.app",
-    methods: ["GET", "OPTIONS"],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
+    optionsSuccessStatus: 204,
   })
 );
-app.options("*", cors()); // <-- this handles preflight
 
-// Optional: handle large bodies if needed
+// ✅ Explicitly handle OPTIONS requests
+app.options("*", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "https://farm-fuzion-abdf3.web.app");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.status(204).send("");
+});
+
 app.use(express.json());
 
-// ✅ GET route — no need to manually set headers anymore
+// ✅ GET route
 app.get("/", async (req, res) => {
+  // Set CORS headers explicitly for GET requests
+  res.setHeader("Access-Control-Allow-Origin", "https://farm-fuzion-abdf3.web.app");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
   try {
     const pool = initDbPool({
       PGUSER: process.env.PGUSER!,
@@ -62,6 +75,7 @@ export const getRoles = onRequest(
     secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT],
     timeoutSeconds: 60,
     memory: "512MiB",
+    cors: true, // Enable CORS at function level too
   },
   app
 );
