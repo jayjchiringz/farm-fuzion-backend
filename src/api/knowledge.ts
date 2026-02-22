@@ -247,5 +247,32 @@ export const getKnowledgeRouter = (config: {
     }
   });
 
+  // Add this temporary debug endpoint right after the router is created
+  router.get("/debug", async (req: Request, res: Response) => {
+    try {
+      const envVars = {
+        has_siliconflow_key: !!process.env.SILICONFLOW_API_KEY,
+        key_length: process.env.SILICONFLOW_API_KEY ? process.env.SILICONFLOW_API_KEY.length : 0,
+        key_preview: process.env.SILICONFLOW_API_KEY ?
+          process.env.SILICONFLOW_API_KEY.substring(0, 5) + "..." : "not set",
+        node_env: process.env.NODE_ENV || "not set",
+        all_env_keys: Object.keys(process.env).filter((key) =>
+          key.includes("KEY") || key.includes("SECRET") || key.includes("API")
+        ),
+        timestamp: new Date().toISOString(),
+      };
+
+      return res.json({
+        status: "debug info",
+        env: envVars,
+        message: envVars.has_siliconflow_key ?
+          "API key is present" :
+          "API key is NOT present in environment",
+      });
+    } catch (error) {
+      return res.status(500).json({error: String(error)});
+    }
+  });
+
   return router;
 };
