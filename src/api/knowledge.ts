@@ -66,8 +66,7 @@ interface AIResponse {
 }
 
 // Unified AI API client
-const AI_API_URL = process.env.AI_API_URL || "https://api.siliconflow.com/v1";
-const AI_API_KEY = process.env.AI_API_KEY;
+const AI_API_KEY = process.env.SILICONFLOW_API_KEY;
 
 export const getKnowledgeRouter = (config: {
   PGUSER: string;
@@ -132,16 +131,25 @@ export const getKnowledgeRouter = (config: {
       }
 
       const response = await axios.post(
-        `${AI_API_URL}/chat/completions`,
+        "https://api.siliconflow.com/v1/chat/completions",
         {
-          model: "mistral-7b-agriculture",
+          model: "tencent/Hunyuan-MT-7B", // Your chosen free model
           messages: [
-            {role: "system", content: "You are a helpful farming assistant."},
+            {
+              role: "system",
+              content: "You are Mkulima Halisi, a helpful farming assistant for Kenyan farmers. Answer in Swahili or English as appropriate. Provide practical, local farming advice based on Kenyan agriculture.",
+            },
             {role: "user", content: prompt},
           ],
-          temperature: 0.3,
+          temperature: 0.7,
+          max_tokens: 1024,
         },
-        {headers: {Authorization: `Bearer ${AI_API_KEY}`}}
+        {
+          headers: {
+            "Authorization": `Bearer ${AI_API_KEY}`, // Your global API key
+            "Content-Type": "application/json",
+          },
+        }
       );
 
       return {
