@@ -22,17 +22,17 @@ app.use(
     origin: "https://farm-fuzion-abdf3.web.app",
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
+    credentials: false,
     optionsSuccessStatus: 204,
   })
 );
 
-// ✅ Explicitly handle OPTIONS requests
+// Simplify the OPTIONS handler
 app.options("*", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "https://farm-fuzion-abdf3.web.app");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  // ❌ Remove Access-Control-Allow-Credentials header
   res.status(204).send("");
 });
 
