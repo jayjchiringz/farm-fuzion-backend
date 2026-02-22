@@ -50,6 +50,7 @@ export const createMainApp = (secrets: {
   MSIMBO_MERCHANT_ID: any;
   MSIMBO_SECRET_KEY: any;
   MSIMBO_PUBLIC_ID: any;
+  SILICONFLOW_API_KEY: any;
 }) => {
   const app = express();
   setupSwagger(app);

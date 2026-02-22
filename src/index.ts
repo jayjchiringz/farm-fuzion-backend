@@ -5,7 +5,7 @@ import {createMainApp} from "./main";
 // 🔐 Shared secrets
 import {
   PGUSER, PGPASS, PGHOST, PGDB, PGPORT, MAIL_USER, MAIL_PASS,
-  MSIMBO_MERCHANT_ID, MSIMBO_SECRET_KEY, MSIMBO_PUBLIC_ID,
+  MSIMBO_MERCHANT_ID, MSIMBO_SECRET_KEY, MSIMBO_PUBLIC_ID, SILICONFLOW_API_KEY,
 } from "./registerWithDocs";
 
 // 🌐 Main aggregated Express app
@@ -14,7 +14,8 @@ export const api = onRequest(
     secrets: [
       PGUSER, PGPASS, PGHOST, PGDB, PGPORT,
       MAIL_USER, MAIL_PASS,
-      MSIMBO_MERCHANT_ID, MSIMBO_SECRET_KEY, MSIMBO_PUBLIC_ID, // 👈 add these
+      MSIMBO_MERCHANT_ID, MSIMBO_SECRET_KEY, MSIMBO_PUBLIC_ID,
+      SILICONFLOW_API_KEY,
     ],
     timeoutSeconds: 300,
     memory: "1GiB",
@@ -23,6 +24,7 @@ export const api = onRequest(
     PGUSER, PGPASS, PGHOST, PGDB, PGPORT,
     MAIL_USER, MAIL_PASS,
     MSIMBO_MERCHANT_ID, MSIMBO_SECRET_KEY, MSIMBO_PUBLIC_ID,
+    SILICONFLOW_API_KEY,
   })
 );
 

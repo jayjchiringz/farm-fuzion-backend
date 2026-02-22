@@ -18,7 +18,7 @@ export const MAIL_PASS = defineSecret("MAIL_PASS");
 export const MSIMBO_MERCHANT_ID = defineSecret("MSIMBO_MERCHANT_ID");
 export const MSIMBO_SECRET_KEY = defineSecret("MSIMBO_SECRET_KEY");
 export const MSIMBO_PUBLIC_ID = defineSecret("MSIMBO_PUBLIC_ID");
-
+export const SILICONFLOW_API_KEY = defineSecret("SILICONFLOW_API_KEY");
 
 const app = express();
 app.use(cors({origin: true}));
