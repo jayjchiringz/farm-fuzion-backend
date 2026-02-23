@@ -1382,6 +1382,141 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+  // Insurance Providers
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS insurance_providers (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name VARCHAR(255) NOT NULL,
+      logo_url TEXT,
+      description TEXT,
+      website TEXT,
+      contact_phone VARCHAR(50),
+      contact_email VARCHAR(255),
+      status VARCHAR(50) DEFAULT 'active',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  // Insurance Products
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS insurance_products (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      provider_id UUID REFERENCES insurance_providers(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      type VARCHAR(50) NOT NULL CHECK (type IN ('crop', 'livestock', 'equipment', 'health', 'weather', 'liability')),
+      description TEXT,
+      coverage_details JSONB,
+      premium_min NUMERIC(12,2) NOT NULL,
+      premium_max NUMERIC(12,2) NOT NULL,
+      coverage_period VARCHAR(100),
+      eligibility_requirements JSONB,
+      features TEXT[],
+      documents_required JSONB,
+      status VARCHAR(50) DEFAULT 'active',
+      popular BOOLEAN DEFAULT false,
+      external_product_id VARCHAR(255),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  // Insurance Applications
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS insurance_applications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      farmer_id INTEGER REFERENCES farmers(id) ON DELETE CASCADE,
+      product_id UUID REFERENCES insurance_products(id),
+      coverage_amount NUMERIC(12,2) NOT NULL,
+      premium NUMERIC(12,2) NOT NULL,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'submitted', 'under_review', 'approved', 'rejected', 'active', 'expired', 'cancelled')),
+      documents JSONB,
+      notes TEXT,
+      external_application_id VARCHAR(255),
+      applied_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  // Insurance Claims
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS insurance_claims (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      application_id UUID REFERENCES insurance_applications(id) ON DELETE CASCADE,
+      claim_number VARCHAR(100) UNIQUE,
+      incident_date DATE NOT NULL,
+      description TEXT,
+      amount_claimed NUMERIC(12,2) NOT NULL,
+      amount_approved NUMERIC(12,2),
+      status VARCHAR(50) DEFAULT 'submitted' CHECK (status IN ('submitted', 'under_review', 'approved', 'rejected', 'paid')),
+      documents JSONB,
+      adjustor_notes TEXT,
+      filed_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  // Create indexes
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_insurance_products_provider ON insurance_products(provider_id);
+    CREATE INDEX IF NOT EXISTS idx_insurance_products_type ON insurance_products(type);
+    CREATE INDEX IF NOT EXISTS idx_insurance_applications_farmer ON insurance_applications(farmer_id);
+    CREATE INDEX IF NOT EXISTS idx_insurance_applications_status ON insurance_applications(status);
+    CREATE INDEX IF NOT EXISTS idx_insurance_claims_application ON insurance_claims(application_id);
+  `);
+
+  // Run this once to populate sample insurance providers and products
+  await pool.query(`
+    INSERT INTO insurance_providers (name, description, website, contact_phone, contact_email)
+    VALUES 
+      ('PULA Insurance', 'Agricultural insurance specialists', 'https://pula-insurance.com', '+254 700 123456', 'info@pula-insurance.com'),
+      ('APA Insurance', 'Comprehensive farm insurance', 'https://apainsurance.org', '+254 700 123457', 'info@apainsurance.org'),
+      ('Jubilee Insurance', 'Equipment and asset protection', 'https://jubileeinsurance.com', '+254 700 123458', 'info@jubileeinsurance.com'),
+      ('ACRE Africa', 'Weather index insurance', 'https://acreafrica.com', '+254 700 123459', 'info@acreafrica.com')
+    RETURNING id;
+  `);
+
+  // Insert products for each provider
+  await pool.query(`
+    INSERT INTO insurance_products (
+      provider_id, name, type, description, premium_min, premium_max, 
+      coverage_period, features, popular, eligibility_requirements
+    ) VALUES 
+    ((SELECT id FROM insurance_providers WHERE name = 'PULA Insurance'), 
+     'Comprehensive Crop Insurance', 'crop',
+     'Protect your crops against drought, floods, pests, and diseases.',
+     5000, 50000, '1 growing season',
+     ARRAY['Covers drought, excessive rainfall, and hail', 'Pest and disease outbreak coverage', 'Free agronomic advice included', 'Quick claims processing within 7 days'],
+     true,
+     '["Minimum 1 acre of land", "Registered farmer", "Crops must be healthy at time of application"]'::jsonb),
+    
+    ((SELECT id FROM insurance_providers WHERE name = 'APA Insurance'),
+     'Livestock Insurance', 'livestock',
+     'Comprehensive coverage for cattle, goats, sheep, and poultry.',
+     2000, 30000, '1 year',
+     ARRAY['Covers death due to disease or accident', 'Theft protection', 'Veterinary consultation included', 'Emergency slaughter coverage'],
+     true,
+     '["Minimum 5 livestock units", "Vaccination records required", "Regular veterinary check-ups"]'::jsonb),
+    
+    ((SELECT id FROM insurance_providers WHERE name = 'Jubilee Insurance'),
+     'Farm Equipment Insurance', 'equipment',
+     'Protect your tractors, harvesters, and other farm machinery.',
+     10000, 100000, '1 year',
+     ARRAY['Covers accidental damage', 'Theft protection', 'Breakdown coverage', 'Replacement parts included'],
+     false,
+     '["Equipment must be less than 10 years old", "Regular maintenance records"]'::jsonb),
+    
+    ((SELECT id FROM insurance_providers WHERE name = 'ACRE Africa'),
+     'Weather Index Insurance', 'weather',
+     'Payouts based on weather data, no need for field inspections.',
+     3000, 25000, '1 season',
+     ARRAY['Automatic payouts when weather triggers are met', 'No field inspections required', 'Covers drought and excess rainfall', 'Fast claims processing'],
+     true,
+     '["Farm location must have weather station", "Minimum 2 acres"]'::jsonb);
+  `);
+
   // 🧪 Insert the tag only if not forced
   if (!force) {
     await pool.query(
