@@ -1468,9 +1468,10 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   // Run this once to populate sample insurance providers and products
+  /*
   await pool.query(`
     INSERT INTO insurance_providers (name, description, website, contact_phone, contact_email)
-    VALUES 
+    VALUES
       ('PULA Insurance', 'Agricultural insurance specialists', 'https://pula-insurance.com', '+254 700 123456', 'info@pula-insurance.com'),
       ('APA Insurance', 'Comprehensive farm insurance', 'https://apainsurance.org', '+254 700 123457', 'info@apainsurance.org'),
       ('Jubilee Insurance', 'Equipment and asset protection', 'https://jubileeinsurance.com', '+254 700 123458', 'info@jubileeinsurance.com'),
@@ -1481,17 +1482,17 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   // Insert products for each provider
   await pool.query(`
     INSERT INTO insurance_products (
-      provider_id, name, type, description, premium_min, premium_max, 
+      provider_id, name, type, description, premium_min, premium_max,
       coverage_period, features, popular, eligibility_requirements
-    ) VALUES 
-    ((SELECT id FROM insurance_providers WHERE name = 'PULA Insurance'), 
+    ) VALUES
+    ((SELECT id FROM insurance_providers WHERE name = 'PULA Insurance'),
      'Comprehensive Crop Insurance', 'crop',
      'Protect your crops against drought, floods, pests, and diseases.',
      5000, 50000, '1 growing season',
      ARRAY['Covers drought, excessive rainfall, and hail', 'Pest and disease outbreak coverage', 'Free agronomic advice included', 'Quick claims processing within 7 days'],
      true,
      '["Minimum 1 acre of land", "Registered farmer", "Crops must be healthy at time of application"]'::jsonb),
-    
+
     ((SELECT id FROM insurance_providers WHERE name = 'APA Insurance'),
      'Livestock Insurance', 'livestock',
      'Comprehensive coverage for cattle, goats, sheep, and poultry.',
@@ -1499,7 +1500,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
      ARRAY['Covers death due to disease or accident', 'Theft protection', 'Veterinary consultation included', 'Emergency slaughter coverage'],
      true,
      '["Minimum 5 livestock units", "Vaccination records required", "Regular veterinary check-ups"]'::jsonb),
-    
+
     ((SELECT id FROM insurance_providers WHERE name = 'Jubilee Insurance'),
      'Farm Equipment Insurance', 'equipment',
      'Protect your tractors, harvesters, and other farm machinery.',
@@ -1507,7 +1508,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
      ARRAY['Covers accidental damage', 'Theft protection', 'Breakdown coverage', 'Replacement parts included'],
      false,
      '["Equipment must be less than 10 years old", "Regular maintenance records"]'::jsonb),
-    
+
     ((SELECT id FROM insurance_providers WHERE name = 'ACRE Africa'),
      'Weather Index Insurance', 'weather',
      'Payouts based on weather data, no need for field inspections.',
@@ -1516,6 +1517,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
      true,
      '["Farm location must have weather station", "Minimum 2 acres"]'::jsonb);
   `);
+  */
 
   // 🧪 Insert the tag only if not forced
   if (!force) {
