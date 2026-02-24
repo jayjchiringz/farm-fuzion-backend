@@ -1519,14 +1519,14 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
   */
 
+  // Service Providers table - reference farmers(id) which is the PRIMARY KEY
   await pool.query(`
-    -- Service Providers table
     CREATE TABLE IF NOT EXISTS service_providers (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,
+      user_id UUID REFERENCES farmers(id) ON DELETE CASCADE,  -- Reference farmers(id) not farmers(user_id)
       business_name VARCHAR(255) NOT NULL,
       business_registration VARCHAR(100),
-      service_category VARCHAR(100) NOT NULL, -- vet, extension, mechanic, consultant, etc.
+      service_category VARCHAR(100) NOT NULL,
       description TEXT,
       phone VARCHAR(20) NOT NULL,
       email VARCHAR(255),
@@ -1539,41 +1539,41 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       is_verified BOOLEAN DEFAULT false,
       verification_document_path TEXT,
       profile_image_url TEXT,
-      status VARCHAR(50) DEFAULT 'pending', -- pending, active, suspended, inactive
+      status VARCHAR(50) DEFAULT 'pending',
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     );
   `);
 
   await pool.query(`
-    -- Services offered by providers
     CREATE TABLE IF NOT EXISTS services (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
       service_name VARCHAR(255) NOT NULL,
       description TEXT,
-      category VARCHAR(100), -- e.g., "vaccination", "consultation", "training"
+      category VARCHAR(100),
       price DECIMAL(10,2),
-      price_unit VARCHAR(50), -- per hour, per visit, per animal, etc.
+      price_unit VARCHAR(50),
       is_negotiable BOOLEAN DEFAULT true,
-      service_area VARCHAR(255), -- radius or specific locations
-      availability VARCHAR(100), -- weekdays, weekends, 24/7
-      estimated_duration VARCHAR(100), -- e.g., "2-3 hours"
+      service_area VARCHAR(255),
+      availability VARCHAR(100),
+      estimated_duration VARCHAR(100),
+      status VARCHAR(50) DEFAULT 'active',
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     );
   `);
 
+  // Service bookings table - reference farmers(id) for farmer_id
   await pool.query(`
-    -- Service bookings/requests
     CREATE TABLE IF NOT EXISTS service_bookings (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      farmer_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,
+      farmer_id UUID REFERENCES farmers(id) ON DELETE CASCADE,
       provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
       service_id UUID REFERENCES services(id) ON DELETE CASCADE,
       booking_date DATE NOT NULL,
       booking_time TIME,
-      status VARCHAR(50) DEFAULT 'pending', -- pending, confirmed, completed, cancelled, rejected
+      status VARCHAR(50) DEFAULT 'pending',
       location TEXT,
       notes TEXT,
       total_price DECIMAL(10,2),
@@ -1585,12 +1585,12 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+  // Service reviews table - reference farmers(id) for farmer_id
   await pool.query(`
-    -- Ratings and Reviews
     CREATE TABLE IF NOT EXISTS service_reviews (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       booking_id UUID REFERENCES service_bookings(id) ON DELETE CASCADE,
-      farmer_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,
+      farmer_id UUID REFERENCES farmers(id) ON DELETE CASCADE,  -- Reference farmers(id)
       provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
       rating INTEGER CHECK (rating >= 1 AND rating <= 5),
       review TEXT,
@@ -1616,17 +1616,17 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   await pool.query(`
-    -- Indexes for performance
-    CREATE INDEX if not exists idx_service_providers_category ON service_providers(service_category);
-    CREATE INDEX if not exists idx_service_providers_status ON service_providers(status);
-    CREATE INDEX if not exists idx_service_providers_county ON service_providers(county);
-    CREATE INDEX if not exists idx_services_provider ON services(provider_id);
-    CREATE INDEX if not exists idx_services_category ON services(category);
-    CREATE INDEX if not exists idx_service_bookings_farmer ON service_bookings(farmer_id);
-    CREATE INDEX if not exists idx_service_bookings_provider ON service_bookings(provider_id);
-    CREATE INDEX if not exists idx_service_bookings_status ON service_bookings(status);
-    CREATE INDEX if not exists idx_service_reviews_provider ON service_reviews(provider_id);
-    CREATE INDEX if not exists idx_service_reviews_rating ON service_reviews(rating);
+    CREATE INDEX IF NOT EXISTS idx_service_providers_user_id ON service_providers(user_id);
+    CREATE INDEX IF NOT EXISTS idx_service_providers_category ON service_providers(service_category);
+    CREATE INDEX IF NOT EXISTS idx_service_providers_status ON service_providers(status);
+    CREATE INDEX IF NOT EXISTS idx_service_providers_county ON service_providers(county);
+    CREATE INDEX IF NOT EXISTS idx_services_provider ON services(provider_id);
+    CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
+    CREATE INDEX IF NOT EXISTS idx_service_bookings_farmer ON service_bookings(farmer_id);
+    CREATE INDEX IF NOT EXISTS idx_service_bookings_provider ON service_bookings(provider_id);
+    CREATE INDEX IF NOT EXISTS idx_service_bookings_status ON service_bookings(status);
+    CREATE INDEX IF NOT EXISTS idx_service_reviews_provider ON service_reviews(provider_id);
+    CREATE INDEX IF NOT EXISTS idx_service_reviews_rating ON service_reviews(rating);
   `);
 
   // 🧪 Insert the tag only if not forced

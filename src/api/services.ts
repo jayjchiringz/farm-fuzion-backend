@@ -217,7 +217,7 @@ export const getServicesRouter = (config: {
     }
   });
 
-  // Get provider details by ID
+  // Get provider details by ID (update the reviews section)
   router.get("/providers/:id", async (req: Request, res: Response): Promise<Response> => {
     try {
       const {id} = req.params;
@@ -244,14 +244,14 @@ export const getServicesRouter = (config: {
         [id]
       );
 
-      // Get recent reviews
+      // Get recent reviews - FIXED: Use f.id instead of f.user_id
       const reviews = await pool.query(
         `SELECT sr.*, f.first_name, f.last_name 
-         FROM service_reviews sr
-         JOIN farmers f ON sr.farmer_id = f.user_id
-         WHERE sr.provider_id = $1
-         ORDER BY sr.created_at DESC
-         LIMIT 10`,
+        FROM service_reviews sr
+        JOIN farmers f ON sr.farmer_id = f.id  -- Changed from f.user_id to f.id
+        WHERE sr.provider_id = $1
+        ORDER BY sr.created_at DESC
+        LIMIT 10`,
         [id]
       );
 
@@ -473,19 +473,20 @@ export const getServicesRouter = (config: {
       const {status, page = 1, limit = 10} = req.query;
       const offset = (Number(page) - 1) * Number(limit);
 
+      // Get provider's bookings - CHANGE f.user_id to f.id
       let query = `
         SELECT 
           sb.*,
-          sp.business_name,
-          sp.phone as provider_phone,
-          s.service_name,
-          s.price,
-          s.price_unit
+          f.first_name,
+          f.last_name,
+          f.phone as farmer_phone,
+          s.service_name
         FROM service_bookings sb
-        JOIN service_providers sp ON sb.provider_id = sp.id
+        JOIN farmers f ON sb.farmer_id = f.id  -- Changed from f.user_id to f.id
         JOIN services s ON sb.service_id = s.id
-        WHERE sb.farmer_id = $1
+        WHERE sb.provider_id = $1
       `;
+
       const params: (string | number)[] = [farmerId];
       let paramCount = 1;
 
@@ -519,7 +520,7 @@ export const getServicesRouter = (config: {
     }
   });
 
-  // Get provider's bookings
+  // Get provider's bookings - FIXED
   router.get("/bookings/provider/:providerId", async (req: Request, res: Response): Promise<Response> => {
     try {
       const {providerId} = req.params;
@@ -534,7 +535,7 @@ export const getServicesRouter = (config: {
           f.phone as farmer_phone,
           s.service_name
         FROM service_bookings sb
-        JOIN farmers f ON sb.farmer_id = f.user_id
+        JOIN farmers f ON sb.farmer_id = f.id  -- Changed from f.user_id to f.id
         JOIN services s ON sb.service_id = s.id
         WHERE sb.provider_id = $1
       `;
@@ -678,7 +679,7 @@ export const getServicesRouter = (config: {
     }
   });
 
-  // Get provider reviews
+  // Get provider reviews - FIXED
   router.get("/reviews/provider/:providerId", async (req: Request, res: Response): Promise<Response> => {
     try {
       const {providerId} = req.params;
@@ -691,7 +692,7 @@ export const getServicesRouter = (config: {
           f.first_name,
           f.last_name
         FROM service_reviews sr
-        JOIN farmers f ON sr.farmer_id = f.user_id
+        JOIN farmers f ON sr.farmer_id = f.id  -- Changed from f.user_id to f.id
         WHERE sr.provider_id = $1
         ORDER BY sr.created_at DESC
         LIMIT $2 OFFSET $3`,

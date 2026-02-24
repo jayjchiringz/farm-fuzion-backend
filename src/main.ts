@@ -1,12 +1,16 @@
+/* eslint-disable import/no-duplicates */
+/* eslint-disable import/no-named-as-default */
 /* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import rateLimit from "express-rate-limit";
+import {ipKeyGenerator} from "express-rate-limit";
+
 import express from "express";
 import cors from "cors";
 import {bootstrapDatabase} from "./utils/bootstrap";
 import {setupSwagger} from "./utils/swagger";
 import {sanitizeInput} from "./middleware/sanitize";
-import {apiLimiter, authLimiter} from "./middleware/rateLimit";
 import {safeLogger} from "./utils/logger";
 
 // 🧩 Routers
@@ -55,6 +59,43 @@ export const createMainApp = (secrets: {
 }) => {
   const app = express();
   setupSwagger(app);
+
+  // Then in your createMainApp function, after setting up trust proxy:
+  app.set("trust proxy", 1); // Trust first proxy (Cloud Run/Firebase)
+
+  // Update your rate limiters:
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: {
+      xForwardedForHeader: false, // Disable this validation since we're behind proxy
+      forwardedHeader: false, // Disable forwarded header validation
+    },
+    keyGenerator: (req) => {
+    // Use the IP address from X-Forwarded-For if available
+      const forwarded = req.headers["x-forwarded-for"];
+      const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded || req.ip;
+      return ipKeyGenerator(ip || "0.0.0.0");
+    },
+  });
+
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: {
+      xForwardedForHeader: false,
+      forwardedHeader: false,
+    },
+    keyGenerator: (req) => {
+      const forwarded = req.headers["x-forwarded-for"];
+      const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded || req.ip;
+      return ipKeyGenerator(ip || "0.0.0.0");
+    },
+  });
 
   app.use(
     cors({
