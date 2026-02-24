@@ -244,11 +244,11 @@ export const getServicesRouter = (config: {
         [id]
       );
 
-      // Get recent reviews - FIXED: Use f.id instead of f.user_id
+      // In queries that join with farmers, use farmers.user_id
       const reviews = await pool.query(
         `SELECT sr.*, f.first_name, f.last_name 
         FROM service_reviews sr
-        JOIN farmers f ON sr.farmer_id = f.id  -- Changed from f.user_id to f.id
+        JOIN farmers f ON sr.farmer_id = f.user_id  -- Use f.user_id, not f.id
         WHERE sr.provider_id = $1
         ORDER BY sr.created_at DESC
         LIMIT 10`,
@@ -473,7 +473,7 @@ export const getServicesRouter = (config: {
       const {status, page = 1, limit = 10} = req.query;
       const offset = (Number(page) - 1) * Number(limit);
 
-      // Get provider's bookings - CHANGE f.user_id to f.id
+      // For provider bookings
       let query = `
         SELECT 
           sb.*,
@@ -482,7 +482,7 @@ export const getServicesRouter = (config: {
           f.phone as farmer_phone,
           s.service_name
         FROM service_bookings sb
-        JOIN farmers f ON sb.farmer_id = f.id  -- Changed from f.user_id to f.id
+        JOIN farmers f ON sb.farmer_id = f.user_id  -- Use f.user_id
         JOIN services s ON sb.service_id = s.id
         WHERE sb.provider_id = $1
       `;
@@ -686,13 +686,14 @@ export const getServicesRouter = (config: {
       const {page = 1, limit = 10} = req.query;
       const offset = (Number(page) - 1) * Number(limit);
 
+      // For reviews
       const result = await pool.query(
         `SELECT 
           sr.*,
           f.first_name,
           f.last_name
         FROM service_reviews sr
-        JOIN farmers f ON sr.farmer_id = f.id  -- Changed from f.user_id to f.id
+        JOIN farmers f ON sr.farmer_id = f.user_id  -- Use f.user_id
         WHERE sr.provider_id = $1
         ORDER BY sr.created_at DESC
         LIMIT $2 OFFSET $3`,
