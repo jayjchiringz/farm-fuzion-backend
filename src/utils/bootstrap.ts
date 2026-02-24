@@ -1521,29 +1521,9 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
 
   // Service Providers table - reference farmers(id) which is the PRIMARY KEY
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS services (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
-      service_name VARCHAR(255) NOT NULL,
-      description TEXT,
-      category VARCHAR(100),
-      price DECIMAL(10,2),
-      price_unit VARCHAR(50),
-      is_negotiable BOOLEAN DEFAULT true,
-      service_area VARCHAR(255),
-      availability VARCHAR(100),
-      estimated_duration VARCHAR(100),
-      status VARCHAR(50) DEFAULT 'active',
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
-    );
-  `);
-
-  // Service Providers table - reference farmers(user_id) which is UUID
-  await pool.query(`
     CREATE TABLE IF NOT EXISTS service_providers (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,  -- Reference farmers(user_id) which is UUID
+      user_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,
       business_name VARCHAR(255) NOT NULL,
       business_registration VARCHAR(100),
       service_category VARCHAR(100) NOT NULL,
@@ -1565,11 +1545,30 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     );
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS services (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
+      service_name VARCHAR(255) NOT NULL,
+      description TEXT,
+      category VARCHAR(100),
+      price DECIMAL(10,2),
+      price_unit VARCHAR(50),
+      is_negotiable BOOLEAN DEFAULT true,
+      service_area VARCHAR(255),
+      availability VARCHAR(100),
+      estimated_duration VARCHAR(100),
+      status VARCHAR(50) DEFAULT 'active',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
   // Service bookings table - reference farmers(user_id) for farmer_id
   await pool.query(`
     CREATE TABLE IF NOT EXISTS service_bookings (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      farmer_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,  -- Reference farmers(user_id)
+      farmer_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,
       provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
       service_id UUID REFERENCES services(id) ON DELETE CASCADE,
       booking_date DATE NOT NULL,
@@ -1591,7 +1590,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     CREATE TABLE IF NOT EXISTS service_reviews (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       booking_id UUID REFERENCES service_bookings(id) ON DELETE CASCADE,
-      farmer_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,  -- Reference farmers(user_id)
+      farmer_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,
       provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
       rating INTEGER CHECK (rating >= 1 AND rating <= 5),
       review TEXT,
@@ -1603,11 +1602,10 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
 
   await pool.query(`
-    -- Provider availability schedule
     CREATE TABLE IF NOT EXISTS provider_availability (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
-      day_of_week INTEGER CHECK (day_of_week BETWEEN 0 AND 6), -- 0=Sunday, 1=Monday, etc.
+      day_of_week INTEGER CHECK (day_of_week BETWEEN 0 AND 6),
       start_time TIME NOT NULL,
       end_time TIME NOT NULL,
       is_available BOOLEAN DEFAULT true,
