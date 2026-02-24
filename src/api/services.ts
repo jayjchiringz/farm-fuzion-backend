@@ -6,6 +6,11 @@ import {Pool} from "pg";
 import multer from "multer";
 import {z} from "zod";
 
+// Extend Express Request to include multer file
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
+
 // Validation schemas
 const ServiceProviderSchema = z.object({
   user_id: z.string().uuid(),
@@ -82,10 +87,11 @@ export const getServicesRouter = (config: {
   // ============================================
 
   // Register as a service provider
-  router.post("/providers/register", upload.single("verification_document"), async (req: Request, res: Response) => {
+  router.post("/providers/register", upload.single("verification_document"), async (req: Request, res: Response): Promise<Response> => {
     try {
       const validated = ServiceProviderSchema.parse(req.body);
-      const verificationFile = (req as any).file;
+      const multerReq = req as MulterRequest;
+      const verificationFile = multerReq.file;
 
       // Check if user is already a provider
       const existing = await pool.query(
@@ -130,7 +136,7 @@ export const getServicesRouter = (config: {
         ]
       );
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
         message: "Service provider registration submitted for review",
         provider: result.rows[0],
@@ -140,12 +146,12 @@ export const getServicesRouter = (config: {
       if (err instanceof z.ZodError) {
         return res.status(400).json({error: "Validation failed", details: err.errors});
       }
-      res.status(500).json({error: "Failed to register service provider"});
+      return res.status(500).json({error: "Failed to register service provider"});
     }
   });
 
   // Get all service providers with optional filters
-  router.get("/providers", async (req: Request, res: Response) => {
+  router.get("/providers", async (req: Request, res: Response): Promise<Response> => {
     try {
       const {category, county, search, verified, page = 1, limit = 10} = req.query;
       const offset = (Number(page) - 1) * Number(limit);
@@ -161,19 +167,19 @@ export const getServicesRouter = (config: {
         LEFT JOIN services s ON sp.id = s.provider_id
         WHERE sp.status = 'active'
       `;
-      const params: any[] = [];
+      const params: (string | number | boolean)[] = [];
       let paramCount = 0;
 
       if (category) {
         paramCount++;
         query += ` AND sp.service_category = $${paramCount}`;
-        params.push(category);
+        params.push(category as string);
       }
 
       if (county) {
         paramCount++;
         query += ` AND sp.county = $${paramCount}`;
-        params.push(county);
+        params.push(county as string);
       }
 
       if (search) {
@@ -196,7 +202,7 @@ export const getServicesRouter = (config: {
         "SELECT COUNT(*) FROM service_providers WHERE status = 'active'"
       );
 
-      res.json({
+      return res.json({
         data: result.rows,
         pagination: {
           page: Number(page),
@@ -207,12 +213,12 @@ export const getServicesRouter = (config: {
       });
     } catch (err) {
       console.error("Error fetching service providers:", err);
-      res.status(500).json({error: "Failed to fetch service providers"});
+      return res.status(500).json({error: "Failed to fetch service providers"});
     }
   });
 
   // Get provider details by ID
-  router.get("/providers/:id", async (req: Request, res: Response) => {
+  router.get("/providers/:id", async (req: Request, res: Response): Promise<Response> => {
     try {
       const {id} = req.params;
 
@@ -234,7 +240,7 @@ export const getServicesRouter = (config: {
 
       // Get provider's services
       const services = await pool.query(
-        "SELECT * FROM services WHERE provider_id = $1 AND status = 'active' ORDER BY created_at DESC",
+        "SELECT * FROM services WHERE provider_id = $1 ORDER BY created_at DESC",
         [id]
       );
 
@@ -255,7 +261,7 @@ export const getServicesRouter = (config: {
         [id]
       );
 
-      res.json({
+      return res.json({
         ...provider.rows[0],
         services: services.rows,
         reviews: reviews.rows,
@@ -263,7 +269,7 @@ export const getServicesRouter = (config: {
       });
     } catch (err) {
       console.error("Error fetching provider details:", err);
-      res.status(500).json({error: "Failed to fetch provider details"});
+      return res.status(500).json({error: "Failed to fetch provider details"});
     }
   });
 
@@ -272,7 +278,7 @@ export const getServicesRouter = (config: {
   // ============================================
 
   // Add a service to a provider
-  router.post("/services", async (req: Request, res: Response) => {
+  router.post("/services", async (req: Request, res: Response): Promise<Response> => {
     try {
       const validated = ServiceSchema.parse(req.body);
 
@@ -306,18 +312,18 @@ export const getServicesRouter = (config: {
         ]
       );
 
-      res.status(201).json(result.rows[0]);
+      return res.status(201).json(result.rows[0]);
     } catch (err) {
       console.error("Error creating service:", err);
       if (err instanceof z.ZodError) {
         return res.status(400).json({error: "Validation failed", details: err.errors});
       }
-      res.status(500).json({error: "Failed to create service"});
+      return res.status(500).json({error: "Failed to create service"});
     }
   });
 
   // Search services
-  router.get("/services/search", async (req: Request, res: Response) => {
+  router.get("/services/search", async (req: Request, res: Response): Promise<Response> => {
     try {
       const {category, provider_id, min_price, max_price, search, page = 1, limit = 10} = req.query;
       const offset = (Number(page) - 1) * Number(limit);
@@ -336,19 +342,19 @@ export const getServicesRouter = (config: {
         LEFT JOIN service_reviews sr ON sp.id = sr.provider_id
         WHERE sp.status = 'active'
       `;
-      const params: any[] = [];
+      const params: (string | number | boolean)[] = [];
       let paramCount = 0;
 
       if (category) {
         paramCount++;
         query += ` AND s.category = $${paramCount}`;
-        params.push(category);
+        params.push(category as string);
       }
 
       if (provider_id) {
         paramCount++;
         query += ` AND s.provider_id = $${paramCount}`;
-        params.push(provider_id);
+        params.push(provider_id as string);
       }
 
       if (min_price) {
@@ -382,7 +388,7 @@ export const getServicesRouter = (config: {
       `;
       const countResult = await pool.query(countQuery);
 
-      res.json({
+      return res.json({
         data: result.rows,
         pagination: {
           page: Number(page),
@@ -393,7 +399,7 @@ export const getServicesRouter = (config: {
       });
     } catch (err) {
       console.error("Error searching services:", err);
-      res.status(500).json({error: "Failed to search services"});
+      return res.status(500).json({error: "Failed to search services"});
     }
   });
 
@@ -402,21 +408,20 @@ export const getServicesRouter = (config: {
   // ============================================
 
   // Create a service booking
-  router.post("/bookings", async (req: Request, res: Response) => {
+  router.post("/bookings", async (req: Request, res: Response): Promise<Response> => {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       const validated = ServiceBookingSchema.parse(req.body);
 
       // Check if provider is available at that time
-      // This is a simplified check - you'd need more complex logic in production
       const existingBookings = await client.query(
         `SELECT id FROM service_bookings 
          WHERE provider_id = $1 AND booking_date = $2 AND status IN ('pending', 'confirmed')`,
         [validated.provider_id, validated.booking_date]
       );
 
-      if (existingBookings.rows.length > 5) { // Simple limit - adjust as needed
+      if (existingBookings.rows.length > 5) {
         await client.query("ROLLBACK");
         return res.status(400).json({error: "Provider is fully booked on this date"});
       }
@@ -448,21 +453,21 @@ export const getServicesRouter = (config: {
       );
 
       await client.query("COMMIT");
-      res.status(201).json(result.rows[0]);
+      return res.status(201).json(result.rows[0]);
     } catch (err) {
       await client.query("ROLLBACK");
       console.error("Error creating booking:", err);
       if (err instanceof z.ZodError) {
         return res.status(400).json({error: "Validation failed", details: err.errors});
       }
-      res.status(500).json({error: "Failed to create booking"});
+      return res.status(500).json({error: "Failed to create booking"});
     } finally {
       client.release();
     }
   });
 
   // Get farmer's bookings
-  router.get("/bookings/farmer/:farmerId", async (req: Request, res: Response) => {
+  router.get("/bookings/farmer/:farmerId", async (req: Request, res: Response): Promise<Response> => {
     try {
       const {farmerId} = req.params;
       const {status, page = 1, limit = 10} = req.query;
@@ -481,13 +486,13 @@ export const getServicesRouter = (config: {
         JOIN services s ON sb.service_id = s.id
         WHERE sb.farmer_id = $1
       `;
-      const params: any[] = [farmerId];
+      const params: (string | number)[] = [farmerId];
       let paramCount = 1;
 
       if (status) {
         paramCount++;
         query += ` AND sb.status = $${paramCount}`;
-        params.push(status);
+        params.push(status as string);
       }
 
       query += ` ORDER BY sb.booking_date DESC, sb.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
@@ -499,7 +504,7 @@ export const getServicesRouter = (config: {
       const countQuery = "SELECT COUNT(*) FROM service_bookings WHERE farmer_id = $1";
       const countResult = await pool.query(countQuery, [farmerId]);
 
-      res.json({
+      return res.json({
         data: result.rows,
         pagination: {
           page: Number(page),
@@ -510,12 +515,12 @@ export const getServicesRouter = (config: {
       });
     } catch (err) {
       console.error("Error fetching farmer bookings:", err);
-      res.status(500).json({error: "Failed to fetch bookings"});
+      return res.status(500).json({error: "Failed to fetch bookings"});
     }
   });
 
   // Get provider's bookings
-  router.get("/bookings/provider/:providerId", async (req: Request, res: Response) => {
+  router.get("/bookings/provider/:providerId", async (req: Request, res: Response): Promise<Response> => {
     try {
       const {providerId} = req.params;
       const {status, date, page = 1, limit = 10} = req.query;
@@ -533,19 +538,19 @@ export const getServicesRouter = (config: {
         JOIN services s ON sb.service_id = s.id
         WHERE sb.provider_id = $1
       `;
-      const params: any[] = [providerId];
+      const params: (string | number)[] = [providerId];
       let paramCount = 1;
 
       if (status) {
         paramCount++;
         query += ` AND sb.status = $${paramCount}`;
-        params.push(status);
+        params.push(status as string);
       }
 
       if (date) {
         paramCount++;
         query += ` AND sb.booking_date = $${paramCount}`;
-        params.push(date);
+        params.push(date as string);
       }
 
       query += ` ORDER BY sb.booking_date DESC, sb.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
@@ -553,22 +558,27 @@ export const getServicesRouter = (config: {
 
       const result = await pool.query(query, params);
 
-      res.json({
+      // Get total count
+      const countQuery = "SELECT COUNT(*) FROM service_bookings WHERE provider_id = $1";
+      const countResult = await pool.query(countQuery, [providerId]);
+
+      return res.json({
         data: result.rows,
         pagination: {
           page: Number(page),
           limit: Number(limit),
-          total: result.rows.length, // Simplified - you'd want a proper count query
+          total: parseInt(countResult.rows[0].count),
+          totalPages: Math.ceil(parseInt(countResult.rows[0].count) / Number(limit)),
         },
       });
     } catch (err) {
       console.error("Error fetching provider bookings:", err);
-      res.status(500).json({error: "Failed to fetch bookings"});
+      return res.status(500).json({error: "Failed to fetch bookings"});
     }
   });
 
   // Update booking status (for providers)
-  router.patch("/bookings/:id/status", async (req: Request, res: Response) => {
+  router.patch("/bookings/:id/status", async (req: Request, res: Response): Promise<Response> => {
     try {
       const {id} = req.params;
       const {status, provider_id} = req.body;
@@ -595,10 +605,10 @@ export const getServicesRouter = (config: {
         [status, id]
       );
 
-      res.json(result.rows[0]);
+      return res.json(result.rows[0]);
     } catch (err) {
       console.error("Error updating booking status:", err);
-      res.status(500).json({error: "Failed to update booking"});
+      return res.status(500).json({error: "Failed to update booking"});
     }
   });
 
@@ -607,7 +617,7 @@ export const getServicesRouter = (config: {
   // ============================================
 
   // Submit a review
-  router.post("/reviews", async (req: Request, res: Response) => {
+  router.post("/reviews", async (req: Request, res: Response): Promise<Response> => {
     try {
       const validated = ServiceReviewSchema.parse(req.body);
 
@@ -646,7 +656,7 @@ export const getServicesRouter = (config: {
         ]
       );
 
-      // Update provider's average rating (could be done with a trigger in production)
+      // Update provider's average rating
       await pool.query(
         `UPDATE service_providers 
          SET rating = (
@@ -658,18 +668,18 @@ export const getServicesRouter = (config: {
         [validated.provider_id]
       );
 
-      res.status(201).json(result.rows[0]);
+      return res.status(201).json(result.rows[0]);
     } catch (err) {
       console.error("Error submitting review:", err);
       if (err instanceof z.ZodError) {
         return res.status(400).json({error: "Validation failed", details: err.errors});
       }
-      res.status(500).json({error: "Failed to submit review"});
+      return res.status(500).json({error: "Failed to submit review"});
     }
   });
 
   // Get provider reviews
-  router.get("/reviews/provider/:providerId", async (req: Request, res: Response) => {
+  router.get("/reviews/provider/:providerId", async (req: Request, res: Response): Promise<Response> => {
     try {
       const {providerId} = req.params;
       const {page = 1, limit = 10} = req.query;
@@ -688,17 +698,22 @@ export const getServicesRouter = (config: {
         [providerId, Number(limit), offset]
       );
 
-      res.json({
+      // Get total count
+      const countQuery = "SELECT COUNT(*) FROM service_reviews WHERE provider_id = $1";
+      const countResult = await pool.query(countQuery, [providerId]);
+
+      return res.json({
         data: result.rows,
         pagination: {
           page: Number(page),
           limit: Number(limit),
-          total: result.rows.length,
+          total: parseInt(countResult.rows[0].count),
+          totalPages: Math.ceil(parseInt(countResult.rows[0].count) / Number(limit)),
         },
       });
     } catch (err) {
       console.error("Error fetching provider reviews:", err);
-      res.status(500).json({error: "Failed to fetch reviews"});
+      return res.status(500).json({error: "Failed to fetch reviews"});
     }
   });
 
