@@ -1519,6 +1519,116 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
   */
 
+  await pool.query(`
+    -- Service Providers table
+    CREATE TABLE IF NOT EXISTS service_providers (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,
+      business_name VARCHAR(255) NOT NULL,
+      business_registration VARCHAR(100),
+      service_category VARCHAR(100) NOT NULL, -- vet, extension, mechanic, consultant, etc.
+      description TEXT,
+      phone VARCHAR(20) NOT NULL,
+      email VARCHAR(255),
+      website VARCHAR(255),
+      county VARCHAR(100),
+      constituency VARCHAR(100),
+      ward VARCHAR(100),
+      location TEXT,
+      years_of_experience INTEGER,
+      is_verified BOOLEAN DEFAULT false,
+      verification_document_path TEXT,
+      profile_image_url TEXT,
+      status VARCHAR(50) DEFAULT 'pending', -- pending, active, suspended, inactive
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Services offered by providers
+    CREATE TABLE IF NOT EXISTS services (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
+      service_name VARCHAR(255) NOT NULL,
+      description TEXT,
+      category VARCHAR(100), -- e.g., "vaccination", "consultation", "training"
+      price DECIMAL(10,2),
+      price_unit VARCHAR(50), -- per hour, per visit, per animal, etc.
+      is_negotiable BOOLEAN DEFAULT true,
+      service_area VARCHAR(255), -- radius or specific locations
+      availability VARCHAR(100), -- weekdays, weekends, 24/7
+      estimated_duration VARCHAR(100), -- e.g., "2-3 hours"
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Service bookings/requests
+    CREATE TABLE IF NOT EXISTS service_bookings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      farmer_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,
+      provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
+      service_id UUID REFERENCES services(id) ON DELETE CASCADE,
+      booking_date DATE NOT NULL,
+      booking_time TIME,
+      status VARCHAR(50) DEFAULT 'pending', -- pending, confirmed, completed, cancelled, rejected
+      location TEXT,
+      notes TEXT,
+      total_price DECIMAL(10,2),
+      payment_status VARCHAR(50) DEFAULT 'pending',
+      payment_method VARCHAR(50),
+      completed_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Ratings and Reviews
+    CREATE TABLE IF NOT EXISTS service_reviews (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      booking_id UUID REFERENCES service_bookings(id) ON DELETE CASCADE,
+      farmer_id UUID REFERENCES farmers(user_id) ON DELETE CASCADE,
+      provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
+      rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+      review TEXT,
+      would_recommend BOOLEAN DEFAULT true,
+      response_from_provider TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Provider availability schedule
+    CREATE TABLE IF NOT EXISTS provider_availability (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      provider_id UUID REFERENCES service_providers(id) ON DELETE CASCADE,
+      day_of_week INTEGER CHECK (day_of_week BETWEEN 0 AND 6), -- 0=Sunday, 1=Monday, etc.
+      start_time TIME NOT NULL,
+      end_time TIME NOT NULL,
+      is_available BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    -- Indexes for performance
+    CREATE INDEX if not exists idx_service_providers_category ON service_providers(service_category);
+    CREATE INDEX if not exists idx_service_providers_status ON service_providers(status);
+    CREATE INDEX if not exists idx_service_providers_county ON service_providers(county);
+    CREATE INDEX if not exists idx_services_provider ON services(provider_id);
+    CREATE INDEX if not exists idx_services_category ON services(category);
+    CREATE INDEX if not exists idx_service_bookings_farmer ON service_bookings(farmer_id);
+    CREATE INDEX if not exists idx_service_bookings_provider ON service_bookings(provider_id);
+    CREATE INDEX if not exists idx_service_bookings_status ON service_bookings(status);
+    CREATE INDEX if not exists idx_service_reviews_provider ON service_reviews(provider_id);
+    CREATE INDEX if not exists idx_service_reviews_rating ON service_reviews(rating);
+  `);
+
   // 🧪 Insert the tag only if not forced
   if (!force) {
     await pool.query(

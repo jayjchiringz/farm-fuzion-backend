@@ -35,6 +35,7 @@ import helmet from "helmet";
 import {requestId} from "./middleware/requestId";
 import {getCreditRouter} from "./api/credit";
 import {getKnowledgeRouter} from "./api/knowledge";
+import {getServicesRouter} from "./api/services";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
@@ -144,6 +145,7 @@ export const createMainApp = (secrets: {
   app.use("/groups-types", (req, res, next) => getGroupTypesRouter((req as any).dbConfig)(req, res, next));
   app.use("/document-types", (req, res, next) => getDocumentTypesRouter((req as any).dbConfig)(req, res, next));
   app.use("/stats", (req, res, next) => getStatsRouter((req as any).dbConfig)(req, res, next));
+
   app.use("/wallet", async (req, res, next) => {
     try {
       const router = await getWalletRouter((req as any).dbConfig);
@@ -177,6 +179,8 @@ export const createMainApp = (secrets: {
       return next(err);
     }
   });
+
+  app.use("/services", (req, res, next) => getServicesRouter((req as any).dbConfig)(req, res, next));
 
   return app;
 };
