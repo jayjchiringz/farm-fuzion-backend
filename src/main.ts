@@ -40,9 +40,7 @@ import {requestId} from "./middleware/requestId";
 import {getCreditRouter} from "./api/credit";
 import {getKnowledgeRouter} from "./api/knowledge";
 import {getServicesRouter} from "./api/services";
-
-// ✅ Import admin routers (NOT standalone functions)
-import {getUsersRouter} from "./api/admin/getUsers";
+import {adminRouter} from "./api/admin";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
@@ -216,11 +214,8 @@ export const createMainApp = (secrets: {
 
   app.use("/services", (req, res, next) => getServicesRouter((req as any).dbConfig)(req, res, next));
 
-  // ✅ Admin routes - using routers (NOT standalone functions)
-  app.use("/admin/users", (req, res, next) => getUsersRouter((req as any).dbConfig)(req, res, next));
-
-  // Note: The PATCH route for /:userId/role is already handled inside updateUserRoleRouter
-  // So we mount it at /admin/users and it will handle the nested route
+  // Single mount point
+  app.use("/admin/users", (req, res, next) => adminRouter((req as any).dbConfig)(req, res, next));
 
   return app;
 };
