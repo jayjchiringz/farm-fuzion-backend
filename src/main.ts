@@ -40,6 +40,8 @@ import {requestId} from "./middleware/requestId";
 import {getCreditRouter} from "./api/credit";
 import {getKnowledgeRouter} from "./api/knowledge";
 import {getServicesRouter} from "./api/services";
+import {getUsers} from "./api/admin/getUsers";
+import {updateUserRole} from "./api/admin/updateUserRole";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
@@ -222,6 +224,17 @@ export const createMainApp = (secrets: {
   });
 
   app.use("/services", (req, res, next) => getServicesRouter((req as any).dbConfig)(req, res, next));
+
+  // Admin routes - these are Firebase HTTPS functions, not Express routers
+  app.get("/admin/users", (req, res) => {
+    // Cast Express req/res to Firebase Function types
+    return getUsers(req as any, res as any);
+  });
+
+  app.patch("/admin/users/:userId/role", (req, res) => {
+    // Cast Express req/res to Firebase Function types
+    return updateUserRole(req as any, res as any);
+  });
 
   return app;
 };

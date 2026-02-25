@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable max-len */
 /* eslint-disable camelcase */
 import {initDbPool, DbConfig} from "../utils/db";
@@ -409,16 +410,17 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
 
   // ✅ Create Users Table (Central Auth)
   await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        role TEXT NOT NULL CHECK (role IN ('admin', 'sacco', 'farmer')),
-        group_id UUID REFERENCES groups(id),
-        created_at TIMESTAMP DEFAULT now()
-      );
-    `);
+    CREATE TABLE IF NOT EXISTS users (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('admin', 'sacco', 'farmer')),
+      group_id UUID REFERENCES groups(id),
+      created_at TIMESTAMP DEFAULT now()
+    );
+  `);
 
   // Ensure default admin user exists
+  /*
   await pool.query(`
       INSERT INTO users (email, role)
       VALUES ('stephendichu1@gmail.com', 'admin')
@@ -436,6 +438,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       WHERE f.email = u.email
       AND f.user_id IS NULL;
     `);
+  */
 
   // Ensure at least one group exists
   const groupCheck = await pool.query("SELECT id FROM groups LIMIT 1");
@@ -453,12 +456,14 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     fallbackGroupId = newGroup.rows[0].id;
   }
 
+  /*
   await pool.query(`
     INSERT INTO users (email, role, group_id)
     VALUES ('admin@farmfuzion.org', 'sacco', $1)
     ON CONFLICT (email) DO NOTHING;`,
   [fallbackGroupId]
   );
+  */
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS kyc_documents (
@@ -1255,22 +1260,6 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     ADD COLUMN IF NOT EXISTS manual_adjustments INTEGER DEFAULT 0,
     ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP,
     ADD COLUMN IF NOT EXISTS auto_sync BOOLEAN DEFAULT true;
-  `);
-
-  await pool.query(`
-    -- Create inventory_adjustments table for audit trail
-    CREATE TABLE IF NOT EXISTS inventory_adjustments (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      marketplace_product_id UUID REFERENCES marketplace_products(id) ON DELETE CASCADE,
-      farm_product_id UUID REFERENCES farm_products(id) ON DELETE SET NULL,
-      previous_quantity INTEGER NOT NULL,
-      new_quantity INTEGER NOT NULL,
-      change_amount INTEGER NOT NULL,
-      reason TEXT NOT NULL CHECK (reason IN ('marketplace_sale', 'external_sale', 'inventory_correction', 'damage', 'other')),
-      notes TEXT,
-      farmer_id UUID REFERENCES users(id) ON DELETE CASCADE,
-      created_at TIMESTAMP DEFAULT NOW()
-    );
   `);
 
   await pool.query(`
