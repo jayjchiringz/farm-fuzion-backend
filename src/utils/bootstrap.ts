@@ -439,7 +439,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
       AND f.user_id IS NULL;
     `);
   */
-
+  /*
   // Ensure at least one group exists
   const groupCheck = await pool.query("SELECT id FROM groups LIMIT 1");
 
@@ -455,7 +455,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
     fallbackGroupId = newGroup.rows[0].id;
   }
-
+  */
   /*
   await pool.query(`
     INSERT INTO users (email, role, group_id)
