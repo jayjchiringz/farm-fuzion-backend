@@ -323,7 +323,7 @@ export const getServicesRouter = (config: {
   });
 
   // Search services
-  router.get("/services/search", async (req: Request, res: Response): Promise<Response> => {
+  router.get("/search", async (req: Request, res: Response): Promise<Response> => {
     try {
       const {category, provider_id, min_price, max_price, search, page = 1, limit = 10} = req.query;
       const offset = (Number(page) - 1) * Number(limit);
