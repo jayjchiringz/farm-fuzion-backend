@@ -40,12 +40,12 @@ import {requestId} from "./middleware/requestId";
 import {getCreditRouter} from "./api/credit";
 import {getKnowledgeRouter} from "./api/knowledge";
 import {getServicesRouter} from "./api/services";
-import {getUsers} from "./api/admin/getUsers";
-import {updateUserRole} from "./api/admin/updateUserRole";
+
+// ✅ Import admin routers (NOT standalone functions)
+import {getUsersRouter} from "./api/admin/getUsers";
 
 const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
 
-// 💡 FIXED: Use `typeof PGUSER` etc. from caller scope
 export const createMainApp = (secrets: {
   PGUSER: any;
   PGPASS: any;
@@ -62,21 +62,18 @@ export const createMainApp = (secrets: {
   const app = express();
   setupSwagger(app);
 
-  // Then in your createMainApp function, after setting up trust proxy:
-  app.set("trust proxy", 1); // Trust first proxy (Cloud Run/Firebase)
+  app.set("trust proxy", 1);
 
-  // Update your rate limiters:
   const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
+    windowMs: 15 * 60 * 1000,
+    max: 100,
     standardHeaders: true,
     legacyHeaders: false,
     validate: {
-      xForwardedForHeader: false, // Disable this validation since we're behind proxy
-      forwardedHeader: false, // Disable forwarded header validation
+      xForwardedForHeader: false,
+      forwardedHeader: false,
     },
     keyGenerator: (req) => {
-    // Use the IP address from X-Forwarded-For if available
       const forwarded = req.headers["x-forwarded-for"];
       const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded || req.ip;
       return ipKeyGenerator(ip || "0.0.0.0");
@@ -102,7 +99,7 @@ export const createMainApp = (secrets: {
   app.use(
     cors({
       origin: allowedOrigins,
-      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], // ✅ added PUT
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
     })
@@ -126,15 +123,10 @@ export const createMainApp = (secrets: {
   }));
 
   app.use(requestId);
-
-  // Apply after CORS and helmet
   app.use(sanitizeInput);
   app.use("/api", apiLimiter);
   app.use("/auth", authLimiter);
-
   app.use(safeLogger);
-
-  // ✅ ensure OPTIONS preflight always handled
   app.options("*", cors());
 
   app.use((req, res, next) => {
@@ -145,7 +137,6 @@ export const createMainApp = (secrets: {
     }
   });
 
-  // ✅ Instead — extract inside bootstrapDatabase at runtime
   app.use(async (req, res, next) => {
     try {
       const config = {
@@ -161,9 +152,7 @@ export const createMainApp = (secrets: {
       const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
       await bootstrapDatabase(config, FORCE_BOOTSTRAP);
 
-      // ✅ Attach config to req so other routers can use it
       (req as any).dbConfig = config;
-
       next();
     } catch (err) {
       console.error("❌ Bootstrap error:", err);
@@ -171,6 +160,7 @@ export const createMainApp = (secrets: {
     }
   });
 
+  // ✅ Register all routers - ONE registration per path
   app.use("/groups", (req, res, next) => getGroupsRouter((req as any).dbConfig)(req, res, next));
   app.use("/auth", (req, res, next) => getAuthRouter((req as any).dbConfig)(req, res, next));
   app.use("/taxes", (req, res, next) => getTaxesRouter((req as any).dbConfig)(req, res, next));
@@ -197,6 +187,7 @@ export const createMainApp = (secrets: {
       return next(err);
     }
   });
+
   app.use("/market-prices", (req, res, next) => getMarketPricesRouter((req as any).dbConfig)(req, res, next));
 
   app.use("/marketplace", async (req, res, next) => {
@@ -225,16 +216,11 @@ export const createMainApp = (secrets: {
 
   app.use("/services", (req, res, next) => getServicesRouter((req as any).dbConfig)(req, res, next));
 
-  // Admin routes - these are Firebase HTTPS functions, not Express routers
-  app.get("/admin/users", (req, res) => {
-    // Cast Express req/res to Firebase Function types
-    return getUsers(req as any, res as any);
-  });
+  // ✅ Admin routes - using routers (NOT standalone functions)
+  app.use("/admin/users", (req, res, next) => getUsersRouter((req as any).dbConfig)(req, res, next));
 
-  app.patch("/admin/users/:userId/role", (req, res) => {
-    // Cast Express req/res to Firebase Function types
-    return updateUserRole(req as any, res as any);
-  });
+  // Note: The PATCH route for /:userId/role is already handled inside updateUserRoleRouter
+  // So we mount it at /admin/users and it will handle the nested route
 
   return app;
 };
