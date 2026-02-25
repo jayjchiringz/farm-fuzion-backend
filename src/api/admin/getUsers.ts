@@ -2,7 +2,6 @@ import express from "express";
 import {Pool} from "pg";
 import {initDbPool} from "../../utils/db";
 
-// Define the config interface
 interface DbConfig {
   PGUSER: string;
   PGPASS: string;
@@ -29,6 +28,8 @@ export const getUsersRouter = (config: DbConfig) => {
           u.created_at,
           COALESCE(f.first_name, '') as first_name,
           COALESCE(f.last_name, '') as last_name,
+          COALESCE(f.middle_name, '') as middle_name,
+          COALESCE(f.phone, '') as phone,
           g.name as group_name
         FROM users u
         LEFT JOIN farmers f ON u.id = f.user_id

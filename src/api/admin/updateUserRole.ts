@@ -1,9 +1,9 @@
 /* eslint-disable max-len */
-// FarmFuzion_Firebase_MVP_Starter\functions\src\api\admin\updateUserRole.ts
 import express from "express";
 import {Pool} from "pg";
 import {initDbPool} from "../../utils/db";
 
+// Define the config interface
 interface DbConfig {
   PGUSER: string;
   PGPASS: string;
@@ -16,7 +16,6 @@ export const updateUserRoleRouter = (config: DbConfig) => {
   const pool: Pool = initDbPool(config);
   const router = express.Router();
 
-  // This creates the route: PATCH /:userId/role
   router.patch("/:userId/role", async (req: express.Request, res: express.Response) => {
     try {
       const {userId} = req.params;
@@ -39,9 +38,9 @@ export const updateUserRoleRouter = (config: DbConfig) => {
         return res.status(404).json({error: "User not found."});
       }
 
-      // Update the user's role
+      // Update the user's role - REMOVED updated_at since it doesn't exist in your schema
       const result = await pool.query(
-        "UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email, role, created_at",
+        "UPDATE users SET role = $1 WHERE id = $2 RETURNING id, email, role, created_at",
         [role, userId]
       );
 
