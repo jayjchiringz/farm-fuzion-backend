@@ -19,6 +19,7 @@ export const getUsersRouter = (config: DbConfig) => {
       const {limit = 100} = req.query;
       const limitNum = Number(limit);
 
+      // Remove phone column since it doesn't exist
       const result = await pool.query(`
         SELECT 
           u.id,
@@ -29,7 +30,6 @@ export const getUsersRouter = (config: DbConfig) => {
           COALESCE(f.first_name, '') as first_name,
           COALESCE(f.last_name, '') as last_name,
           COALESCE(f.middle_name, '') as middle_name,
-          COALESCE(f.phone, '') as phone,
           g.name as group_name
         FROM users u
         LEFT JOIN farmers f ON u.id = f.user_id
