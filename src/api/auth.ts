@@ -43,16 +43,15 @@ export const getAuthRouter = (config: {
             MAIL_PASS: config.MAIL_PASS,
           });
 
-          // Store the actual role name
           res.status(200).json({
             message: "OTP sent",
-            role: user.role_name || "user", // Use actual role from database
+            role: user.role_name || "user",
             userType: "registered",
           });
           return;
         }
 
-        // Check farmers table as fallback (for backward compatibility)
+        // Check farmers table as fallback
         const farmerResult = await pool.query(
           `SELECT id, email, first_name, last_name 
            FROM farmers WHERE email = $1 LIMIT 1`,
@@ -68,18 +67,16 @@ export const getAuthRouter = (config: {
 
           res.status(200).json({
             message: "OTP sent",
-            role: "farmer", // Farmers are always farmers
+            role: "farmer",
             userType: "farmer",
           });
           return;
         }
 
-        // Email not found in either table
         res.status(404).json({error: "This email is not registered."});
-        return;
       } catch (err) {
         console.error("❌ OTP send failed:", err);
-        res.status(500).send("Internal Server Error");
+        res.status(500).json({error: "Internal Server Error"});
       }
     }
   );
@@ -100,7 +97,7 @@ export const getAuthRouter = (config: {
         return;
       }
 
-      // Try users table first (with full role information)
+      // Try users table first (with full role information) - REMOVED phone column
       const userResult = await pool.query(
         `SELECT 
           u.id,
@@ -111,8 +108,7 @@ export const getAuthRouter = (config: {
           u.group_id,
           u.created_at,
           COALESCE(f.first_name, '') as first_name,
-          COALESCE(f.last_name, '') as last_name,
-          COALESCE(f.phone, '') as phone
+          COALESCE(f.last_name, '') as last_name
          FROM users u
          LEFT JOIN user_roles r ON u.role_id = r.id
          LEFT JOIN farmers f ON u.id = f.user_id
@@ -123,7 +119,6 @@ export const getAuthRouter = (config: {
       if ((userResult.rowCount ?? 0) > 0) {
         const user = userResult.rows[0];
 
-        // Ensure we have a role
         if (!user.role) {
           console.warn(`User ${email} has no role assigned, defaulting to 'farmer'`);
           user.role = "farmer";
@@ -136,19 +131,18 @@ export const getAuthRouter = (config: {
           user: {
             id: user.id,
             email: user.email,
-            role: user.role, // This is the key field for navigation
+            role: user.role,
             role_id: user.role_id,
             role_description: user.role_description,
             first_name: user.first_name,
             last_name: user.last_name,
             group_id: user.group_id,
-            phone: user.phone,
           },
         });
         return;
       }
 
-      // Try farmers table as fallback
+      // Try farmers table as fallback - REMOVED phone column
       const farmerResult = await pool.query(
         `SELECT 
           id,
@@ -156,8 +150,7 @@ export const getAuthRouter = (config: {
           middle_name,
           last_name,
           email,
-          group_id,
-          phone
+          group_id
          FROM farmers 
          WHERE email = $1 LIMIT 1`,
         [email]
@@ -171,11 +164,11 @@ export const getAuthRouter = (config: {
           user: {
             id: farmer.id,
             email: farmer.email,
-            role: "farmer", // Farmers always have farmer role
+            role: "farmer",
             first_name: farmer.first_name,
             last_name: farmer.last_name,
+            middle_name: farmer.middle_name,
             group_id: farmer.group_id,
-            phone: farmer.phone,
           },
         });
         return;
