@@ -1617,13 +1617,26 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     CREATE INDEX IF NOT EXISTS idx_service_reviews_rating ON service_reviews(rating);
   `);
 
-  await pool.query(`  
+  /*
+  await pool.query(`
     -- First, drop the existing constraint
     ALTER TABLE users DROP CONSTRAINT users_role_check;
 
     -- Add a new constraint that's case-insensitive
-    ALTER TABLE users ADD CONSTRAINT users_role_check 
+    ALTER TABLE users ADD CONSTRAINT users_role_check
       CHECK (role IN ('admin', 'sacco', 'farmer'));
+  `);
+  */
+
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id UUID REFERENCES user_roles(id);
+  `);
+
+  await pool.query(`
+    UPDATE users u 
+    SET role_id = r.id 
+    FROM user_roles r 
+    WHERE LOWER(r.name) = LOWER(u.role);
   `);
 
   // 🧪 Insert the tag only if not forced
