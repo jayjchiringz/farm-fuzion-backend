@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import express, {Request, Response} from "express";
 import {generateOtp, sendOtpByEmail, verifyOtp} from "../services/otp";
 import {initDbPool} from "../utils/db";
@@ -25,36 +26,57 @@ export const getAuthRouter = (config: {
       }
 
       try {
-        let userType: "user" | "farmer" | null = null;
-
-        // Try users table first
+        // Check users table first (with role information)
         const userResult = await pool.query(
-          "SELECT email FROM users WHERE email = $1 LIMIT 1",
+          `SELECT u.id, u.email, u.role_id, r.name as role_name
+           FROM users u
+           LEFT JOIN user_roles r ON u.role_id = r.id
+           WHERE u.email = $1 LIMIT 1`,
           [email]
         );
 
         if ((userResult.rowCount ?? 0) > 0) {
-          userType = "user";
-        } else {
-          // Fallback to farmers
-          const farmerResult = await pool.query(
-            "SELECT email FROM farmers WHERE email = $1 LIMIT 1",
-            [email]
-          );
-          if ((farmerResult.rowCount ?? 0) > 0) userType = "farmer";
-        }
+          const user = userResult.rows[0];
+          const otp = generateOtp(email);
+          await sendOtpByEmail(email, otp, {
+            MAIL_USER: config.MAIL_USER,
+            MAIL_PASS: config.MAIL_PASS,
+          });
 
-        if (!userType) {
-          res.status(404).json({error: "This email is not registered."});
+          // Store the actual role name
+          res.status(200).json({
+            message: "OTP sent",
+            role: user.role_name || "user", // Use actual role from database
+            userType: "registered",
+          });
           return;
         }
 
-        const otp = generateOtp(email);
-        await sendOtpByEmail(email, otp, {
-          MAIL_USER: config.MAIL_USER,
-          MAIL_PASS: config.MAIL_PASS,
-        });
-        res.status(200).json({message: "OTP sent", role: userType});
+        // Check farmers table as fallback (for backward compatibility)
+        const farmerResult = await pool.query(
+          `SELECT id, email, first_name, last_name 
+           FROM farmers WHERE email = $1 LIMIT 1`,
+          [email]
+        );
+
+        if ((farmerResult.rowCount ?? 0) > 0) {
+          const otp = generateOtp(email);
+          await sendOtpByEmail(email, otp, {
+            MAIL_USER: config.MAIL_USER,
+            MAIL_PASS: config.MAIL_PASS,
+          });
+
+          res.status(200).json({
+            message: "OTP sent",
+            role: "farmer", // Farmers are always farmers
+            userType: "farmer",
+          });
+          return;
+        }
+
+        // Email not found in either table
+        res.status(404).json({error: "This email is not registered."});
+        return;
       } catch (err) {
         console.error("❌ OTP send failed:", err);
         res.status(500).send("Internal Server Error");
@@ -78,34 +100,83 @@ export const getAuthRouter = (config: {
         return;
       }
 
-      // Try user
+      // Try users table first (with full role information)
       const userResult = await pool.query(
-        `SELECT id, email, role, group_id, created_at
-         FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1)) LIMIT 1`,
+        `SELECT 
+          u.id,
+          u.email,
+          u.role_id,
+          r.name as role,
+          r.description as role_description,
+          u.group_id,
+          u.created_at,
+          COALESCE(f.first_name, '') as first_name,
+          COALESCE(f.last_name, '') as last_name,
+          COALESCE(f.phone, '') as phone
+         FROM users u
+         LEFT JOIN user_roles r ON u.role_id = r.id
+         LEFT JOIN farmers f ON u.id = f.user_id
+         WHERE u.email = $1 LIMIT 1`,
         [email]
       );
 
       if ((userResult.rowCount ?? 0) > 0) {
+        const user = userResult.rows[0];
+
+        // Ensure we have a role
+        if (!user.role) {
+          console.warn(`User ${email} has no role assigned, defaulting to 'farmer'`);
+          user.role = "farmer";
+        }
+
+        console.log(`✅ User authenticated: ${email}, role: ${user.role}`);
+
         res.status(200).json({
           message: "OTP verified ✅",
-          role: "user",
-          user: userResult.rows[0],
+          user: {
+            id: user.id,
+            email: user.email,
+            role: user.role, // This is the key field for navigation
+            role_id: user.role_id,
+            role_description: user.role_description,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            group_id: user.group_id,
+            phone: user.phone,
+          },
         });
         return;
       }
 
-      // Try farmer
+      // Try farmers table as fallback
       const farmerResult = await pool.query(
-        `SELECT id, first_name, middle_name, last_name, email, group_id
-         FROM farmers WHERE LOWER(TRIM(email)) = LOWER(TRIM($1)) LIMIT 1`,
+        `SELECT 
+          id,
+          first_name,
+          middle_name,
+          last_name,
+          email,
+          group_id,
+          phone
+         FROM farmers 
+         WHERE email = $1 LIMIT 1`,
         [email]
       );
 
       if ((farmerResult.rowCount ?? 0) > 0) {
+        const farmer = farmerResult.rows[0];
+
         res.status(200).json({
           message: "OTP verified ✅",
-          role: "farmer",
-          user: farmerResult.rows[0],
+          user: {
+            id: farmer.id,
+            email: farmer.email,
+            role: "farmer", // Farmers always have farmer role
+            first_name: farmer.first_name,
+            last_name: farmer.last_name,
+            group_id: farmer.group_id,
+            phone: farmer.phone,
+          },
         });
         return;
       }
