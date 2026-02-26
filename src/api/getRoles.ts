@@ -1,3 +1,4 @@
+// FarmFuzion_Firebase_MVP_Starter\functions\src\api\getRoles.ts
 /* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
@@ -16,34 +17,24 @@ const PGPORT = defineSecret("PGPORT");
 
 const app = express();
 
-// ✅ More specific CORS configuration
+// ✅ Proper CORS configuration
 app.use(
   cors({
     origin: "https://farm-fuzion-abdf3.web.app",
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: false,
+    credentials: true,
     optionsSuccessStatus: 204,
   })
 );
 
-// Simplify the OPTIONS handler
-app.options("*", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "https://farm-fuzion-abdf3.web.app");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  // ❌ Remove Access-Control-Allow-Credentials header
-  res.status(204).send("");
-});
+// Handle preflight
+app.options("*", cors());
 
 app.use(express.json());
 
 // ✅ GET route
 app.get("/", async (req, res) => {
-  // Set CORS headers explicitly for GET requests
-  res.setHeader("Access-Control-Allow-Origin", "https://farm-fuzion-abdf3.web.app");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-
   try {
     const pool = initDbPool({
       PGUSER: process.env.PGUSER!,
@@ -54,7 +45,7 @@ app.get("/", async (req, res) => {
     });
 
     const result = await pool.query(`
-      SELECT id, name, description
+      SELECT id, name, description, created_at
       FROM user_roles
       ORDER BY name ASC
     `);
@@ -75,8 +66,8 @@ export const getRoles = onRequest(
     secrets: [PGUSER, PGPASS, PGHOST, PGDB, PGPORT],
     timeoutSeconds: 60,
     memory: "512MiB",
-    invoker: "public", // ✅ This is the key! Allows public access
-    cors: true,
+    invoker: "public", // ✅ This allows public access
+    cors: true, // ✅ Enable CORS at function level
   },
   app
 );
