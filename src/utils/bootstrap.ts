@@ -1628,15 +1628,31 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
   */
 
+  /*
   await pool.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id UUID REFERENCES user_roles(id);
+  `);
+
+  await pool.query(`
+    UPDATE users u
+    SET role_id = r.id
+    FROM user_roles r
+    WHERE LOWER(r.name) = LOWER(u.role);
+  `);
+  */
+  await pool.query(`
+    INSERT INTO user_roles (name, description) 
+    SELECT DISTINCT LOWER(role), 'Auto-created from migration'
+    FROM users 
+    WHERE LOWER(role) NOT IN (SELECT LOWER(name) FROM user_roles);
   `);
 
   await pool.query(`
     UPDATE users u 
     SET role_id = r.id 
     FROM user_roles r 
-    WHERE LOWER(r.name) = LOWER(u.role);
+    WHERE LOWER(r.name) = LOWER(u.role)
+    AND u.role_id IS NULL;
   `);
 
   // 🧪 Insert the tag only if not forced
