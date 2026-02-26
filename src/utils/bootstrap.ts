@@ -1639,20 +1639,29 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     FROM user_roles r
     WHERE LOWER(r.name) = LOWER(u.role);
   `);
-  */
+
   await pool.query(`
-    INSERT INTO user_roles (name, description) 
+    INSERT INTO user_roles (name, description)
     SELECT DISTINCT LOWER(role), 'Auto-created from migration'
-    FROM users 
+    FROM users
     WHERE LOWER(role) NOT IN (SELECT LOWER(name) FROM user_roles);
   `);
 
   await pool.query(`
-    UPDATE users u 
-    SET role_id = r.id 
-    FROM user_roles r 
+    UPDATE users u
+    SET role_id = r.id
+    FROM user_roles r
     WHERE LOWER(r.name) = LOWER(u.role)
     AND u.role_id IS NULL;
+  `);
+  */
+
+  await pool.query(`
+    ALTER TABLE users ALTER COLUMN role_id SET NOT NULL;
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id);
   `);
 
   // 🧪 Insert the tag only if not forced
