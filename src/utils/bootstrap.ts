@@ -1654,7 +1654,6 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     WHERE LOWER(r.name) = LOWER(u.role)
     AND u.role_id IS NULL;
   `);
-  */
 
   await pool.query(`
     ALTER TABLE users ALTER COLUMN role_id SET NOT NULL;
@@ -1663,6 +1662,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id);
   `);
+  */
 
   // 🧪 Insert the tag only if not forced
   if (!force) {
