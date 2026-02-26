@@ -1,3 +1,4 @@
+// FarmFuzion_Firebase_MVP_Starter\functions\src\api\admin\getUsers.ts
 import express from "express";
 import {Pool} from "pg";
 import {initDbPool} from "../../utils/db";
@@ -19,7 +20,6 @@ export const getUsersRouter = (config: DbConfig) => {
       const {limit = 100} = req.query;
       const limitNum = Number(limit);
 
-      // Remove phone column since it doesn't exist
       const result = await pool.query(`
         SELECT 
           u.id,
