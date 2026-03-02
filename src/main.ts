@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable import/no-duplicates */
 /* eslint-disable import/no-named-as-default */
 /* eslint-disable max-len */
@@ -219,3 +220,31 @@ export const createMainApp = (secrets: {
 
   return app;
 };
+
+// This allows the same app to work with both Firebase Functions and Express server
+if (require.main === module) {
+  // This file is being run directly as a script
+  const dotenv = require("dotenv");
+  dotenv.config();
+
+  const secrets = {
+    PGUSER: {value: () => process.env.PGUSER},
+    PGPASS: {value: () => process.env.PGPASS},
+    PGHOST: {value: () => process.env.PGHOST},
+    PGDB: {value: () => process.env.PGDB},
+    PGPORT: {value: () => process.env.PGPORT},
+    MAIL_USER: {value: () => process.env.MAIL_USER},
+    MAIL_PASS: {value: () => process.env.MAIL_PASS},
+    MSIMBO_MERCHANT_ID: {value: () => process.env.MSIMBO_MERCHANT_ID},
+    MSIMBO_SECRET_KEY: {value: () => process.env.MSIMBO_SECRET_KEY},
+    MSIMBO_PUBLIC_ID: {value: () => process.env.MSIMBO_PUBLIC_ID},
+    SILICONFLOW_API_KEY: {value: () => process.env.SILICONFLOW_API_KEY},
+  };
+
+  const app = createMainApp(secrets);
+  const port = process.env.PORT || 3001;
+
+  app.listen(port, () => {
+    console.log(`🚀 Server running on port ${port}`);
+  });
+}

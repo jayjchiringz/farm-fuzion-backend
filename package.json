@@ -1,21 +1,23 @@
 {
-  "name": "functions",
+  "name": "farmfuzion-api",
+  "version": "1.0.0",
   "type": "commonjs",
   "scripts": {
     "generate:api": "openapi-typescript https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api/docs-json --output src/types/api.d.ts",
     "lint": "eslint --ext .js,.ts .",
-    "build": "tsc",
+    "build": "node --max-old-space-size=512 ./node_modules/typescript/bin/tsc -p tsconfig.build.json",
     "build:watch": "tsc --watch",
-    "serve": "npm run build && firebase emulators:start --only functions",
-    "shell": "npm run build && firebase functions:shell",
-    "start": "npm run shell",
-    "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "serve": "npm run build && node lib/server.js",
+    "start": "node lib/server.js",
+    "dev": "ts-node src/server.ts",
+    "deploy": "echo 'Deploying to Render...'",
+    "logs": "echo 'Logs available in Render dashboard'",
+    "postinstall": "npm run build"
   },
   "engines": {
-    "node": "22"
+    "node": "18"
   },
-  "main": "lib/index.js",
+  "main": "lib/server.js",
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^6.2.0",
     "@google-cloud/storage": "^6.12.0",
@@ -27,8 +29,6 @@
     "dotenv": "^16.5.0",
     "express": "^4.18.2",
     "express-rate-limit": "^8.2.1",
-    "firebase-admin": "^11.11.1",
-    "firebase-functions": "^6.4.0",
     "helmet": "^8.1.0",
     "joi": "^17.13.3",
     "multer": "^2.0.2",
@@ -51,7 +51,7 @@
     "@types/express-rate-limit": "^5.1.3",
     "@types/helmet": "^0.0.48",
     "@types/multer": "^2.0.0",
-    "@types/node": "^24.0.14",
+    "@types/node": "^20.11.0",
     "@types/nodemailer": "^6.4.17",
     "@types/papaparse": "^5.3.16",
     "@types/pg": "^8.15.1",
@@ -63,20 +63,9 @@
     "eslint": "^8.9.0",
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-import": "^2.25.4",
-    "firebase-functions-test": "^3.1.0",
     "openapi-typescript": "^7.9.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.3.3"
   },
-  "private": true,
-  "firebase": {
-    "functions": {
-      "predeploy": [
-        "npm run build"
-      ]
-    }
-  },
-  "overrides": {
-    "@google-cloud/storage": "^6.12.0"
-  }
+  "private": true
 }
