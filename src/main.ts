@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable import/no-duplicates */
 /* eslint-disable import/no-named-as-default */
@@ -43,7 +44,13 @@ import {getKnowledgeRouter} from "./api/knowledge";
 import {getServicesRouter} from "./api/services";
 import {adminRouter} from "./api/admin";
 
-const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
+// Update allowed origins to include Vercel frontend
+const allowedOrigins = [
+  "https://farm-fuzion-abdf3.web.app",
+  "https://farm-fuzion-frontend-vercel.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
 
 export const createMainApp = (secrets: {
   PGUSER: any;
@@ -136,6 +143,7 @@ export const createMainApp = (secrets: {
     }
   });
 
+  // Bootstrap middleware with better error handling
   app.use(async (req, res, next) => {
     try {
       const config = {
@@ -144,9 +152,12 @@ export const createMainApp = (secrets: {
         PGHOST: secrets.PGHOST.value(),
         PGDB: secrets.PGDB.value(),
         PGPORT: secrets.PGPORT.value(),
-        MAIL_USER: secrets.MAIL_USER.value(),
-        MAIL_PASS: secrets.MAIL_PASS.value(),
+        MAIL_USER: secrets.MAIL_USER?.value(),
+        MAIL_PASS: secrets.MAIL_PASS?.value(),
       };
+
+      // Log mail config status (without exposing values)
+      console.log("📧 Mail configured:", !!(config.MAIL_USER && config.MAIL_PASS));
 
       const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
       await bootstrapDatabase(config, FORCE_BOOTSTRAP);
@@ -159,64 +170,86 @@ export const createMainApp = (secrets: {
     }
   });
 
-  // ✅ Register all routers - ONE registration per path
-  app.use("/groups", (req, res, next) => getGroupsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/auth", (req, res, next) => getAuthRouter((req as any).dbConfig)(req, res, next));
-  app.use("/taxes", (req, res, next) => getTaxesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/loans", (req, res, next) => getLoansRouter((req as any).dbConfig)(req, res, next));
-  app.use("/risks", (req, res, next) => getRisksRouter((req as any).dbConfig)(req, res, next));
-  app.use("/farmers", (req, res, next) => getFarmersRouter((req as any).dbConfig)(req, res, next));
-  app.use("/payments", (req, res, next) => getPaymentsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/directors", (req, res, next) => getDirectorsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/logistics", (req, res, next) => getLogisticsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/financials", (req, res, next) => getFinancialsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/businesses", (req, res, next) => getBusinessesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/declarations", (req, res, next) => getDeclarationsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/farm-products", (req, res, next) => getFarmProductsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/loan-repayments", (req, res, next) => getLoanRepaymentsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/groups-types", (req, res, next) => getGroupTypesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/document-types", (req, res, next) => getDocumentTypesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/stats", (req, res, next) => getStatsRouter((req as any).dbConfig)(req, res, next));
+  // Health check endpoint for Render
+  app.get("/health", (req, res) => {
+    res.status(200).json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
+    });
+  });
 
+  // Register all routers
+  const registerRouter = (path: string, getRouter: (config: any) => express.Router): void => {
+    app.use(path, (req, res, next) => {
+      try {
+        const router = getRouter((req as any).dbConfig);
+        router(req, res, next);
+      } catch (err) {
+        next(err);
+      }
+    });
+  };
+
+  registerRouter("/groups", getGroupsRouter);
+  registerRouter("/auth", getAuthRouter);
+  registerRouter("/taxes", getTaxesRouter);
+  registerRouter("/loans", getLoansRouter);
+  registerRouter("/risks", getRisksRouter);
+  registerRouter("/farmers", getFarmersRouter);
+  registerRouter("/payments", getPaymentsRouter);
+  registerRouter("/directors", getDirectorsRouter);
+  registerRouter("/logistics", getLogisticsRouter);
+  registerRouter("/financials", getFinancialsRouter);
+  registerRouter("/businesses", getBusinessesRouter);
+  registerRouter("/declarations", getDeclarationsRouter);
+  registerRouter("/farm-products", getFarmProductsRouter);
+  registerRouter("/loan-repayments", getLoanRepaymentsRouter);
+  registerRouter("/groups-types", getGroupTypesRouter);
+  registerRouter("/document-types", getDocumentTypesRouter);
+  registerRouter("/stats", getStatsRouter);
+  registerRouter("/market-prices", getMarketPricesRouter);
+  registerRouter("/farm-activities", getFarmActivitiesRouter);
+  registerRouter("/credit", getCreditRouter);
+  registerRouter("/services", getServicesRouter);
+  registerRouter("/admin/users", adminRouter);
+
+  // Async routers
   app.use("/wallet", async (req, res, next) => {
     try {
       const router = await getWalletRouter((req as any).dbConfig);
-      return router(req, res, next);
+      router(req, res, next);
     } catch (err) {
-      return next(err);
+      next(err);
     }
   });
-
-  app.use("/market-prices", (req, res, next) => getMarketPricesRouter((req as any).dbConfig)(req, res, next));
 
   app.use("/marketplace", async (req, res, next) => {
     try {
       const router = await getMarketplaceRouter((req as any).dbConfig);
-      return router(req, res, next);
+      router(req, res, next);
     } catch (err) {
-      return next(err);
+      next(err);
     }
   });
-
-  app.use("/farm-activities", (req, res, next) =>
-    getFarmActivitiesRouter((req as any).dbConfig)(req, res, next)
-  );
-
-  app.use("/credit", (req, res, next) => getCreditRouter((req as any).dbConfig)(req, res, next));
 
   app.use("/knowledge", async (req, res, next) => {
     try {
       const router = await getKnowledgeRouter((req as any).dbConfig);
-      return router(req, res, next);
+      router(req, res, next);
     } catch (err) {
-      return next(err);
+      next(err);
     }
   });
 
-  app.use("/services", (req, res, next) => getServicesRouter((req as any).dbConfig)(req, res, next));
-
-  // Single mount point
-  app.use("/admin/users", (req, res, next) => adminRouter((req as any).dbConfig)(req, res, next));
+  // Error handling middleware
+  app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("❌ Unhandled error:", err);
+    res.status(500).json({
+      error: "Internal server error",
+      message: err.message,
+    });
+  });
 
   return app;
 };
@@ -246,5 +279,6 @@ if (require.main === module) {
 
   app.listen(port, () => {
     console.log(`🚀 Server running on port ${port}`);
+    console.log(`📧 Mail configured: ${!!(process.env.MAIL_USER && process.env.MAIL_PASS)}`);
   });
 }

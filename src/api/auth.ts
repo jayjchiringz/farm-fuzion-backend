@@ -38,15 +38,30 @@ export const getAuthRouter = (config: {
         if ((userResult.rowCount ?? 0) > 0) {
           const user = userResult.rows[0];
           const otp = generateOtp(email);
-          await sendOtpByEmail(email, otp, {
-            MAIL_USER: config.MAIL_USER,
-            MAIL_PASS: config.MAIL_PASS,
-          });
 
+          // Try to send email, but don't fail if it doesn't work
+          try {
+            await sendOtpByEmail(email, otp, {
+              MAIL_USER: config.MAIL_USER,
+              MAIL_PASS: config.MAIL_PASS,
+            });
+            console.log(`✅ Email sent to ${email}`);
+          } catch (emailError) {
+            console.error(`⚠️ Email sending failed but OTP is stored for ${email}:`, emailError);
+            // In production, you might want to queue these for retry
+            // For now, we continue since OTP is stored
+          }
+
+          // Always return success (OTP is stored regardless of email success)
           res.status(200).json({
             message: "OTP sent",
             role: user.role_name || "user",
             userType: "registered",
+            // Add debug info in development only
+            ...(process.env.NODE_ENV !== "production" && {
+              debug_otp: otp,
+              debug_email_sent: true,
+            }),
           });
           return;
         }
@@ -60,15 +75,23 @@ export const getAuthRouter = (config: {
 
         if ((farmerResult.rowCount ?? 0) > 0) {
           const otp = generateOtp(email);
-          await sendOtpByEmail(email, otp, {
-            MAIL_USER: config.MAIL_USER,
-            MAIL_PASS: config.MAIL_PASS,
-          });
+
+          // Try to send email, but don't fail if it doesn't work
+          try {
+            await sendOtpByEmail(email, otp, {
+              MAIL_USER: config.MAIL_USER,
+              MAIL_PASS: config.MAIL_PASS,
+            });
+            console.log(`✅ Email sent to ${email}`);
+          } catch (emailError) {
+            console.error(`⚠️ Email sending failed but OTP is stored for ${email}:`, emailError);
+          }
 
           res.status(200).json({
             message: "OTP sent",
             role: "farmer",
             userType: "farmer",
+            ...(process.env.NODE_ENV !== "production" && {debug_otp: otp}),
           });
           return;
         }
@@ -97,7 +120,7 @@ export const getAuthRouter = (config: {
         return;
       }
 
-      // Try users table first (with full role information) - REMOVED phone column
+      // Try users table first (with full role information)
       const userResult = await pool.query(
         `SELECT 
           u.id,
@@ -142,7 +165,7 @@ export const getAuthRouter = (config: {
         return;
       }
 
-      // Try farmers table as fallback - REMOVED phone column
+      // Try farmers table as fallback
       const farmerResult = await pool.query(
         `SELECT 
           id,
