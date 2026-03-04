@@ -43,6 +43,7 @@ import {getCreditRouter} from "./api/credit";
 import {getKnowledgeRouter} from "./api/knowledge";
 import {getServicesRouter} from "./api/services";
 import {adminRouter} from "./api/admin";
+import {getRolesRouter} from "./api/roles";
 
 // Update allowed origins to include Vercel frontend
 const allowedOrigins = [
@@ -51,6 +52,21 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
 ];
+
+// Add this interface export for type safety
+export interface AppConfig {
+  PGUSER: string;
+  PGPASS: string;
+  PGHOST: string;
+  PGDB: string;
+  PGPORT: string;
+  MAIL_USER?: string;
+  MAIL_PASS?: string;
+  MSIMBO_MERCHANT_ID?: string;
+  MSIMBO_SECRET_KEY?: string;
+  MSIMBO_PUBLIC_ID?: string;
+  SILICONFLOW_API_KEY?: string;
+}
 
 export const createMainApp = (secrets: {
   PGUSER: any;
@@ -251,6 +267,9 @@ export const createMainApp = (secrets: {
     });
   });
 
+  // Add with other route registrations
+  app.use("/roles", (req, res, next) => getRolesRouter((req as any).dbConfig)(req, res, next));
+
   return app;
 };
 
@@ -282,3 +301,5 @@ if (require.main === module) {
     console.log(`📧 Mail configured: ${!!(process.env.MAIL_USER && process.env.MAIL_PASS)}`);
   });
 }
+
+

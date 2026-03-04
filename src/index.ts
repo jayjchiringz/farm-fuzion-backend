@@ -30,8 +30,4 @@ export const api = onRequest(
 
 // 🔥 Individually exported Cloud Functions
 export {registerWithDocs} from "./registerWithDocs";
-export {getRoles} from "./api/getRoles";
-export {updateRole} from "./api/updateRole";
-export {deleteRole} from "./api/deleteRole";
-export {createRole} from "./api/createRole";
 // export {topupAirtel} from "./api/topup/airtel";
