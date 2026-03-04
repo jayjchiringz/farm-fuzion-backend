@@ -16,8 +16,8 @@ declare global {
         PGHOST: string;
         PGDB: string;
         PGPORT: string;
-        MAIL_USER: string;
-        MAIL_PASS: string;
+        MAIL_USER?: string; // Make these optional to match AppConfig
+        MAIL_PASS?: string; // Make these optional to match AppConfig
       };
     }
   }

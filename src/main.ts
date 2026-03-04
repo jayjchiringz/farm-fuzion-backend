@@ -53,13 +53,17 @@ const allowedOrigins = [
   "http://localhost:5173",
 ];
 
-// Add this interface export for type safety
-export interface AppConfig {
+// Database config (required for all routers)
+export interface DbConfig {
   PGUSER: string;
   PGPASS: string;
   PGHOST: string;
   PGDB: string;
   PGPORT: string;
+}
+
+// Full app config with optional mail settings
+export interface AppConfig extends DbConfig {
   MAIL_USER?: string;
   MAIL_PASS?: string;
   MSIMBO_MERCHANT_ID?: string;
@@ -68,19 +72,18 @@ export interface AppConfig {
   SILICONFLOW_API_KEY?: string;
 }
 
-export const createMainApp = (secrets: {
-  PGUSER: any;
-  PGPASS: any;
-  PGHOST: any;
-  PGDB: any;
-  PGPORT: any;
-  MAIL_USER: any;
-  MAIL_PASS: any;
-  MSIMBO_MERCHANT_ID: any;
-  MSIMBO_SECRET_KEY: any;
-  MSIMBO_PUBLIC_ID: any;
-  SILICONFLOW_API_KEY: any;
-}) => {
+// Extend Express Request to include dbConfig
+interface RequestWithConfig extends express.Request {
+  dbConfig?: DbConfig; // Use DbConfig here, not AppConfig
+}
+
+// Define error interface for error handler
+interface AppError extends Error {
+  status?: number;
+  code?: string;
+}
+
+export const createMainApp = (config: AppConfig) => {
   const app = express();
   setupSwagger(app);
 
@@ -151,7 +154,7 @@ export const createMainApp = (secrets: {
   app.use(safeLogger);
   app.options("*", cors());
 
-  app.use((req, res, next) => {
+  app.use((req: RequestWithConfig, res, next) => {
     if (req.is("application/json")) {
       express.json()(req, res, next);
     } else {
@@ -159,29 +162,27 @@ export const createMainApp = (secrets: {
     }
   });
 
-  // Bootstrap middleware with better error handling
-  app.use(async (req, res, next) => {
+  // Bootstrap middleware - now using config directly
+  app.use(async (req: RequestWithConfig, res, next) => {
     try {
-      const config = {
-        PGUSER: secrets.PGUSER.value(),
-        PGPASS: secrets.PGPASS.value(),
-        PGHOST: secrets.PGHOST.value(),
-        PGDB: secrets.PGDB.value(),
-        PGPORT: secrets.PGPORT.value(),
-        MAIL_USER: secrets.MAIL_USER?.value(),
-        MAIL_PASS: secrets.MAIL_PASS?.value(),
-      };
-
       // Log mail config status (without exposing values)
       console.log("📧 Mail configured:", !!(config.MAIL_USER && config.MAIL_PASS));
 
       const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
       await bootstrapDatabase(config, FORCE_BOOTSTRAP);
 
-      (req as any).dbConfig = config;
+      // Store only the database config on the request
+      req.dbConfig = {
+        PGUSER: config.PGUSER,
+        PGPASS: config.PGPASS,
+        PGHOST: config.PGHOST,
+        PGDB: config.PGDB,
+        PGPORT: config.PGPORT,
+      };
       next();
-    } catch (err) {
-      console.error("❌ Bootstrap error:", err);
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error("❌ Bootstrap error:", error.message);
       res.status(500).json({error: "Bootstrap failed"});
     }
   });
@@ -192,15 +193,20 @@ export const createMainApp = (secrets: {
       status: "ok",
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || "development",
+      mail_configured: !!(config.MAIL_USER && config.MAIL_PASS),
     });
   });
 
-  // Register all routers
+  // Register all routers with proper typing
   const registerRouter = (path: string, getRouter: (config: any) => express.Router): void => {
-    app.use(path, (req, res, next) => {
+    app.use(path, (req: RequestWithConfig, res, next) => {
       try {
-        const router = getRouter((req as any).dbConfig);
-        router(req, res, next);
+        if (!req.dbConfig) {
+          throw new Error("Database configuration not available");
+        }
+        // Pass the full config to routers that need it
+        const router = getRouter(config);
+        router(req as any, res, next); // ✅ Type assertion
       } catch (err) {
         next(err);
       }
@@ -229,46 +235,61 @@ export const createMainApp = (secrets: {
   registerRouter("/credit", getCreditRouter);
   registerRouter("/services", getServicesRouter);
   registerRouter("/admin/users", adminRouter);
+  registerRouter("/roles", getRolesRouter);
 
   // Async routers
-  app.use("/wallet", async (req, res, next) => {
+  app.use("/wallet", async (req: RequestWithConfig, res, next) => {
     try {
-      const router = await getWalletRouter((req as any).dbConfig);
-      router(req, res, next);
+      if (!req.dbConfig) {
+        throw new Error("Database configuration not available");
+      }
+      const router = await getWalletRouter(config);
+      router(req as any, res, next); // ✅ Add 'as any' here
     } catch (err) {
       next(err);
     }
   });
 
-  app.use("/marketplace", async (req, res, next) => {
+  app.use("/marketplace", async (req: RequestWithConfig, res, next) => {
     try {
-      const router = await getMarketplaceRouter((req as any).dbConfig);
-      router(req, res, next);
+      if (!req.dbConfig) {
+        throw new Error("Database configuration not available");
+      }
+      const router = await getMarketplaceRouter(config);
+      router(req as any, res, next); // ✅ Add 'as any' here
     } catch (err) {
       next(err);
     }
   });
 
-  app.use("/knowledge", async (req, res, next) => {
+  app.use("/knowledge", async (req: RequestWithConfig, res, next) => {
     try {
-      const router = await getKnowledgeRouter((req as any).dbConfig);
-      router(req, res, next);
+      if (!req.dbConfig) {
+        throw new Error("Database configuration not available");
+      }
+      const router = await getKnowledgeRouter(config);
+      router(req as any, res, next); // ✅ Add 'as any' here
     } catch (err) {
       next(err);
     }
   });
 
-  // Error handling middleware
-  app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error("❌ Unhandled error:", err);
-    res.status(500).json({
-      error: "Internal server error",
+  // Error handling middleware with proper typing
+  app.use((err: AppError, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("❌ Unhandled error:", {
+      name: err.name,
       message: err.message,
+      stack: err.stack,
+      status: err.status,
+      code: err.code,
+    });
+
+    res.status(err.status || 500).json({
+      error: "Internal server error",
+      message: err.message || "An unexpected error occurred",
+      ...(process.env.NODE_ENV === "development" && {stack: err.stack}),
     });
   });
-
-  // Add with other route registrations
-  app.use("/roles", (req, res, next) => getRolesRouter((req as any).dbConfig)(req, res, next));
 
   return app;
 };
@@ -279,27 +300,36 @@ if (require.main === module) {
   const dotenv = require("dotenv");
   dotenv.config();
 
-  const secrets = {
-    PGUSER: {value: () => process.env.PGUSER},
-    PGPASS: {value: () => process.env.PGPASS},
-    PGHOST: {value: () => process.env.PGHOST},
-    PGDB: {value: () => process.env.PGDB},
-    PGPORT: {value: () => process.env.PGPORT},
-    MAIL_USER: {value: () => process.env.MAIL_USER},
-    MAIL_PASS: {value: () => process.env.MAIL_PASS},
-    MSIMBO_MERCHANT_ID: {value: () => process.env.MSIMBO_MERCHANT_ID},
-    MSIMBO_SECRET_KEY: {value: () => process.env.MSIMBO_SECRET_KEY},
-    MSIMBO_PUBLIC_ID: {value: () => process.env.MSIMBO_PUBLIC_ID},
-    SILICONFLOW_API_KEY: {value: () => process.env.SILICONFLOW_API_KEY},
+  // Load config directly from environment variables
+  const config: AppConfig = {
+    PGUSER: process.env.PGUSER!,
+    PGPASS: process.env.PGPASS!,
+    PGHOST: process.env.PGHOST!,
+    PGDB: process.env.PGDB!,
+    PGPORT: process.env.PGPORT!,
+    MAIL_USER: process.env.MAIL_USER,
+    MAIL_PASS: process.env.MAIL_PASS,
+    MSIMBO_MERCHANT_ID: process.env.MSIMBO_MERCHANT_ID,
+    MSIMBO_SECRET_KEY: process.env.MSIMBO_SECRET_KEY,
+    MSIMBO_PUBLIC_ID: process.env.MSIMBO_PUBLIC_ID,
+    SILICONFLOW_API_KEY: process.env.SILICONFLOW_API_KEY,
   };
 
-  const app = createMainApp(secrets);
+  // Validate required database config
+  const requiredDbVars = ["PGUSER", "PGPASS", "PGHOST", "PGDB", "PGPORT"];
+  for (const varName of requiredDbVars) {
+    if (!process.env[varName]) {
+      console.error(`❌ Missing required environment variable: ${varName}`);
+      process.exit(1);
+    }
+  }
+
+  const app = createMainApp(config);
   const port = process.env.PORT || 3001;
 
   app.listen(port, () => {
     console.log(`🚀 Server running on port ${port}`);
-    console.log(`📧 Mail configured: ${!!(process.env.MAIL_USER && process.env.MAIL_PASS)}`);
+    console.log(`📧 Mail configured: ${!!(config.MAIL_USER && config.MAIL_PASS)}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
   });
 }
-
-
