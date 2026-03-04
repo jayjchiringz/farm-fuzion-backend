@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable max-len */
 // functions/src/server.ts
 import {createMainApp} from "./main";
@@ -26,12 +27,13 @@ console.log("🔧 Starting FarmFuzion API with config:", {
 });
 
 // Create the app with environment variables
+// Use non-null assertion (!) since we've validated they exist
 const app = createMainApp({
-  PGUSER: process.env.PGUSER,
-  PGPASS: process.env.PGPASS,
-  PGHOST: process.env.PGHOST,
-  PGDB: process.env.PGDB,
-  PGPORT: process.env.PGPORT,
+  PGUSER: process.env.PGUSER!,
+  PGPASS: process.env.PGPASS!,
+  PGHOST: process.env.PGHOST!,
+  PGDB: process.env.PGDB!,
+  PGPORT: process.env.PGPORT!,
   MAIL_USER: process.env.MAIL_USER,
   MAIL_PASS: process.env.MAIL_PASS,
   MSIMBO_MERCHANT_ID: process.env.MSIMBO_MERCHANT_ID,
