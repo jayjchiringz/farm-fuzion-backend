@@ -1,26 +1,33 @@
+/* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import fs from "fs";
 import path from "path";
 import {parse, ParseResult} from "papaparse";
 import {initDbPool, DbConfig} from "../db";
 import {WorldBankPriceSchema} from "../../validation/worldBankPriceSchema";
-import * as functions from "firebase-functions";
 import * as dotenv from "dotenv";
 import {PoolClient} from "pg";
 
-dotenv.config(); // ✅ Load .env when running locally
+dotenv.config(); // Load .env when running locally
 
 interface Row {
   YearMonth: string;
   [key: string]: string;
 }
 
-// 👌 Define type-safe row structure
+// Define type-safe row structure
 interface CandidateRow {
   date: string;
   commodity: string;
   unit: string;
   price: number;
+}
+
+// Define error types
+interface CsvParseError {
+  row?: number;
+  message: string;
+  code?: string;
 }
 
 const parseYearMonth = (ym: string): string => {
@@ -37,94 +44,103 @@ const parseHeader = (header: string) => {
   };
 };
 
-export const importWorldBank = async (config: DbConfig, csvPath: string) => {
+export const importWorldBank = async (config: DbConfig, csvPath: string): Promise<void> => {
   const pool = initDbPool(config);
-  const csvFile = fs.readFileSync(path.resolve(csvPath), "utf8");
-  const parsed: ParseResult<Row> = parse<Row>(csvFile, {
-    header: true,
-    skipEmptyLines: true,
-    transformHeader: (h) => h.trim(),
-  });
 
-  if (parsed.errors.length > 0) {
-    console.warn("⚠️ CSV parse issues detected:");
-    parsed.errors.forEach((err) => {
-      console.warn(
-        `  → Row ${err.row ?? "?"}: ${err.message} (code: ${err.code})`
-      );
-      if (typeof err.row === "number" && parsed.data[err.row]) {
-        console.log("  🔎 Problematic row data:", parsed.data[err.row]);
-      }
-    });
-  }
-
-  const headers = parsed.meta.fields?.filter((f) => f !== "YearMonth") || [];
-  const headerMap = headers.map((h) => ({raw: h, ...parseHeader(h)}));
-
-  console.log(`🛠️ Found ${headerMap.length} commodities in CSV`);
-
-  const client = await pool.connect();
   try {
-    let counter = 0;
-    let skipped = 0;
-    const batchSize = 250; // ⚡ safe batch size
-    let buffer: CandidateRow[] = [];
+    const csvFile = fs.readFileSync(path.resolve(csvPath), "utf8");
+    const parsed: ParseResult<Row> = parse<Row>(csvFile, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (h) => h.trim(),
+    });
 
-    for (const row of parsed.data as Row[]) {
-      if (!row.YearMonth) continue;
-      const date = parseYearMonth(row.YearMonth);
-
-      for (const h of headerMap) {
-        const val = row[h.raw];
-        if (!val || val.trim() === "…" || val.trim() === "") {
-          skipped++;
-          continue;
+    if (parsed.errors.length > 0) {
+      console.warn("⚠️ CSV parse issues detected:");
+      parsed.errors.forEach((err: CsvParseError) => {
+        console.warn(
+          `  → Row ${err.row ?? "?"}: ${err.message} (code: ${err.code})`
+        );
+        if (typeof err.row === "number" && parsed.data[err.row]) {
+          console.log("  🔎 Problematic row data:", parsed.data[err.row]);
         }
+      });
+    }
 
-        const price = parseFloat(val);
-        if (isNaN(price)) {
-          skipped++;
-          continue;
-        }
+    const headers = parsed.meta.fields?.filter((f) => f !== "YearMonth") || [];
+    const headerMap = headers.map((h) => ({raw: h, ...parseHeader(h)}));
 
-        const candidate: CandidateRow = {
-          date,
-          commodity: h.commodity,
-          unit: h.unit,
-          price,
-        };
+    console.log(`🛠️ Found ${headerMap.length} commodities in CSV`);
 
-        const parsedRow = WorldBankPriceSchema.safeParse(candidate);
-        if (!parsedRow.success) {
-          skipped++;
-          continue;
-        }
+    const client = await pool.connect();
+    try {
+      let counter = 0;
+      let skipped = 0;
+      const batchSize = 250; // Safe batch size
+      let buffer: CandidateRow[] = [];
 
-        buffer.push(candidate);
-        counter++;
+      for (const row of parsed.data as Row[]) {
+        if (!row.YearMonth) continue;
+        const date = parseYearMonth(row.YearMonth);
 
-        // 🚀 Flush when buffer hits batchSize
-        if (buffer.length >= batchSize) {
-          await insertBatch(client, buffer);
-          console.log(`✅ Inserted ${counter} rows so far...`);
-          buffer = [];
+        for (const h of headerMap) {
+          const val = row[h.raw];
+          if (!val || val.trim() === "…" || val.trim() === "") {
+            skipped++;
+            continue;
+          }
+
+          const price = parseFloat(val);
+          if (isNaN(price)) {
+            skipped++;
+            continue;
+          }
+
+          const candidate: CandidateRow = {
+            date,
+            commodity: h.commodity,
+            unit: h.unit,
+            price,
+          };
+
+          const parsedRow = WorldBankPriceSchema.safeParse(candidate);
+          if (!parsedRow.success) {
+            skipped++;
+            continue;
+          }
+
+          buffer.push(candidate);
+          counter++;
+
+          // Flush when buffer hits batchSize
+          if (buffer.length >= batchSize) {
+            await insertBatch(client, buffer);
+            console.log(`✅ Inserted ${counter} rows so far...`);
+            buffer = [];
+          }
         }
       }
-    }
 
-    // Insert remaining rows
-    if (buffer.length > 0) {
-      await insertBatch(client, buffer);
-      console.log(`✅ Final flush of ${buffer.length} rows`);
-    }
+      // Insert remaining rows
+      if (buffer.length > 0) {
+        await insertBatch(client, buffer);
+        console.log(`✅ Final flush of ${buffer.length} rows`);
+      }
 
-    console.log(
-      `🎉 Import complete. Inserted ${counter} rows, skipped ${skipped}.`
-    );
-  } catch (err) {
-    console.error("❌ Import failed", err);
-  } finally {
-    client.release();
+      console.log(
+        `🎉 Import complete. Inserted ${counter} rows, skipped ${skipped}.`
+      );
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error("❌ Import failed:", error.message);
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("❌ Failed to read or parse CSV file:", error.message);
+    throw error;
   }
 };
 
@@ -152,34 +168,42 @@ const insertBatch = async (
 
 // Run directly if invoked
 if (require.main === module) {
-  let config: DbConfig;
+  // Load environment variables
+  dotenv.config();
 
-  try {
-    const fbConfig = functions.config();
-    config = {
-      PGUSER: fbConfig.db.pguser,
-      PGPASS: fbConfig.db.pgpass,
-      PGHOST: fbConfig.db.pghost,
-      PGDB: fbConfig.db.pgdb,
-      PGPORT: fbConfig.db.pgport,
-    };
-    console.log("🔐 Using Firebase runtime config");
-  } catch (e) {
-    config = {
-      PGUSER: process.env.PGUSER!,
-      PGPASS: process.env.PGPASS!,
-      PGHOST: process.env.PGHOST!,
-      PGDB: process.env.PGDB!,
-      PGPORT: process.env.PGPORT!,
-    };
-    console.log("🔐 Using .env / process.env config");
+  // Validate required environment variables
+  const requiredEnvVars = ["PGUSER", "PGPASS", "PGHOST", "PGDB", "PGPORT"];
+  for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+      console.error(`❌ Missing required environment variable: ${envVar}`);
+      process.exit(1);
+    }
   }
+
+  const config: DbConfig = {
+    PGUSER: process.env.PGUSER!,
+    PGPASS: process.env.PGPASS!,
+    PGHOST: process.env.PGHOST!,
+    PGDB: process.env.PGDB!,
+    PGPORT: process.env.PGPORT!,
+  };
+
+  console.log("🔐 Using environment variables for database connection");
 
   const csvPath = process.argv[2];
   if (!csvPath) {
-    console.error("Usage: ts-node importWorldBank.ts <path/to/file.csv>");
+    console.error("❌ Usage: ts-node importWorldBank.ts <path/to/file.csv>");
+    console.error("   Example: ts-node importWorldBank.ts ./data/worldbank-prices.csv");
     process.exit(1);
   }
 
-  importWorldBank(config, csvPath).catch(console.error);
+  importWorldBank(config, csvPath)
+    .then(() => {
+      console.log("✅ Import completed successfully");
+      process.exit(0);
+    })
+    .catch((error: Error) => {
+      console.error("❌ Import failed:", error.message);
+      process.exit(1);
+    });
 }
