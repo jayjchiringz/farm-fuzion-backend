@@ -197,16 +197,16 @@ export const createMainApp = (config: AppConfig) => {
     });
   });
 
-  // Register all routers with proper typing
+  // In the registerRouter function, add /api prefix
   const registerRouter = (path: string, getRouter: (config: any) => express.Router): void => {
-    app.use(path, (req: RequestWithConfig, res, next) => {
+    // Add '/api' prefix to all routes
+    app.use(`/api${path}`, (req: RequestWithConfig, res, next) => {
       try {
         if (!req.dbConfig) {
           throw new Error("Database configuration not available");
         }
-        // Pass the full config to routers that need it
         const router = getRouter(config);
-        router(req as any, res, next); // ✅ Type assertion
+        router(req as any, res, next);
       } catch (err) {
         next(err);
       }
