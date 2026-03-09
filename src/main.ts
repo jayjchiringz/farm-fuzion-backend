@@ -197,9 +197,8 @@ export const createMainApp = (config: AppConfig) => {
     });
   });
 
-  // In the registerRouter function, add /api prefix
-  const registerRouter = (path: string, getRouter: (config: any) => express.Router): void => {
-    // Add '/api' prefix to all routes
+  // Optional improvement - more type-safe
+  const registerRouter = <T>(path: string, getRouter: (config: AppConfig) => express.Router): void => {
     app.use(`/api${path}`, (req: RequestWithConfig, res, next) => {
       try {
         if (!req.dbConfig) {

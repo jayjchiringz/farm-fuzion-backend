@@ -6,6 +6,7 @@ import {adminRouter} from "./admin";
 import {getRolesRouter} from "./roles";
 import {getRegisterWithDocsRouter} from "./registerWithDocs";
 import {AppConfig} from "../main";
+import {getFilesRouter} from "./files";
 
 export const apiRouter = (config: AppConfig) => {
   const router = express.Router();
@@ -40,6 +41,8 @@ export const apiRouter = (config: AppConfig) => {
       method: req.method,
     });
   });
+
+  router.use("/files", getFilesRouter());
 
   return router;
 };

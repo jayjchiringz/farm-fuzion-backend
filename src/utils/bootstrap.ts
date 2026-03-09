@@ -1664,6 +1664,13 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
   `);
   */
 
+  await pool.query(`
+    ALTER TABLE group_documents 
+    ADD COLUMN IF NOT EXISTS file_name TEXT,
+    ADD COLUMN IF NOT EXISTS file_size BIGINT,
+    ADD COLUMN IF NOT EXISTS mime_type TEXT;
+  `);
+
   // 🧪 Insert the tag only if not forced
   if (!force) {
     await pool.query(
