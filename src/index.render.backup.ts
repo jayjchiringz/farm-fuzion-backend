@@ -11,6 +11,8 @@ import {apiRouter} from "./api/index.render";
 
 dotenv.config();
 
+console.log("🚀 Starting server initialization...");
+
 // Load environment variables
 const requiredEnvVars = [
   "PGUSER", "PGPASS", "PGHOST", "PGDB", "PGPORT",
@@ -47,6 +49,23 @@ console.log("🔧 Starting FarmFuzion API with config:", {
 });
 
 const app = express();
+console.log("✅ Express app created");
+
+console.log("📝 Environment:", process.env.NODE_ENV);
+console.log("🔧 Config loaded:", {
+  PGUSER: process.env.PGUSER ? "✅" : "❌",
+  MAIL_USER: process.env.MAIL_USER ? "✅" : "❌",
+});
+
+
+// Add this debug endpoint BEFORE any middleware
+app.get("/ping", (req, res) => {
+  res.json({
+    message: "Server is alive!",
+    time: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+  });
+});
 
 // Global middleware
 app.use(cors({
@@ -80,8 +99,10 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Mount all API routes under /api
+// Before mounting routes
+console.log("🔄 Mounting routes...");
 app.use("/api", apiRouter(config));
+console.log("✅ Routes mounted");
 
 // Debug endpoint to see all registered routes
 app.get("/debug/routes", (req, res) => {
