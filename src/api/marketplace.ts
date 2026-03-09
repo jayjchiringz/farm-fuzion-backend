@@ -1466,7 +1466,7 @@ export const getMarketplaceRouter = (config: {
 
           // Create a promise that rejects after 10 seconds
           const walletPromise = axios.post(
-            "https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api/wallet/payment",
+            "https://farm-fuzion-backend.onrender.com/api/wallet/payment",
             {
               farmer_id: resolvedBuyerId,
               amount: order.total_amount,

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "commonjs",
   "scripts": {
-    "generate:api": "openapi-typescript https://us-central1-farm-fuzion-abdf3.cloudfunctions.net/api/docs-json --output src/types/api.d.ts",
+    "generate:api": "openapi-typescript https://farm-fuzion-backend.onrender.com/api/docs-json --output src/types/api.d.ts",
     "lint": "eslint --ext .js,.ts .",
     "build": "node --max-old-space-size=512 ./node_modules/typescript/bin/tsc -p tsconfig.build.json",
     "build:watch": "tsc --watch",
