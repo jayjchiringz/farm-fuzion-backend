@@ -1669,6 +1669,7 @@ export const bootstrapDatabase = async (config: DbConfig, force = false) => {
     ADD COLUMN IF NOT EXISTS file_name TEXT,
     ADD COLUMN IF NOT EXISTS file_size BIGINT,
     ADD COLUMN IF NOT EXISTS mime_type TEXT;
+    ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMP DEFAULT NOW();
   `);
 
   // 🧪 Insert the tag only if not forced
