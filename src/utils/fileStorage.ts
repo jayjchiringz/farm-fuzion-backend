@@ -4,12 +4,38 @@ import fs from "fs";
 import path from "path";
 import {v4 as uuidv4} from "uuid";
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || "/var/data/uploads";
+// Primary upload directory (Render disk)
+const RENDER_DISK_DIR = process.env.UPLOAD_DIR || "/var/data/uploads";
+// Fallback directory for POC (local to project)
+const POC_UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
-// Ensure upload directory exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, {recursive: true});
-  console.log(`📁 Created upload directory: ${UPLOAD_DIR}`);
+// Determine which directory to use
+let UPLOAD_DIR: string;
+let storageType: "render-disk" | "poc-local";
+
+try {
+  // Try to create the Render disk directory
+  fs.mkdirSync(RENDER_DISK_DIR, {recursive: true});
+  UPLOAD_DIR = RENDER_DISK_DIR;
+  storageType = "render-disk";
+  console.log(`📁 Using Render disk at: ${UPLOAD_DIR}`);
+} catch (error) {
+  // Fallback to local POC directory
+  fs.mkdirSync(POC_UPLOAD_DIR, {recursive: true});
+  UPLOAD_DIR = POC_UPLOAD_DIR;
+  storageType = "poc-local";
+
+  console.log(`
+╔════════════════════════════════════════════════════════════╗
+║  ⚠️ POC MODE: Using local filesystem storage              ║
+║  📁 Files stored in: ${POC_UPLOAD_DIR}                    ║
+║                                                            ║
+║  ⚠️ These files will NOT persist across deploys!          ║
+║  ⚠️ For production, use Render Disk or cloud storage      ║
+║                                                            ║
+║  Current Storage: Local (POC)                              ║
+╚════════════════════════════════════════════════════════════╝
+  `);
 }
 
 export interface SavedFile {
@@ -18,6 +44,7 @@ export interface SavedFile {
   mimeType: string;
   size: number;
   path: string;
+  storageType: "render-disk" | "poc-local";
 }
 
 export const saveFile = async (file: Express.Multer.File): Promise<SavedFile> => {
@@ -28,7 +55,7 @@ export const saveFile = async (file: Express.Multer.File): Promise<SavedFile> =>
   // Write file to disk
   await fs.promises.writeFile(filePath, file.buffer);
 
-  console.log(`✅ File saved: ${fileName} (${file.size} bytes)`);
+  console.log(`✅ File saved: ${fileName} (${file.size} bytes) to ${storageType} storage`);
 
   return {
     fileName,
@@ -36,6 +63,7 @@ export const saveFile = async (file: Express.Multer.File): Promise<SavedFile> =>
     mimeType: file.mimetype,
     size: file.size,
     path: filePath,
+    storageType,
   };
 };
 
@@ -51,6 +79,13 @@ export const deleteFile = async (fileName: string): Promise<void> => {
   const filePath = path.join(UPLOAD_DIR, fileName);
   if (fs.existsSync(filePath)) {
     await fs.promises.unlink(filePath);
-    console.log(`🗑️ File deleted: ${fileName}`);
+    console.log(`🗑️ File deleted: ${fileName} from ${storageType} storage`);
   }
 };
+
+// Optional: Add a cleanup function for POC mode
+export const getStorageInfo = () => ({
+  type: storageType,
+  path: UPLOAD_DIR,
+  isPersistent: storageType === "render-disk",
+});
