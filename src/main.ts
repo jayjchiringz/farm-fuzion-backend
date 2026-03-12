@@ -236,14 +236,15 @@ export const createMainApp = (config: AppConfig) => {
   registerRouter("/admin/users", adminRouter);
   registerRouter("/roles", getRolesRouter);
 
-  // Async routers
+  // Async routers - FIXED: use req.dbConfig, not config
   app.use("/wallet", async (req: RequestWithConfig, res, next) => {
     try {
       if (!req.dbConfig) {
         throw new Error("Database configuration not available");
       }
-      const router = await getWalletRouter(config);
-      router(req as any, res, next); // ✅ Add 'as any' here
+      // Use req.dbConfig here, not the outer config
+      const router = await getWalletRouter(req.dbConfig);
+      router(req as any, res, next);
     } catch (err) {
       next(err);
     }
@@ -254,8 +255,8 @@ export const createMainApp = (config: AppConfig) => {
       if (!req.dbConfig) {
         throw new Error("Database configuration not available");
       }
-      const router = await getMarketplaceRouter(config);
-      router(req as any, res, next); // ✅ Add 'as any' here
+      const router = await getMarketplaceRouter(req.dbConfig); // Use req.dbConfig
+      router(req as any, res, next);
     } catch (err) {
       next(err);
     }
@@ -266,8 +267,8 @@ export const createMainApp = (config: AppConfig) => {
       if (!req.dbConfig) {
         throw new Error("Database configuration not available");
       }
-      const router = await getKnowledgeRouter(config);
-      router(req as any, res, next); // ✅ Add 'as any' here
+      const router = await getKnowledgeRouter(req.dbConfig); // Use req.dbConfig
+      router(req as any, res, next);
     } catch (err) {
       next(err);
     }
