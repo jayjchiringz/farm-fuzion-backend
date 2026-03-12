@@ -197,14 +197,15 @@ export const createMainApp = (config: AppConfig) => {
     });
   });
 
-  // Optional improvement - more type-safe
-  const registerRouter = <T>(path: string, getRouter: (config: AppConfig) => express.Router): void => {
+  // Helper function to mount sync routers under /api
+  const registerSyncRouter = (path: string, getRouter: (config: AppConfig) => express.Router): void => {
     app.use(`/api${path}`, (req: RequestWithConfig, res, next) => {
       try {
         if (!req.dbConfig) {
           throw new Error("Database configuration not available");
         }
-        const router = getRouter(config);
+        // Use the full AppConfig - you have it from the outer scope
+        const router = getRouter(config); // This is fine
         router(req as any, res, next);
       } catch (err) {
         next(err);
@@ -212,67 +213,53 @@ export const createMainApp = (config: AppConfig) => {
     });
   };
 
-  registerRouter("/groups", getGroupsRouter);
-  registerRouter("/auth", getAuthRouter);
-  registerRouter("/taxes", getTaxesRouter);
-  registerRouter("/loans", getLoansRouter);
-  registerRouter("/risks", getRisksRouter);
-  registerRouter("/farmers", getFarmersRouter);
-  registerRouter("/payments", getPaymentsRouter);
-  registerRouter("/directors", getDirectorsRouter);
-  registerRouter("/logistics", getLogisticsRouter);
-  registerRouter("/financials", getFinancialsRouter);
-  registerRouter("/businesses", getBusinessesRouter);
-  registerRouter("/declarations", getDeclarationsRouter);
-  registerRouter("/farm-products", getFarmProductsRouter);
-  registerRouter("/loan-repayments", getLoanRepaymentsRouter);
-  registerRouter("/groups-types", getGroupTypesRouter);
-  registerRouter("/document-types", getDocumentTypesRouter);
-  registerRouter("/stats", getStatsRouter);
-  registerRouter("/market-prices", getMarketPricesRouter);
-  registerRouter("/farm-activities", getFarmActivitiesRouter);
-  registerRouter("/credit", getCreditRouter);
-  registerRouter("/services", getServicesRouter);
-  registerRouter("/admin/users", adminRouter);
-  registerRouter("/roles", getRolesRouter);
-
-  // Async routers - FIXED: use req.dbConfig, not config
-  app.use("/wallet", async (req: RequestWithConfig, res, next) => {
-    try {
-      if (!req.dbConfig) {
-        throw new Error("Database configuration not available");
+  // ADD THIS - Helper function to mount async routers under /api
+  const registerAsyncRouter = (
+    path: string,
+    getRouter: (config: DbConfig) => Promise<express.Router>
+  ): void => {
+    app.use(`/api${path}`, async (req: RequestWithConfig, res, next) => {
+      try {
+        if (!req.dbConfig) {
+          throw new Error("Database configuration not available");
+        }
+        const router = await getRouter(req.dbConfig);
+        router(req as any, res, next);
+      } catch (err) {
+        next(err);
       }
-      // Use req.dbConfig here, not the outer config
-      const router = await getWalletRouter(req.dbConfig);
-      router(req as any, res, next);
-    } catch (err) {
-      next(err);
-    }
-  });
+    });
+  };
 
-  app.use("/marketplace", async (req: RequestWithConfig, res, next) => {
-    try {
-      if (!req.dbConfig) {
-        throw new Error("Database configuration not available");
-      }
-      const router = await getMarketplaceRouter(req.dbConfig); // Use req.dbConfig
-      router(req as any, res, next);
-    } catch (err) {
-      next(err);
-    }
-  });
+  // Register all sync routers
+  registerSyncRouter("/groups", getGroupsRouter);
+  registerSyncRouter("/auth", getAuthRouter);
+  registerSyncRouter("/taxes", getTaxesRouter);
+  registerSyncRouter("/loans", getLoansRouter);
+  registerSyncRouter("/risks", getRisksRouter);
+  registerSyncRouter("/farmers", getFarmersRouter);
+  registerSyncRouter("/payments", getPaymentsRouter);
+  registerSyncRouter("/directors", getDirectorsRouter);
+  registerSyncRouter("/logistics", getLogisticsRouter);
+  registerSyncRouter("/financials", getFinancialsRouter);
+  registerSyncRouter("/businesses", getBusinessesRouter);
+  registerSyncRouter("/declarations", getDeclarationsRouter);
+  registerSyncRouter("/farm-products", getFarmProductsRouter);
+  registerSyncRouter("/loan-repayments", getLoanRepaymentsRouter);
+  registerSyncRouter("/groups-types", getGroupTypesRouter);
+  registerSyncRouter("/document-types", getDocumentTypesRouter);
+  registerSyncRouter("/stats", getStatsRouter);
+  registerSyncRouter("/market-prices", getMarketPricesRouter);
+  registerSyncRouter("/farm-activities", getFarmActivitiesRouter);
+  registerSyncRouter("/credit", getCreditRouter);
+  registerSyncRouter("/services", getServicesRouter);
+  registerSyncRouter("/admin/users", adminRouter);
+  registerSyncRouter("/roles", getRolesRouter);
+  registerSyncRouter("/marketplace", getMarketplaceRouter);
+  registerSyncRouter("/knowledge", getKnowledgeRouter);
 
-  app.use("/knowledge", async (req: RequestWithConfig, res, next) => {
-    try {
-      if (!req.dbConfig) {
-        throw new Error("Database configuration not available");
-      }
-      const router = await getKnowledgeRouter(req.dbConfig); // Use req.dbConfig
-      router(req as any, res, next);
-    } catch (err) {
-      next(err);
-    }
-  });
+  // Only truly async routers go here
+  registerAsyncRouter("/wallet", getWalletRouter);
 
   // Error handling middleware with proper typing
   app.use((err: AppError, req: express.Request, res: express.Response, _next: express.NextFunction) => {
