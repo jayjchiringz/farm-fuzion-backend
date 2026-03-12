@@ -4,6 +4,7 @@ import {FarmerSchema} from "../validation/farmerSchema";
 import express from "express";
 import {z} from "zod";
 import {initDbPool} from "../utils/db";
+import {v4 as uuidv4} from "uuid";
 
 export const validateRequest = (
   schema: z.ZodSchema
@@ -53,54 +54,84 @@ export const getFarmersRouter = (config: {
       group_id,
     } = req.body;
 
-    try {
-      // 🚀 STEP 1: Create user with role = 'farmer'
-      const userResult = await pool.query(
-        `INSERT INTO users (email, role, group_id)
-        VALUES ($1, 'farmer', $2)
-        ON CONFLICT (email) DO UPDATE SET role = 'farmer'
-        RETURNING id`,
-        [email, group_id]
-      );
-      const userId = userResult.rows[0].id;
+    const client = await pool.connect();
 
-      // 🚀 STEP 2: Create farmer linked to user
-      const result = await pool.query(
+    try {
+      await client.query("BEGIN");
+
+      // 🚀 STEP 1: Get the farmer role ID from user_roles table
+      const roleResult = await client.query(
+        "SELECT id FROM user_roles WHERE LOWER(name) = 'farmer' LIMIT 1"
+      );
+
+      if (roleResult.rows.length === 0) {
+        throw new Error("Farmer role not found in database");
+      }
+
+      const farmerRoleId = roleResult.rows[0].id;
+      console.log("✅ Found farmer role ID:", farmerRoleId);
+
+      // 🚀 STEP 2: Create user with role_id (UUID), not role string
+      const userId = uuidv4();
+      const userResult = await client.query(
+        `INSERT INTO users (id, email, role_id, group_id, created_at)
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (email) DO UPDATE 
+         SET role_id = $3, group_id = $4, updated_at = NOW()
+         RETURNING id`,
+        [userId, email, farmerRoleId, group_id]
+      );
+
+      // 🚀 STEP 3: Create farmer linked to user
+      const result = await client.query(
         `INSERT INTO farmers (
-          first_name, middle_name, last_name, dob, id_passport_no,
+          user_id, first_name, middle_name, last_name, dob, id_passport_no,
           county, constituency, ward, location, address, mobile, email,
-          group_id, user_id
+          group_id, created_at
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, NOW())
         RETURNING id`,
         [
+          userResult.rows[0].id,
           first_name,
-          middle_name,
+          middle_name || null,
           last_name,
-          dob,
-          id_passport_no,
-          county,
-          constituency,
-          ward,
-          location,
-          address,
+          dob || null,
+          id_passport_no || null,
+          county || null,
+          constituency || null,
+          ward || null,
+          location || null,
+          address || null,
           mobile,
           email,
           group_id,
-          userId,
         ]
       );
 
+      await client.query("COMMIT");
+      console.log(`✅ Farmer registered with ID: ${result.rows[0].id}, User ID: ${userResult.rows[0].id}`);
       res.status(201).json({id: result.rows[0].id});
     } catch (err) {
+      await client.query("ROLLBACK");
       console.error("❌ Error creating farmer:", err);
-      res.status(500).send({error: "Internal server error"});
+      res.status(500).json({
+        error: "Internal server error",
+        details: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      client.release();
     }
   });
 
   router.get("/", async (_, res) => {
     try {
-      const result = await pool.query("SELECT * FROM farmers");
+      const result = await pool.query(`
+        SELECT f.*, u.email as user_email, u.role_id, r.name as role_name
+        FROM farmers f
+        LEFT JOIN users u ON f.user_id = u.id
+        LEFT JOIN user_roles r ON u.role_id = r.id
+      `);
       res.json(result.rows);
     } catch (err) {
       console.error("Error fetching farmers:", err);
@@ -155,7 +186,7 @@ export const getFarmersRouter = (config: {
     }
   });
 
-  // ✅ Optional: Get farmer by email (useful for login flow)
+  // ✅ Get farmer by email
   router.get("/by-email/:email", async (req, res) => {
     try {
       const {email} = req.params;
