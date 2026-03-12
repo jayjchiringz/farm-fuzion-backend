@@ -71,15 +71,15 @@ export const getFarmersRouter = (config: {
       const farmerRoleId = roleResult.rows[0].id;
       console.log("✅ Found farmer role ID:", farmerRoleId);
 
-      // 🚀 STEP 2: Create user with role_id (UUID) - REMOVED updated_at
+      // 🚀 STEP 2: Create user with BOTH role (text) and role_id (UUID)
       const userId = uuidv4();
       const userResult = await client.query(
-        `INSERT INTO users (id, email, role_id, group_id, created_at)
-        VALUES ($1, $2, $3, $4, NOW())
+        `INSERT INTO users (id, email, role, role_id, group_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
         ON CONFLICT (email) DO UPDATE 
-        SET role_id = $3, group_id = $4
+        SET role = $3, role_id = $4, group_id = $5
         RETURNING id`,
-        [userId, email, farmerRoleId, group_id]
+        [userId, email, "farmer", farmerRoleId, group_id]
       );
 
       // 🚀 STEP 3: Create farmer linked to user
