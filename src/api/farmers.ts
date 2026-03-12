@@ -82,14 +82,14 @@ export const getFarmersRouter = (config: {
         [userId, email, "farmer", farmerRoleId, group_id]
       );
 
-      // 🚀 STEP 3: Create farmer linked to user
+      // 🚀 STEP 3: Create farmer linked to user - FIXED
       const result = await client.query(
         `INSERT INTO farmers (
           user_id, first_name, middle_name, last_name, dob, id_passport_no,
           county, constituency, ward, location, address, mobile, email,
           group_id, created_at
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
         RETURNING id`,
         [
           userResult.rows[0].id,
