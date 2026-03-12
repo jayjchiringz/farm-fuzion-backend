@@ -4,7 +4,6 @@ import {getGroupsRouter} from "./groups";
 import {getAuthRouter} from "./auth";
 import {adminRouter} from "./admin";
 import {getRolesRouter} from "./roles";
-import {getRegisterWithDocsRouter} from "./registerWithDocs";
 import {AppConfig} from "../main";
 import {getFilesRouter} from "./files";
 
@@ -22,7 +21,6 @@ export const apiRouter = (config: AppConfig) => {
   router.use("/groups", getGroupsRouter(config));
   router.use("/admin/users", adminRouter(config));
   router.use("/roles", getRolesRouter(config));
-  router.use("/register-with-docs", getRegisterWithDocsRouter(config));
 
   // Test endpoint to verify API is working
   router.get("/test", (req, res) => {
