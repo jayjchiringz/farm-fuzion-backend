@@ -4,9 +4,9 @@
 // FarmFuzion_Firebase_MVP_Starter/functions/src/api/knowledge.ts
 import express, {Request, Response, NextFunction} from "express";
 import {initDbPool} from "../utils/db";
-import axios from "axios";
 import {Pool} from "pg";
 import multer from "multer";
+import axios, {isAxiosError} from "axios";
 
 // Extend Express Request to include multer file
 interface MulterRequest extends Request {
@@ -24,6 +24,9 @@ const upload = multer({
     }
   },
 });
+
+// Configuration for FreeFlow service
+const FREE_FLOW_URL = process.env.FREE_FLOW_URL || "http://localhost:8000";
 
 // Helper to resolve farmer ID (UUID to numeric)
 async function resolveFarmerId(db: Pool, farmerId: string | number): Promise<number> {
@@ -65,9 +68,6 @@ interface AIResponse {
   sources: Array<{ title: string; source: string }>;
 }
 
-// Unified AI API client
-const AI_API_KEY = process.env.SILICONFLOW_API_KEY;
-
 export const getKnowledgeRouter = (config: {
   PGUSER: string;
   PGPASS: string;
@@ -103,26 +103,100 @@ export const getKnowledgeRouter = (config: {
 
   // Query knowledge base with RAG
   const queryWithRAG = async (query: string, category?: string): Promise<AIResponse> => {
+    // Define a proper type for the query result
+    interface DocumentQueryResult {
+      rows: KnowledgeDocument[];
+    }
+
+    // Define proper type for FreeFlow response
+    interface FreeFlowResponse {
+      content: string;
+      provider: string;
+      model: string;
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        total_tokens?: number;
+        [key: string]: unknown; // Allow for additional provider-specific fields
+      };
+    }
+
+    // Declare docs with proper type
+    let docs: DocumentQueryResult = {rows: []};
+
     try {
       // 1. Search vector database for relevant documents
-      const docs = await pool.query(
+      console.log("📚 Searching knowledge base for:", query);
+      const result = await pool.query<KnowledgeDocument>(
         `SELECT content, title, source 
-         FROM knowledge_documents 
-         WHERE $1::text IS NULL OR category = $1
-         ORDER BY embedding <-> (SELECT embedding FROM knowledge_documents LIMIT 1)
-         LIMIT 5`,
+        FROM knowledge_documents 
+        WHERE $1::text IS NULL OR category = $1
+        LIMIT 5`,
         [category || null]
       );
+      docs = result;
+      console.log(`📖 Found ${docs.rows.length} relevant documents`);
 
-      // 2. Build prompt with context
+      // 2. Build context from documents
       const context = docs.rows.map((d: KnowledgeDocument) => d.content).join("\n\n");
-      const prompt = `Context from agricultural research:\n${context}\n\nQuestion: ${query}\n\nAnswer based on the context:`;
 
-      // 3. Call AI API (with error handling)
-      if (!AI_API_KEY) {
-        console.warn("No AI API key configured, returning mock response");
+      // 3. Create system prompt with context
+      const systemPrompt = `You are Mkulima Halisi, a helpful farming assistant for Kenyan farmers. 
+  Answer in Swahili or English as appropriate. Provide practical, local farming advice based on Kenyan agriculture.
+
+  Use this context from agricultural research when relevant:
+  ${context}`;
+
+      // 4. Call FreeFlow Python service
+      console.log("🤖 Calling FreeFlow LLM service at:", FREE_FLOW_URL);
+
+      const response = await axios.post<FreeFlowResponse>(`${FREE_FLOW_URL}/chat`, {
+        messages: [
+          {role: "system", content: systemPrompt},
+          {role: "user", content: query},
+        ],
+        temperature: 0.7,
+        max_tokens: 1024,
+      }, {
+        timeout: 30000,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log(`✅ AI response received from provider: ${response.data.provider}`);
+
+      return {
+        answer: response.data.content,
+        sources: docs.rows.map((d: KnowledgeDocument) => ({
+          title: d.title,
+          source: d.source,
+        })),
+      };
+    } catch (error: unknown) {
+      console.error("❌ Error in queryWithRAG:");
+
+      if (isAxiosError(error)) {
+        console.error("FreeFlow service error:", {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+          code: error.code,
+        });
+
+        if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+          console.error("❌ FreeFlow service is not running or unreachable");
+          return {
+            answer: "Samahani, huduma ya AI kwa sasa haiko tayari. Tafadhali jaribu tena baadaye. (Sorry, the AI service is currently unavailable. Please try again later.)",
+            sources: docs.rows.map((d: KnowledgeDocument) => ({
+              title: d.title,
+              source: d.source,
+            })),
+          };
+        }
+
         return {
-          answer: "I'm currently in offline mode. Please check back later for AI-powered responses.",
+          answer: "Samahani, kuna tatizo la kiufundi. Tafadhali jaribu tena baadaye. (Sorry, there's a technical issue. Please try again later.)",
           sources: docs.rows.map((d: KnowledgeDocument) => ({
             title: d.title,
             source: d.source,
@@ -130,38 +204,14 @@ export const getKnowledgeRouter = (config: {
         };
       }
 
-      const response = await axios.post(
-        "https://api.siliconflow.com/v1/chat/completions",
-        {
-          model: "tencent/Hunyuan-MT-7B", // Your chosen free model
-          messages: [
-            {
-              role: "system",
-              content: "You are Mkulima Halisi, a helpful farming assistant for Kenyan farmers. Answer in Swahili or English as appropriate. Provide practical, local farming advice based on Kenyan agriculture.",
-            },
-            {role: "user", content: prompt},
-          ],
-          temperature: 0.7,
-          max_tokens: 1024,
-        },
-        {
-          headers: {
-            "Authorization": `Bearer ${AI_API_KEY}`, // Your global API key
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
+      console.error("Non-Axios error:", error);
       return {
-        answer: response.data.choices[0].message.content,
+        answer: "Samahani, kuna tatizo la kiufundi. Tafadhali jaribu tena baadaye. (Sorry, there's a technical issue. Please try again later.)",
         sources: docs.rows.map((d: KnowledgeDocument) => ({
           title: d.title,
           source: d.source,
         })),
       };
-    } catch (error) {
-      console.error("Error in queryWithRAG:", error);
-      throw new Error("Failed to process knowledge query");
     }
   };
 
@@ -183,7 +233,7 @@ export const getKnowledgeRouter = (config: {
   async function handleKnowledgeRequest(req: MulterRequest, res: Response) {
     try {
       const {query, category, farmer_id} = req.body;
-      const imageFile = req.file; // Now properly typed!
+      const imageFile = req.file;
 
       if (!query && !imageFile) {
         return res.status(400).json({error: "Query or image required"});
@@ -247,27 +297,37 @@ export const getKnowledgeRouter = (config: {
     }
   });
 
-  // Add this temporary debug endpoint right after the router is created
+  // Debug endpoint to check FreeFlow connection
   router.get("/debug", async (req: Request, res: Response) => {
     try {
+      // Check FreeFlow service health
+      let freeflowStatus = "unknown";
+      let freeflowProviders: string[] = [];
+
+      try {
+        const ffResponse = await axios.get(`${FREE_FLOW_URL}/health`, {timeout: 5000});
+        freeflowStatus = ffResponse.data.status;
+        freeflowProviders = ffResponse.data.providers_available || [];
+      } catch (ffError) {
+        freeflowStatus = "unreachable";
+        console.error("FreeFlow health check failed:", ffError);
+      }
+
       const envVars = {
-        has_siliconflow_key: !!process.env.SILICONFLOW_API_KEY,
-        key_length: process.env.SILICONFLOW_API_KEY ? process.env.SILICONFLOW_API_KEY.length : 0,
-        key_preview: process.env.SILICONFLOW_API_KEY ?
-          process.env.SILICONFLOW_API_KEY.substring(0, 5) + "..." : "not set",
+        freeflow_url: FREE_FLOW_URL,
+        freeflow_status: freeflowStatus,
+        freeflow_providers: freeflowProviders,
+        has_database: !!config.PGUSER,
         node_env: process.env.NODE_ENV || "not set",
-        all_env_keys: Object.keys(process.env).filter((key) =>
-          key.includes("KEY") || key.includes("SECRET") || key.includes("API")
-        ),
         timestamp: new Date().toISOString(),
       };
 
       return res.json({
         status: "debug info",
         env: envVars,
-        message: envVars.has_siliconflow_key ?
-          "API key is present" :
-          "API key is NOT present in environment",
+        message: freeflowStatus === "ok" ?
+          "FreeFlow service is connected" :
+          "FreeFlow service is not reachable",
       });
     } catch (error) {
       return res.status(500).json({error: String(error)});
