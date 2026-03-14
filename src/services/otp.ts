@@ -1,12 +1,17 @@
-import nodemailer from "nodemailer";
+// src/services/otp.ts
+import {sendOtpByEmail as sendBrevoOtp} from "./email.nodemailer";
 
+// Re-export the email function (this is what auth.ts imports)
+export const sendOtpByEmail = sendBrevoOtp;
+
+// In-memory OTP storage (consider Redis for production)
 const otpMap: Record<string, { otp: string; expires: number }> = {};
 
 export const generateOtp = (email: string): string => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit
   otpMap[email] = {
     otp,
-    expires: Date.now() + 5 * 60 * 1000,
+    expires: Date.now() + 5 * 60 * 1000, // 5 minutes
   };
   console.log(`✅ OTP stored for ${email}: ${otp}`);
   return otp;
@@ -30,41 +35,28 @@ export const verifyOtp = (email: string, otp: string): boolean => {
     Match: ${isMatch}
   `);
 
-  return !isExpired && isMatch;
-};
-
-export const sendOtpByEmail = async (
-  email: string,
-  otp: string,
-  config: { MAIL_USER: string; MAIL_PASS: string }
-) => {
-  const {MAIL_USER, MAIL_PASS} = config;
-
-  if (!MAIL_USER || !MAIL_PASS) {
-    throw new Error("❌ MAIL_USER or MAIL_PASS missing from config");
+  // Clean up expired OTP
+  if (isExpired) {
+    delete otpMap[email];
+    return false;
   }
 
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: MAIL_USER,
-      pass: MAIL_PASS,
-    },
-  });
+  if (isMatch) {
+    // OTP used successfully - remove it
+    delete otpMap[email];
+    return true;
+  }
 
-  const mailOptions = {
-    from: `"FarmFuzion Auth" <${MAIL_USER}>`,
-    to: email,
-    subject: "Your FarmFuzion OTP Code",
-    html: `
-      <p>Hello 👨‍🌾,</p>
-      <p>Your OTP is: <b>${otp}</b></p>
-      <p>It is valid for 5 minutes. Do not share this code.</p>
-    `,
-  };
-
-  const info = await transporter.sendMail(mailOptions);
-  console.log("✅ OTP Email Sent:", info.messageId);
+  return false;
 };
+
+// Optional: Clean up expired OTPs periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [email, record] of Object.entries(otpMap)) {
+    if (record.expires < now) {
+      delete otpMap[email];
+      console.log(`🧹 Cleaned up expired OTP for ${email}`);
+    }
+  }
+}, 60 * 1000); // Clean up every minute

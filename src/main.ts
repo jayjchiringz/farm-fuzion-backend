@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable import/no-duplicates */
 /* eslint-disable import/no-named-as-default */
@@ -42,22 +43,47 @@ import {getCreditRouter} from "./api/credit";
 import {getKnowledgeRouter} from "./api/knowledge";
 import {getServicesRouter} from "./api/services";
 import {adminRouter} from "./api/admin";
+import {getRolesRouter} from "./api/roles";
 
-const allowedOrigins = ["https://farm-fuzion-abdf3.web.app"];
+// Update allowed origins to include Vercel frontend
+const allowedOrigins = [
+  "https://farm-fuzion-abdf3.web.app",
+  "https://farm-fuzion-frontend-vercel.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
 
-export const createMainApp = (secrets: {
-  PGUSER: any;
-  PGPASS: any;
-  PGHOST: any;
-  PGDB: any;
-  PGPORT: any;
-  MAIL_USER: any;
-  MAIL_PASS: any;
-  MSIMBO_MERCHANT_ID: any;
-  MSIMBO_SECRET_KEY: any;
-  MSIMBO_PUBLIC_ID: any;
-  SILICONFLOW_API_KEY: any;
-}) => {
+// Database config (required for all routers)
+export interface DbConfig {
+  PGUSER: string;
+  PGPASS: string;
+  PGHOST: string;
+  PGDB: string;
+  PGPORT: string;
+}
+
+// Full app config with optional mail settings
+export interface AppConfig extends DbConfig {
+  MAIL_USER?: string;
+  MAIL_PASS?: string;
+  MSIMBO_MERCHANT_ID?: string;
+  MSIMBO_SECRET_KEY?: string;
+  MSIMBO_PUBLIC_ID?: string;
+  SILICONFLOW_API_KEY?: string;
+}
+
+// Extend Express Request to include dbConfig
+interface RequestWithConfig extends express.Request {
+  dbConfig?: DbConfig; // Use DbConfig here, not AppConfig
+}
+
+// Define error interface for error handler
+interface AppError extends Error {
+  status?: number;
+  code?: string;
+}
+
+export const createMainApp = (config: AppConfig) => {
   const app = express();
   setupSwagger(app);
 
@@ -128,7 +154,7 @@ export const createMainApp = (secrets: {
   app.use(safeLogger);
   app.options("*", cors());
 
-  app.use((req, res, next) => {
+  app.use((req: RequestWithConfig, res, next) => {
     if (req.is("application/json")) {
       express.json()(req, res, next);
     } else {
@@ -136,87 +162,121 @@ export const createMainApp = (secrets: {
     }
   });
 
-  app.use(async (req, res, next) => {
+  // Bootstrap middleware - now using config directly
+  app.use(async (req: RequestWithConfig, res, next) => {
     try {
-      const config = {
-        PGUSER: secrets.PGUSER.value(),
-        PGPASS: secrets.PGPASS.value(),
-        PGHOST: secrets.PGHOST.value(),
-        PGDB: secrets.PGDB.value(),
-        PGPORT: secrets.PGPORT.value(),
-        MAIL_USER: secrets.MAIL_USER.value(),
-        MAIL_PASS: secrets.MAIL_PASS.value(),
-      };
+      // Log mail config status (without exposing values)
+      console.log("📧 Mail configured:", !!(config.MAIL_USER && config.MAIL_PASS));
 
       const FORCE_BOOTSTRAP = process.env.FORCE_BOOTSTRAP?.toLowerCase() === "true";
       await bootstrapDatabase(config, FORCE_BOOTSTRAP);
 
-      (req as any).dbConfig = config;
+      // Store only the database config on the request
+      req.dbConfig = {
+        PGUSER: config.PGUSER,
+        PGPASS: config.PGPASS,
+        PGHOST: config.PGHOST,
+        PGDB: config.PGDB,
+        PGPORT: config.PGPORT,
+      };
       next();
-    } catch (err) {
-      console.error("❌ Bootstrap error:", err);
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error("❌ Bootstrap error:", error.message);
       res.status(500).json({error: "Bootstrap failed"});
     }
   });
 
-  // ✅ Register all routers - ONE registration per path
-  app.use("/groups", (req, res, next) => getGroupsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/auth", (req, res, next) => getAuthRouter((req as any).dbConfig)(req, res, next));
-  app.use("/taxes", (req, res, next) => getTaxesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/loans", (req, res, next) => getLoansRouter((req as any).dbConfig)(req, res, next));
-  app.use("/risks", (req, res, next) => getRisksRouter((req as any).dbConfig)(req, res, next));
-  app.use("/farmers", (req, res, next) => getFarmersRouter((req as any).dbConfig)(req, res, next));
-  app.use("/payments", (req, res, next) => getPaymentsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/directors", (req, res, next) => getDirectorsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/logistics", (req, res, next) => getLogisticsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/financials", (req, res, next) => getFinancialsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/businesses", (req, res, next) => getBusinessesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/declarations", (req, res, next) => getDeclarationsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/farm-products", (req, res, next) => getFarmProductsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/loan-repayments", (req, res, next) => getLoanRepaymentsRouter((req as any).dbConfig)(req, res, next));
-  app.use("/groups-types", (req, res, next) => getGroupTypesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/document-types", (req, res, next) => getDocumentTypesRouter((req as any).dbConfig)(req, res, next));
-  app.use("/stats", (req, res, next) => getStatsRouter((req as any).dbConfig)(req, res, next));
-
-  app.use("/wallet", async (req, res, next) => {
-    try {
-      const router = await getWalletRouter((req as any).dbConfig);
-      return router(req, res, next);
-    } catch (err) {
-      return next(err);
-    }
+  // Health check endpoint for Render
+  app.get("/health", (req, res) => {
+    res.status(200).json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
+      mail_configured: !!(config.MAIL_USER && config.MAIL_PASS),
+    });
   });
 
-  app.use("/market-prices", (req, res, next) => getMarketPricesRouter((req as any).dbConfig)(req, res, next));
+  // Helper function to mount sync routers under /api
+  const registerSyncRouter = (path: string, getRouter: (config: AppConfig) => express.Router): void => {
+    app.use(`/api${path}`, (req: RequestWithConfig, res, next) => {
+      try {
+        if (!req.dbConfig) {
+          throw new Error("Database configuration not available");
+        }
+        // Use the full AppConfig - you have it from the outer scope
+        const router = getRouter(config); // This is fine
+        router(req as any, res, next);
+      } catch (err) {
+        next(err);
+      }
+    });
+  };
 
-  app.use("/marketplace", async (req, res, next) => {
-    try {
-      const router = await getMarketplaceRouter((req as any).dbConfig);
-      return router(req, res, next);
-    } catch (err) {
-      return next(err);
-    }
+  // ADD THIS - Helper function to mount async routers under /api
+  const registerAsyncRouter = (
+    path: string,
+    getRouter: (config: DbConfig) => Promise<express.Router>
+  ): void => {
+    app.use(`/api${path}`, async (req: RequestWithConfig, res, next) => {
+      try {
+        if (!req.dbConfig) {
+          throw new Error("Database configuration not available");
+        }
+        const router = await getRouter(req.dbConfig);
+        router(req as any, res, next);
+      } catch (err) {
+        next(err);
+      }
+    });
+  };
+
+  // Register all sync routers
+  registerSyncRouter("/groups", getGroupsRouter);
+  registerSyncRouter("/auth", getAuthRouter);
+  registerSyncRouter("/taxes", getTaxesRouter);
+  registerSyncRouter("/loans", getLoansRouter);
+  registerSyncRouter("/risks", getRisksRouter);
+  registerSyncRouter("/farmers", getFarmersRouter);
+  registerSyncRouter("/payments", getPaymentsRouter);
+  registerSyncRouter("/directors", getDirectorsRouter);
+  registerSyncRouter("/logistics", getLogisticsRouter);
+  registerSyncRouter("/financials", getFinancialsRouter);
+  registerSyncRouter("/businesses", getBusinessesRouter);
+  registerSyncRouter("/declarations", getDeclarationsRouter);
+  registerSyncRouter("/farm-products", getFarmProductsRouter);
+  registerSyncRouter("/loan-repayments", getLoanRepaymentsRouter);
+  registerSyncRouter("/groups-types", getGroupTypesRouter);
+  registerSyncRouter("/document-types", getDocumentTypesRouter);
+  registerSyncRouter("/stats", getStatsRouter);
+  registerSyncRouter("/market-prices", getMarketPricesRouter);
+  registerSyncRouter("/farm-activities", getFarmActivitiesRouter);
+  registerSyncRouter("/credit", getCreditRouter);
+  registerSyncRouter("/services", getServicesRouter);
+  registerSyncRouter("/admin/users", adminRouter);
+  registerSyncRouter("/roles", getRolesRouter);
+  registerSyncRouter("/marketplace", getMarketplaceRouter);
+  registerSyncRouter("/knowledge", getKnowledgeRouter);
+
+  // Only truly async routers go here
+  registerAsyncRouter("/wallet", getWalletRouter);
+
+  // Error handling middleware with proper typing
+  app.use((err: AppError, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("❌ Unhandled error:", {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+      status: err.status,
+      code: err.code,
+    });
+
+    res.status(err.status || 500).json({
+      error: "Internal server error",
+      message: err.message || "An unexpected error occurred",
+      ...(process.env.NODE_ENV === "development" && {stack: err.stack}),
+    });
   });
-
-  app.use("/farm-activities", (req, res, next) =>
-    getFarmActivitiesRouter((req as any).dbConfig)(req, res, next)
-  );
-
-  app.use("/credit", (req, res, next) => getCreditRouter((req as any).dbConfig)(req, res, next));
-
-  app.use("/knowledge", async (req, res, next) => {
-    try {
-      const router = await getKnowledgeRouter((req as any).dbConfig);
-      return router(req, res, next);
-    } catch (err) {
-      return next(err);
-    }
-  });
-
-  app.use("/services", (req, res, next) => getServicesRouter((req as any).dbConfig)(req, res, next));
-
-  // Single mount point
-  app.use("/admin/users", (req, res, next) => adminRouter((req as any).dbConfig)(req, res, next));
 
   return app;
 };
@@ -227,24 +287,36 @@ if (require.main === module) {
   const dotenv = require("dotenv");
   dotenv.config();
 
-  const secrets = {
-    PGUSER: {value: () => process.env.PGUSER},
-    PGPASS: {value: () => process.env.PGPASS},
-    PGHOST: {value: () => process.env.PGHOST},
-    PGDB: {value: () => process.env.PGDB},
-    PGPORT: {value: () => process.env.PGPORT},
-    MAIL_USER: {value: () => process.env.MAIL_USER},
-    MAIL_PASS: {value: () => process.env.MAIL_PASS},
-    MSIMBO_MERCHANT_ID: {value: () => process.env.MSIMBO_MERCHANT_ID},
-    MSIMBO_SECRET_KEY: {value: () => process.env.MSIMBO_SECRET_KEY},
-    MSIMBO_PUBLIC_ID: {value: () => process.env.MSIMBO_PUBLIC_ID},
-    SILICONFLOW_API_KEY: {value: () => process.env.SILICONFLOW_API_KEY},
+  // Load config directly from environment variables
+  const config: AppConfig = {
+    PGUSER: process.env.PGUSER!,
+    PGPASS: process.env.PGPASS!,
+    PGHOST: process.env.PGHOST!,
+    PGDB: process.env.PGDB!,
+    PGPORT: process.env.PGPORT!,
+    MAIL_USER: process.env.MAIL_USER,
+    MAIL_PASS: process.env.MAIL_PASS,
+    MSIMBO_MERCHANT_ID: process.env.MSIMBO_MERCHANT_ID,
+    MSIMBO_SECRET_KEY: process.env.MSIMBO_SECRET_KEY,
+    MSIMBO_PUBLIC_ID: process.env.MSIMBO_PUBLIC_ID,
+    SILICONFLOW_API_KEY: process.env.SILICONFLOW_API_KEY,
   };
 
-  const app = createMainApp(secrets);
+  // Validate required database config
+  const requiredDbVars = ["PGUSER", "PGPASS", "PGHOST", "PGDB", "PGPORT"];
+  for (const varName of requiredDbVars) {
+    if (!process.env[varName]) {
+      console.error(`❌ Missing required environment variable: ${varName}`);
+      process.exit(1);
+    }
+  }
+
+  const app = createMainApp(config);
   const port = process.env.PORT || 3001;
 
   app.listen(port, () => {
     console.log(`🚀 Server running on port ${port}`);
+    console.log(`📧 Mail configured: ${!!(config.MAIL_USER && config.MAIL_PASS)}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
   });
 }

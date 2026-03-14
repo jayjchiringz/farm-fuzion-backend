@@ -1,7 +1,16 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+/* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable max-len */
 import express, {Request, Response} from "express";
 import {generateOtp, sendOtpByEmail, verifyOtp} from "../services/otp";
 import {initDbPool} from "../utils/db";
+import dns from "dns";
+import {Socket} from "net";
+import {promisify} from "util";
+import nodemailer from "nodemailer";
+
+const resolve4 = promisify(dns.resolve4);
 
 export const getAuthRouter = (config: {
   PGUSER: string;
@@ -9,8 +18,8 @@ export const getAuthRouter = (config: {
   PGHOST: string;
   PGDB: string;
   PGPORT: string;
-  MAIL_USER: string;
-  MAIL_PASS: string;
+  MAIL_USER?: string;
+  MAIL_PASS?: string;
 }) => {
   const pool = initDbPool(config);
   const router = express.Router();
@@ -38,15 +47,32 @@ export const getAuthRouter = (config: {
         if ((userResult.rowCount ?? 0) > 0) {
           const user = userResult.rows[0];
           const otp = generateOtp(email);
-          await sendOtpByEmail(email, otp, {
-            MAIL_USER: config.MAIL_USER,
-            MAIL_PASS: config.MAIL_PASS,
-          });
 
+          // Try to send email only if mail is configured
+          if (config.MAIL_USER && config.MAIL_PASS) {
+            try {
+              await sendOtpByEmail(email, otp, {
+                MAIL_USER: config.MAIL_USER,
+                MAIL_PASS: config.MAIL_PASS,
+              });
+              console.log(`✅ Email sent to ${email}`);
+            } catch (emailError) {
+              console.error(`⚠️ Email sending failed but OTP is stored for ${email}:`, emailError);
+            }
+          } else {
+            console.log(`⚠️ Email not configured - OTP ${otp} for ${email} (check logs for testing)`);
+          }
+
+          // Always return success (OTP is stored regardless of email success)
           res.status(200).json({
             message: "OTP sent",
             role: user.role_name || "user",
             userType: "registered",
+            // Add debug info in development only
+            ...(process.env.NODE_ENV !== "production" && {
+              debug_otp: otp,
+              debug_email_sent: !!(config.MAIL_USER && config.MAIL_PASS),
+            }),
           });
           return;
         }
@@ -60,15 +86,30 @@ export const getAuthRouter = (config: {
 
         if ((farmerResult.rowCount ?? 0) > 0) {
           const otp = generateOtp(email);
-          await sendOtpByEmail(email, otp, {
-            MAIL_USER: config.MAIL_USER,
-            MAIL_PASS: config.MAIL_PASS,
-          });
+
+          // Try to send email only if mail is configured
+          if (config.MAIL_USER && config.MAIL_PASS) {
+            try {
+              await sendOtpByEmail(email, otp, {
+                MAIL_USER: config.MAIL_USER,
+                MAIL_PASS: config.MAIL_PASS,
+              });
+              console.log(`✅ Email sent to ${email}`);
+            } catch (emailError) {
+              console.error(`⚠️ Email sending failed but OTP is stored for ${email}:`, emailError);
+            }
+          } else {
+            console.log(`⚠️ Email not configured - OTP ${otp} for ${email} (check logs for testing)`);
+          }
 
           res.status(200).json({
             message: "OTP sent",
             role: "farmer",
             userType: "farmer",
+            ...(process.env.NODE_ENV !== "production" && {
+              debug_otp: otp,
+              debug_email_sent: !!(config.MAIL_USER && config.MAIL_PASS),
+            }),
           });
           return;
         }
@@ -97,7 +138,7 @@ export const getAuthRouter = (config: {
         return;
       }
 
-      // Try users table first (with full role information) - REMOVED phone column
+      // Try users table first (with full role information)
       const userResult = await pool.query(
         `SELECT 
           u.id,
@@ -142,7 +183,7 @@ export const getAuthRouter = (config: {
         return;
       }
 
-      // Try farmers table as fallback - REMOVED phone column
+      // Try farmers table as fallback
       const farmerResult = await pool.query(
         `SELECT 
           id,
@@ -179,6 +220,179 @@ export const getAuthRouter = (config: {
       console.error("❌ OTP Verification Error:", err);
       res.status(500).json({error: "Server error"});
     }
+  });
+
+  // 🔍 Diagnostic endpoint to test email connectivity
+  router.get("/diagnose-email", async (req: Request, res: Response) => {
+    // Define interfaces for the diagnostic results
+    interface DnsResult {
+      success: boolean;
+      addresses?: string[];
+      message?: string;
+      error?: string;
+    }
+
+    interface PortTestResult {
+      port: number;
+      reachable: boolean;
+      error?: string;
+    }
+
+    interface PortResults {
+      25: PortTestResult;
+      465: PortTestResult;
+      587: PortTestResult;
+      2525: PortTestResult;
+    }
+
+    interface SmtpResult {
+      success: boolean;
+      message: string;
+      port?: number;
+      error?: string;
+      code?: string;
+      alternatePort?: SmtpResult;
+    }
+
+    interface DiagnosticResult {
+      timestamp: string;
+      config: {
+        mail_user: string;
+        mail_pass: string;
+        node_env: string | undefined;
+      };
+      dns: DnsResult;
+      ports: Partial<PortResults>;
+      smtp: SmtpResult | {};
+    }
+
+    const results: DiagnosticResult = {
+      timestamp: new Date().toISOString(),
+      config: {
+        mail_user: config.MAIL_USER ? "✅ Set" : "❌ Missing",
+        mail_pass: config.MAIL_PASS ? "✅ Set" : "❌ Missing",
+        node_env: process.env.NODE_ENV,
+      },
+      dns: {success: false},
+      ports: {},
+      smtp: {},
+    };
+
+    // Test DNS resolution
+    try {
+      const addresses = await resolve4("smtp-relay.brevo.com");
+      results.dns = {
+        success: true,
+        addresses,
+        message: `Resolved to ${addresses.join(", ")}`,
+      };
+    } catch (error: unknown) {
+      const err = error as Error;
+      results.dns = {
+        success: false,
+        error: err.message,
+      };
+    }
+
+    // Test port connectivity if DNS succeeded
+    if (results.dns.success && results.dns.addresses && results.dns.addresses.length > 0) {
+      const testPort = (port: number): Promise<PortTestResult> => {
+        return new Promise((resolve) => {
+          const socket = new Socket();
+          const timeout = setTimeout(() => {
+            socket.destroy();
+            resolve({port, reachable: false, error: "Connection timeout"});
+          }, 5000);
+
+          // Safe to use [0] because we've checked addresses exists and has length
+          const targetAddress = results.dns.addresses![0];
+
+          socket.connect(port, targetAddress, () => {
+            clearTimeout(timeout);
+            socket.destroy();
+            resolve({port, reachable: true});
+          });
+
+          socket.on("error", (err: Error) => {
+            clearTimeout(timeout);
+            socket.destroy();
+            resolve({port, reachable: false, error: err.message});
+          });
+        });
+      };
+
+      // Test common SMTP ports
+      results.ports = {
+        25: await testPort(25),
+        465: await testPort(465),
+        587: await testPort(587),
+        2525: await testPort(2525),
+      };
+    }
+
+    // Test SMTP authentication if mail is configured
+    if (config.MAIL_USER && config.MAIL_PASS) {
+      try {
+        const nodemailer = require("nodemailer");
+        const testTransporter = nodemailer.createTransport({
+          host: "smtp-relay.brevo.com",
+          port: 587,
+          secure: false,
+          auth: {
+            user: config.MAIL_USER,
+            pass: config.MAIL_PASS,
+          },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+        });
+
+        await testTransporter.verify();
+        results.smtp = {
+          success: true,
+          message: "SMTP authentication successful on port 587",
+          port: 587,
+        };
+      } catch (error: unknown) {
+        const err = error as Error & { code?: string };
+        results.smtp = {
+          success: false,
+          message: "SMTP authentication failed",
+          error: err.message,
+          code: err.code,
+        };
+
+        // Also test port 2525 if 587 fails
+        try {
+          const testTransporter2525 = nodemailer.createTransport({
+            host: "smtp-relay.brevo.com",
+            port: 2525,
+            secure: false,
+            auth: {
+              user: config.MAIL_USER,
+              pass: config.MAIL_PASS,
+            },
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+          });
+          await testTransporter2525.verify();
+          (results.smtp as SmtpResult).alternatePort = {
+            success: true,
+            message: "SMTP authentication successful on port 2525",
+            port: 2525,
+          };
+        } catch (error2525: unknown) {
+          const err2525 = error2525 as Error & { code?: string };
+          (results.smtp as SmtpResult).alternatePort = {
+            success: false,
+            message: "SMTP authentication failed on port 2525",
+            error: err2525.message,
+            code: err2525.code,
+          };
+        }
+      }
+    }
+
+    res.json(results);
   });
 
   return router;

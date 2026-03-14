@@ -1,6 +1,6 @@
 [
   {
-    "origin": ["https://farm-fuzion-abdf3.web.app"],
+    "origin": ["https://farm-fuzion-frontend-vercel.vercel.app"],
     "method": ["GET", "POST", "PUT", "DELETE"],
     "responseHeader": ["Content-Type"],
     "maxAgeSeconds": 3600
