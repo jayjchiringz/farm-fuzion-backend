@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable max-len */
 /* eslint-disable camelcase */
 import express from "express";
-import {LogisticsSchema} from "../validation/logisticsSchema";
 import {z} from "zod";
 import {initDbPool} from "../utils/db";
+import axios from "axios";
 
 const validateRequest = (schema: z.ZodSchema) => (
   req: express.Request,
@@ -17,6 +19,35 @@ const validateRequest = (schema: z.ZodSchema) => (
   next();
 };
 
+// PostXpress API configuration
+const POSTXPRESS_URL = process.env.POSTXPRESS_URL || "https://postxpress.onrender.com";
+const POSTXPRESS_API_KEY = process.env.POSTXPRESS_API_KEY;
+
+// Middleware to forward authentication to PostXpress
+const forwardToPostXpress = async (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      res.status(401).json({error: "No authentication token provided"});
+      return; // Explicit return after response
+    }
+
+    // Store the token for use in routes
+    req.headers["x-postxpress-token"] = authHeader;
+    next(); // Call next middleware
+    return; // Explicit return after next
+  } catch (error) {
+    console.error("Auth forwarding error:", error);
+    res.status(500).json({error: "Authentication forwarding failed"});
+    return; // Explicit return after error response
+  }
+};
+
 export const getLogisticsRouter = (config: {
   PGUSER: string;
   PGPASS: string;
@@ -27,7 +58,124 @@ export const getLogisticsRouter = (config: {
   const pool = initDbPool(config);
   const router = express.Router();
 
-  router.post("/", validateRequest(LogisticsSchema), async (req, res) => {
+  // ============================================
+  // PostXpress Integration Routes
+  // ============================================
+
+  // Get farmer's parcels from PostXpress
+  router.get("/parcels", forwardToPostXpress, async (req, res) => {
+    try {
+      const token = req.headers["x-postxpress-token"] as string;
+
+      const response = await axios.get(`${POSTXPRESS_URL}/api/farmer/parcels/`, {
+        headers: {
+          "Authorization": token,
+          "X-API-Key": POSTXPRESS_API_KEY,
+        },
+      });
+
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("Error fetching parcels from PostXpress:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Failed to fetch parcels",
+        details: error.response?.data,
+      });
+    }
+  });
+
+  // Create new parcel in PostXpress
+  router.post("/parcels", forwardToPostXpress, async (req, res) => {
+    try {
+      const token = req.headers["x-postxpress-token"] as string;
+      const parcelData = req.body;
+
+      const response = await axios.post(`${POSTXPRESS_URL}/api/farmer/parcels/`, parcelData, {
+        headers: {
+          "Authorization": token,
+          "X-API-Key": POSTXPRESS_API_KEY,
+          "Content-Type": "application/json",
+        },
+      });
+
+      res.status(201).json(response.data);
+    } catch (error: any) {
+      console.error("Error creating parcel in PostXpress:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Failed to create parcel",
+        details: error.response?.data,
+      });
+    }
+  });
+
+  // Track parcel in PostXpress
+  router.get("/track/:trackingNumber", forwardToPostXpress, async (req, res) => {
+    try {
+      const {trackingNumber} = req.params;
+      const token = req.headers["x-postxpress-token"] as string;
+
+      const response = await axios.get(`${POSTXPRESS_URL}/api/farmer/track/${trackingNumber}/`, {
+        headers: {
+          "Authorization": token,
+          "X-API-Key": POSTXPRESS_API_KEY,
+        },
+      });
+
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("Error tracking parcel:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Failed to track parcel",
+        details: error.response?.data,
+      });
+    }
+  });
+
+  // Get logistics dashboard (combines PostXpress and local logistics)
+  router.get("/dashboard", forwardToPostXpress, async (req, res) => {
+    try {
+      const token = req.headers["x-postxpress-token"] as string;
+
+      // Get PostXpress dashboard data
+      const postxpressResponse = await axios.get(`${POSTXPRESS_URL}/api/farmer/dashboard/`, {
+        headers: {
+          "Authorization": token,
+          "X-API-Key": POSTXPRESS_API_KEY,
+        },
+      });
+
+      // Get local logistics data
+      const localLogistics = await pool.query(
+        "SELECT * FROM logistics ORDER BY created_at DESC LIMIT 10"
+      );
+
+      res.json({
+        postxpress: postxpressResponse.data,
+        local: localLogistics.rows,
+      });
+    } catch (error: any) {
+      console.error("Error fetching dashboard:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Failed to fetch dashboard data",
+        details: error.response?.data,
+      });
+    }
+  });
+
+  // ============================================
+  // Existing Local Logistics Routes
+  // ============================================
+
+  router.post("/", validateRequest(z.object({
+    farmer_id: z.string(),
+    business_id: z.string(),
+    vehicle_id: z.string().optional(),
+    driver_name: z.string(),
+    origin: z.string(),
+    destination: z.string(),
+    delivery_date: z.string(),
+    status: z.enum(["scheduled", "en_route", "delivered"]).default("scheduled"),
+  })), async (req, res) => {
     const {
       farmer_id,
       business_id,
@@ -56,7 +204,7 @@ export const getLogisticsRouter = (config: {
         [
           farmer_id,
           business_id,
-          vehicle_id,
+          vehicle_id || null,
           driver_name,
           origin,
           destination,
@@ -68,7 +216,7 @@ export const getLogisticsRouter = (config: {
       res.status(201).json({id: result.rows[0].id});
     } catch (err) {
       console.error("Error creating logistics record:", err);
-      res.status(500).send("Internal server error");
+      res.status(500).json({error: "Internal server error"});
     }
   });
 
@@ -80,7 +228,7 @@ export const getLogisticsRouter = (config: {
       res.json(result.rows);
     } catch (err) {
       console.error("Error fetching logistics:", err);
-      res.status(500).send("Internal server error");
+      res.status(500).json({error: "Internal server error"});
     }
   });
 
@@ -94,7 +242,7 @@ export const getLogisticsRouter = (config: {
       res.json(result.rows);
     } catch (err) {
       console.error("Error fetching logistics by farmer:", err);
-      res.status(500).send("Internal server error");
+      res.status(500).json({error: "Internal server error"});
     }
   });
 
@@ -115,7 +263,7 @@ export const getLogisticsRouter = (config: {
       res.status(200).json({message: "Status updated"});
     } catch (err) {
       console.error("Error updating logistics status:", err);
-      res.status(500).send("Internal server error");
+      res.status(500).json({error: "Internal server error"});
     }
   });
 

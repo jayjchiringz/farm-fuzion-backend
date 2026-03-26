@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-var-requires */
@@ -9,6 +11,7 @@ import dns from "dns";
 import {Socket} from "net";
 import {promisify} from "util";
 import nodemailer from "nodemailer";
+import jwt from "jsonwebtoken";
 
 const resolve4 = promisify(dns.resolve4);
 
@@ -122,7 +125,7 @@ export const getAuthRouter = (config: {
     }
   );
 
-  // 2️⃣ Verify OTP
+  // 2️⃣ Verify OTP - UPDATED WITH JWT GENERATION
   router.post("/verify-otp", express.json(), async (req, res) => {
     const {email, otp} = req.body;
 
@@ -157,6 +160,9 @@ export const getAuthRouter = (config: {
         [email]
       );
 
+      let userData: any = null;
+      let userRole = "farmer"; // Default role
+
       if ((userResult.rowCount ?? 0) > 0) {
         const user = userResult.rows[0];
 
@@ -165,44 +171,38 @@ export const getAuthRouter = (config: {
           user.role = "farmer";
         }
 
+        userRole = user.role;
+        userData = {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          role_id: user.role_id,
+          role_description: user.role_description,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          group_id: user.group_id,
+        };
+
         console.log(`✅ User authenticated: ${email}, role: ${user.role}`);
+      } else {
+        // Try farmers table as fallback
+        const farmerResult = await pool.query(
+          `SELECT 
+            id,
+            first_name,
+            middle_name,
+            last_name,
+            email,
+            group_id
+           FROM farmers 
+           WHERE email = $1 LIMIT 1`,
+          [email]
+        );
 
-        res.status(200).json({
-          message: "OTP verified ✅",
-          user: {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            role_id: user.role_id,
-            role_description: user.role_description,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            group_id: user.group_id,
-          },
-        });
-        return;
-      }
-
-      // Try farmers table as fallback
-      const farmerResult = await pool.query(
-        `SELECT 
-          id,
-          first_name,
-          middle_name,
-          last_name,
-          email,
-          group_id
-         FROM farmers 
-         WHERE email = $1 LIMIT 1`,
-        [email]
-      );
-
-      if ((farmerResult.rowCount ?? 0) > 0) {
-        const farmer = farmerResult.rows[0];
-
-        res.status(200).json({
-          message: "OTP verified ✅",
-          user: {
+        if ((farmerResult.rowCount ?? 0) > 0) {
+          const farmer = farmerResult.rows[0];
+          userRole = "farmer";
+          userData = {
             id: farmer.id,
             email: farmer.email,
             role: "farmer",
@@ -210,12 +210,52 @@ export const getAuthRouter = (config: {
             last_name: farmer.last_name,
             middle_name: farmer.middle_name,
             group_id: farmer.group_id,
-          },
-        });
+          };
+        } else {
+          res.status(403).json({error: "User not found."});
+          return;
+        }
+      }
+
+      // ============================================
+      // GENERATE JWT TOKEN
+      // ============================================
+      const JWT_SECRET = process.env.JWT_SECRET;
+
+      if (!JWT_SECRET) {
+        console.error("❌ JWT_SECRET is not configured in environment variables!");
+        res.status(500).json({error: "Server configuration error"});
         return;
       }
 
-      res.status(403).json({error: "User not found."});
+      // Create JWT payload
+      const jwtPayload = {
+        user_id: userData.id,
+        email: userData.email,
+        username: userData.email.split("@")[0],
+        first_name: userData.first_name || "",
+        last_name: userData.last_name || "",
+        roles: [userData.role], // Convert to array for PostXpress compatibility
+        // Optional: Add audience for PostXpress
+        aud: "postxpress",
+        // Issued at and expiration
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
+      };
+
+      // Generate the token
+      const token = jwt.sign(jwtPayload, JWT_SECRET, {
+        algorithm: "HS256",
+      });
+
+      console.log(`✅ JWT generated for user: ${email}, expires in 7 days`);
+
+      // Return user data WITH token
+      res.status(200).json({
+        message: "OTP verified ✅",
+        token: token, // This is what your frontend stores!
+        user: userData,
+      });
     } catch (err) {
       console.error("❌ OTP Verification Error:", err);
       res.status(500).json({error: "Server error"});
