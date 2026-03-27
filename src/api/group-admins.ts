@@ -94,12 +94,12 @@ export const getGroupAdminsRouter = (config: DbConfig) => {
       const tempPassword = generateTempPassword();
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-      // Create user in users table - REMOVED updated_at
+      // Create user in users table - Include both role and role_id
       const userResult = await pool.query(
-        `INSERT INTO users (email, password, role_id, created_at)
-         VALUES ($1, $2, $3, NOW())
+        `INSERT INTO users (email, password, role, role_id, created_at)
+         VALUES ($1, $2, $3, $4, NOW())
          RETURNING id`,
-        [email.toLowerCase(), hashedPassword, role_id]
+        [email.toLowerCase(), hashedPassword, "Group Admin", role_id]
       );
 
       const user_id = userResult.rows[0].id;
