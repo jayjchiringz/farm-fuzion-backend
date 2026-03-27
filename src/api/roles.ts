@@ -1,3 +1,5 @@
+/* eslint-disable camelcase */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/ban-types */
 // src/api/roles.ts
@@ -54,19 +56,21 @@ export const getRolesRouter = (config: DbConfig) => {
     }
   });
 
-  // POST create new role
-  router.post("/", async (req: express.Request<{}, {}, CreateRoleBody>, res: express.Response) => {
+  // In roles.ts, when creating roles, normalize to your database format
+  router.post("/", async (req, res) => {
     try {
       const {name, description} = req.body;
       if (!name) {
         return res.status(400).json({error: "Role name is required"});
       }
 
-      const result = await pool.query<Role>(
+      // Keep the role name as provided (e.g., "Group Admin" with space)
+      // Don't convert to underscore - match your database exactly
+      const result = await pool.query(
         `INSERT INTO user_roles (name, description) 
-         VALUES ($1, $2) 
-         ON CONFLICT (name) DO NOTHING
-         RETURNING *`,
+        VALUES ($1, $2) 
+        ON CONFLICT (name) DO NOTHING
+        RETURNING *`,
         [name, description || null]
       );
 
@@ -96,7 +100,7 @@ export const getRolesRouter = (config: DbConfig) => {
          SET name = $1, description = $2
          WHERE id = $3
          RETURNING *`,
-        [name, description || null, id]
+        [name.toLowerCase().replace(/\s+/g, "_"), description || null, id]
       );
 
       if (result.rows.length === 0) {
@@ -114,6 +118,17 @@ export const getRolesRouter = (config: DbConfig) => {
   router.delete("/:id", async (req: express.Request<{ id: string }>, res: express.Response) => {
     try {
       const {id} = req.params;
+
+      // Check if role is in use
+      const usageCheck = await pool.query(
+        "SELECT COUNT(*) FROM users WHERE role_id = $1",
+        [id]
+      );
+
+      if (parseInt(usageCheck.rows[0].count) > 0) {
+        return res.status(400).json({error: "Cannot delete role that is assigned to users"});
+      }
+
       const result = await pool.query<{ id: string }>(
         "DELETE FROM user_roles WHERE id = $1 RETURNING id",
         [id]
