@@ -76,7 +76,7 @@ export const getGroupAdminsRouter = (config: DbConfig) => {
 
       // Check if group exists and is approved
       const groupResult = await pool.query(
-        "SELECT id, name FROM groups WHERE id = $1 AND status = 'approved'",
+        "SELECT id, name FROM groups WHERE id = $1 AND status = 'active'",
         [group_id]
       );
 

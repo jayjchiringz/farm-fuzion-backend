@@ -44,6 +44,7 @@ import {getKnowledgeRouter} from "./api/knowledge";
 import {getServicesRouter} from "./api/services";
 import {adminRouter} from "./api/admin";
 import {getRolesRouter} from "./api/roles";
+import {getGroupAdminsRouter} from "./api/group-admins"; // ✅ ADD THIS IMPORT
 
 // Update allowed origins to include Vercel frontend
 const allowedOrigins = [
@@ -257,6 +258,7 @@ export const createMainApp = (config: AppConfig) => {
   registerSyncRouter("/roles", getRolesRouter);
   registerSyncRouter("/marketplace", getMarketplaceRouter);
   registerSyncRouter("/knowledge", getKnowledgeRouter);
+  registerSyncRouter("/group-admins", getGroupAdminsRouter); // ✅ ADD THIS REGISTRATION
 
   // Only truly async routers go here
   registerAsyncRouter("/wallet", getWalletRouter);
