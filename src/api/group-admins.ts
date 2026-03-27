@@ -5,7 +5,7 @@
 import express from "express";
 import {Pool} from "pg";
 import {initDbPool} from "../utils/db";
-import bcrypt from "bcrypt"; // or bcryptjs
+import bcrypt from "bcrypt";
 
 interface DbConfig {
   PGUSER: string;
@@ -26,7 +26,7 @@ interface GroupAdminCreateBody {
   group_id: string;
 }
 
-// Generate a random password
+// Generate a random temporary password
 const generateTempPassword = (): string => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let password = "";
@@ -45,6 +45,8 @@ export const getGroupAdminsRouter = (config: DbConfig) => {
     try {
       const {first_name, middle_name, last_name, email, mobile, group_id} = req.body;
 
+      console.log("📝 Creating group admin:", {first_name, last_name, email, group_id});
+
       // Validate required fields
       if (!first_name || !last_name || !email || !mobile || !group_id) {
         return res.status(400).json({
@@ -62,41 +64,40 @@ export const getGroupAdminsRouter = (config: DbConfig) => {
         return res.status(409).json({error: "User with this email already exists"});
       }
 
-      // Get role_id for 'Group Admin' (exact match with your database)
+      // Get role_id for 'Group Admin'
       const roleResult = await pool.query(
         "SELECT id FROM user_roles WHERE name = $1",
-        ["Group Admin"] // ← Exactly as stored in your database
+        ["Group Admin"]
       );
 
       if (roleResult.rows.length === 0) {
-        return res.status(400).json({error: "Group Admin role not found. Please ensure 'Group Admin' role exists in user_roles table."});
+        return res.status(400).json({
+          error: "Group Admin role not found. Please ensure 'Group Admin' role exists in user_roles table.",
+        });
       }
 
       const role_id = roleResult.rows[0].id;
 
-      // Check if group exists and is approved
+      // Check if group exists and is active
       const groupResult = await pool.query(
         "SELECT id, name FROM groups WHERE id = $1 AND status = 'active'",
         [group_id]
       );
 
       if (groupResult.rows.length === 0) {
-        return res.status(400).json({error: "Group not found or not approved"});
+        return res.status(400).json({error: "Group not found or not active"});
       }
 
       const groupName = groupResult.rows[0].name;
 
-      // Generate a temporary password
+      // Generate temporary password
       const tempPassword = generateTempPassword();
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-      // Hash the password
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(tempPassword, saltRounds);
-
-      // Create user in users table
+      // Create user in users table - REMOVED updated_at
       const userResult = await pool.query(
-        `INSERT INTO users (email, password, role_id, created_at, updated_at)
-         VALUES ($1, $2, $3, NOW(), NOW())
+        `INSERT INTO users (email, password, role_id, created_at)
+         VALUES ($1, $2, $3, NOW())
          RETURNING id`,
         [email.toLowerCase(), hashedPassword, role_id]
       );
@@ -123,7 +124,6 @@ export const getGroupAdminsRouter = (config: DbConfig) => {
       console.log(`   Temporary Password: ${tempPassword}`);
 
       // TODO: Send email with temporary password
-      // You can integrate your email service here
 
       return res.status(201).json({
         success: true,
@@ -139,7 +139,7 @@ export const getGroupAdminsRouter = (config: DbConfig) => {
     }
   });
 
-  // GET /group-admins - List all group admins (admin only)
+  // GET /group-admins - List all group admins
   router.get("/", async (req: express.Request, res: express.Response) => {
     try {
       const result = await pool.query(`
@@ -154,7 +154,6 @@ export const getGroupAdminsRouter = (config: DbConfig) => {
           ga.mobile,
           u.email,
           u.created_at,
-          u.updated_at,
           r.name as role_name
         FROM group_admins ga
         JOIN users u ON ga.user_id = u.id
@@ -187,7 +186,6 @@ export const getGroupAdminsRouter = (config: DbConfig) => {
           ga.mobile,
           u.email,
           u.created_at,
-          u.updated_at,
           r.name as role_name
         FROM group_admins ga
         JOIN users u ON ga.user_id = u.id
