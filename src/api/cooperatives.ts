@@ -80,7 +80,7 @@ export const getCooperativesRouter = (config: AppConfig) => {
           g.created_at
         FROM groups g
         INNER JOIN group_admins ga ON ga.group_id = g.id
-        WHERE ga.user_id = $1 AND ga.status = 'active'`,
+        WHERE ga.user_id = $1`,
         [userId]
       );
 
@@ -110,7 +110,7 @@ export const getCooperativesRouter = (config: AppConfig) => {
 
       // First get the group ID for this user from group_admins
       const groupResult = await pool.query(
-        "SELECT group_id FROM group_admins WHERE user_id = $1 AND status = 'active'",
+        "SELECT group_id FROM group_admins WHERE user_id = $1",
         [userId]
       );
 
@@ -354,7 +354,7 @@ export const getCooperativesRouter = (config: AppConfig) => {
 
       // Get group ID
       const groupResult = await pool.query(
-        "SELECT group_id FROM group_admins WHERE user_id = $1 AND status = 'active'",
+        "SELECT group_id FROM group_admins WHERE user_id = $1",
         [userId]
       );
 
@@ -378,7 +378,7 @@ export const getCooperativesRouter = (config: AppConfig) => {
           bo.buyer_country,
           bo.quantity,
           bo.total_amount,
-          bo.status,
+          COALESCE(bo.status, 'pending') as status,
           bo.shipping_address,
           bo.shipping_method,
           bo.tracking_number,
@@ -421,7 +421,7 @@ export const getCooperativesRouter = (config: AppConfig) => {
 
       // Get group ID
       const groupResult = await pool.query(
-        "SELECT group_id FROM group_admins WHERE user_id = $1 AND status = 'active'",
+        "SELECT group_id FROM group_admins WHERE user_id = $1",
         [userId]
       );
 
@@ -516,7 +516,7 @@ export const getCooperativesRouter = (config: AppConfig) => {
 
       // Get group ID
       const groupResult = await pool.query(
-        "SELECT group_id FROM group_admins WHERE user_id = $1 AND status = 'active'",
+        "SELECT group_id FROM group_admins WHERE user_id = $1",
         [userId]
       );
 
