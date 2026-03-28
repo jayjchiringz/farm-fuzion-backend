@@ -4,7 +4,7 @@
 import {Request, Response, NextFunction} from "express";
 import jwt, {JsonWebTokenError, TokenExpiredError} from "jsonwebtoken";
 
-// Define the user interface for the request
+// Define the user interface for the request - already exported
 export interface RequestUser {
   id: string;
   email: string;
@@ -18,12 +18,12 @@ export interface RequestUser {
   exp?: number;
 }
 
-// Define custom request type with user property
-export interface AuthenticatedRequest extends Request {
+// Define custom request type with user property - already exported
+export interface AuthRequest extends Request {
   user?: RequestUser;
 }
 
-// AuthUser interface for JWT payload
+// AuthUser interface for JWT payload - already exported
 export interface AuthUser {
   user_id?: string;
   id?: string;
@@ -95,7 +95,7 @@ export const authenticateJWT = async (
       };
 
       // Attach user info to request using type assertion
-      (req as AuthenticatedRequest).user = user;
+      (req as AuthRequest).user = user;
 
       console.log(`🔐 Authenticated user: ${user.email} (ID: ${user.id})`);
       next();
@@ -126,7 +126,7 @@ export const authenticateJWT = async (
  */
 export const requireRole = (allowedRoles: string | string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const user = (req as AuthenticatedRequest).user;
+    const user = (req as AuthRequest).user;
 
     if (!user) {
       res.status(401).json({error: "User not authenticated"});
@@ -197,7 +197,7 @@ export const optionalAuth = async (
           group_id: decoded.group_id,
         };
 
-        (req as AuthenticatedRequest).user = user;
+        (req as AuthRequest).user = user;
         console.log(`🔐 Optional auth: User ${user.email} authenticated`);
       } catch {
         // Invalid token - just continue without user
@@ -216,7 +216,7 @@ export const optionalAuth = async (
  * Helper to extract user ID from request
  */
 export const getUserId = (req: Request): string | null => {
-  const user = (req as AuthenticatedRequest).user;
+  const user = (req as AuthRequest).user;
   return user?.id || null;
 };
 
@@ -224,7 +224,7 @@ export const getUserId = (req: Request): string | null => {
  * Helper to extract user email from request
  */
 export const getUserEmail = (req: Request): string | null => {
-  const user = (req as AuthenticatedRequest).user;
+  const user = (req as AuthRequest).user;
   return user?.email || null;
 };
 
@@ -232,7 +232,7 @@ export const getUserEmail = (req: Request): string | null => {
  * Helper to check if user has a specific role
  */
 export const userHasRole = (req: Request, roleName: string): boolean => {
-  const user = (req as AuthenticatedRequest).user;
+  const user = (req as AuthRequest).user;
   if (!user) return false;
   const userRoles = user.roles || (user.role ? [user.role] : []);
   return userRoles.some((r: string) => r.toLowerCase() === roleName.toLowerCase());
@@ -242,5 +242,5 @@ export const userHasRole = (req: Request, roleName: string): boolean => {
  * Helper to get the full user object
  */
 export const getUser = (req: Request): RequestUser | undefined => {
-  return (req as AuthenticatedRequest).user;
+  return (req as AuthRequest).user;
 };
