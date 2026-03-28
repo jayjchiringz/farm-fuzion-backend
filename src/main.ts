@@ -152,7 +152,7 @@ export const createMainApp = (config: AppConfig) => {
   app.use(sanitizeInput);
   app.use("/api", apiLimiter);
   app.use("/auth", authLimiter);
-  app.use(safeLogger);
+  app.use(safeLogger as express.RequestHandler);
   app.options("*", cors());
 
   app.use((req: RequestWithConfig, res, next) => {

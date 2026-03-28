@@ -3,6 +3,7 @@
 import {Response, NextFunction} from "express";
 import {AuthRequest} from "../middleware/auth";
 
+// Use AuthRequest type which includes the user property
 export const safeLogger = (req: AuthRequest, res: Response, next: NextFunction) => {
   const logData = {
     timestamp: new Date().toISOString(),
