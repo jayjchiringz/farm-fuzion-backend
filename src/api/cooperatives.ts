@@ -877,5 +877,50 @@ export const getCooperativesRouter = (config: AppConfig) => {
     }
   });
 
+  // PATCH /cooperatives/products/:id/publish-global
+  router.patch("/products/:id/publish-global", async (req: Request, res: Response) => {
+    try {
+      const productId = req.params.id;
+      const {published_to_global, global_product_id, global_price, global_min_quantity} = req.body;
+
+      await pool.query(
+        `UPDATE cooperative_products 
+        SET published_to_global = $1, 
+            global_product_id = $2,
+            global_price = $3,
+            global_min_quantity = $4,
+            updated_at = NOW()
+        WHERE id = $5`,
+        [published_to_global, global_product_id, global_price, global_min_quantity, productId]
+      );
+
+      res.json({message: "Product published to global marketplace"});
+    } catch (error) {
+      console.error("Error publishing to global:", error);
+      res.status(500).json({error: "Internal server error"});
+    }
+  });
+
+  // PATCH /cooperatives/products/:id/unpublish-global
+  router.patch("/products/:id/unpublish-global", async (req: Request, res: Response) => {
+    try {
+      const productId = req.params.id;
+
+      await pool.query(
+        `UPDATE cooperative_products 
+        SET published_to_global = FALSE, 
+            global_product_id = NULL,
+            updated_at = NOW()
+        WHERE id = $1`,
+        [productId]
+      );
+
+      res.json({message: "Product unpublished from global marketplace"});
+    } catch (error) {
+      console.error("Error unpublishing from global:", error);
+      res.status(500).json({error: "Internal server error"});
+    }
+  });
+
   return router;
 };
