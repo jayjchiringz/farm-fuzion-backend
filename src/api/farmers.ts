@@ -231,5 +231,49 @@ export const getFarmersRouter = (config: {
     }
   });
 
+  // GET /farmers/:id - Get farmer by numeric ID
+  router.get("/:id", async (req, res) => {
+    try {
+      const farmerId = parseInt(req.params.id);
+
+      if (isNaN(farmerId)) {
+        return res.status(400).json({error: "Invalid farmer ID"});
+      }
+
+      const result = await pool.query(
+        `SELECT 
+          f.id,
+          f.first_name,
+          f.middle_name,
+          f.last_name,
+          f.email,
+          f.mobile,
+          f.group_id,
+          f.county,
+          f.constituency,
+          f.ward,
+          f.location,
+          f.address,
+          f.created_at,
+          g.name as group_name,
+          g.registration_number as group_registration,
+          g.status as group_status
+        FROM farmers f
+        LEFT JOIN groups g ON f.group_id = g.id
+        WHERE f.id = $1`,
+        [farmerId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({error: "Farmer not found"});
+      }
+
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error("Error fetching farmer by ID:", error);
+      res.status(500).json({error: "Internal server error"});
+    }
+  });
+
   return router;
 };
