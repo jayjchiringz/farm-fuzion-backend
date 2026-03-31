@@ -922,5 +922,72 @@ export const getCooperativesRouter = (config: AppConfig) => {
     }
   });
 
+  // ============================================
+  // GET /cooperatives/products/:id - Get single product by ID
+  // ============================================
+  router.get("/products/:id", async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+
+      if (!userId) {
+        res.status(401).json({error: "User not authenticated"});
+        return;
+      }
+
+      const productId = req.params.id;
+
+      // First get the group ID for this user from group_admins
+      const groupResult = await pool.query(
+        "SELECT group_id FROM group_admins WHERE user_id = $1",
+        [userId]
+      );
+
+      if (groupResult.rows.length === 0) {
+        res.status(404).json({error: "No group found"});
+        return;
+      }
+
+      const groupId = groupResult.rows[0].group_id;
+
+      // Get the single product - verify it belongs to this group
+      const result = await pool.query(
+        `SELECT 
+          cp.id,
+          cp.group_id,
+          cp.product_name,
+          cp.category,
+          cp.quantity,
+          cp.unit,
+          cp.price_per_unit,
+          cp.currency,
+          (cp.quantity * cp.price_per_unit) as total_price,
+          cp.available,
+          cp.harvest_date,
+          cp.expiry_date,
+          cp.certification,
+          cp.description,
+          cp.images,
+          cp.created_at,
+          cp.source_farmer_id,
+          cp.source_farm_product_id,
+          f.first_name || ' ' || f.last_name as source_farmer_name
+        FROM cooperative_products cp
+        LEFT JOIN farmers f ON cp.source_farmer_id = f.id
+        WHERE cp.id = $1 AND cp.group_id = $2`,
+        [productId, groupId]
+      );
+
+      if (result.rows.length === 0) {
+        res.status(404).json({error: "Product not found"});
+        return;
+      }
+
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error("Error fetching product:", error);
+      res.status(500).json({error: "Internal server error"});
+    }
+  });
+
   return router;
 };
