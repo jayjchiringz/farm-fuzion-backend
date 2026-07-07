@@ -2,10 +2,19 @@
 // src/services/email.nodemailer.ts
 import https from 'https';
 
-// Brevo API Configuration
+// Brevo API Configuration - All from environment variables
 const BREVO_API_KEY = process.env.BREVO_API_KEY || process.env.MAIL_PASS;
-const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || process.env.MAIL_USER;
+// ✅ Now uses BREVO_FROM_EMAIL environment variable
+const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || 'jayjchiringz@gmail.com'; // Fallback to your Gmail
 const BREVO_FROM_NAME = process.env.BREVO_FROM_NAME || 'FarmFuzion';
+
+// Log configuration on startup (helps with debugging)
+console.log('📧 Brevo Email Configuration:', {
+  hasApiKey: !!BREVO_API_KEY,
+  fromEmail: BREVO_FROM_EMAIL,
+  fromName: BREVO_FROM_NAME,
+  apiKeyPrefix: BREVO_API_KEY ? BREVO_API_KEY.substring(0, 15) + '...' : 'none',
+});
 
 // HTML Email Template
 const generateOTPEmailHTML = (otp: string): string => {
@@ -84,18 +93,32 @@ export const sendOtpByEmail = async (
   otp: string,
   config: { MAIL_USER: string; MAIL_PASS: string }
 ): Promise<any> => {
-  const {MAIL_USER, MAIL_PASS} = config;
+  const {MAIL_PASS} = config;
 
-  // Use MAIL_PASS as the API key (Brevo SMTP key works as API key too)
-  const apiKey = MAIL_PASS;
-  const fromEmail = MAIL_USER || BREVO_FROM_EMAIL;
+  // ✅ Use environment variables for sender info
+  const apiKey = MAIL_PASS || BREVO_API_KEY;
+  const fromEmail = BREVO_FROM_EMAIL; // Now from environment variable
   const fromName = BREVO_FROM_NAME;
 
+  // Validate API key
   if (!apiKey) {
     throw new Error("❌ Brevo API key (MAIL_PASS) missing from config");
   }
 
+  // Validate API key format
+  if (!apiKey.startsWith('xkeysib-')) {
+    console.warn(`⚠️ Warning: API key doesn't start with 'xkeysib-'. Got: ${apiKey.substring(0, 15)}...`);
+    // Don't throw, let Brevo API handle the error
+  }
+
+  // Validate from email
+  if (!fromEmail) {
+    throw new Error("❌ BREVO_FROM_EMAIL not configured in environment variables");
+  }
+
   console.log(`📧 Attempting to send OTP to ${email} via Brevo API...`);
+  console.log(`📧 From: ${fromName} <${fromEmail}>`);
+  console.log(`🔑 API Key: ${apiKey.substring(0, 15)}...`);
 
   const postData = JSON.stringify({
     sender: {
@@ -132,12 +155,12 @@ export const sendOtpByEmail = async (
         responseData += chunk;
       });
       
-      // Add better error handling for the API response
       res.on('end', () => {
         if (res.statusCode === 201 || res.statusCode === 200) {
           console.log(`✅ OTP Email Sent Successfully via Brevo API:`, {
             statusCode: res.statusCode,
             to: email,
+            from: fromEmail,
           });
           
           try {
@@ -146,7 +169,7 @@ export const sendOtpByEmail = async (
             resolve(parsed);
           } catch (parseError) {
             // If response isn't JSON, still consider it a success
-            console.log(`📧 Email sent (non-JSON response)`);
+            console.log(`📧 Email sent successfully`);
             resolve({ success: true, raw: responseData });
           }
         } else {
