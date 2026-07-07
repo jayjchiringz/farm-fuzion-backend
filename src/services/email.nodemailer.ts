@@ -47,7 +47,7 @@ export const sendOtpByEmail = async (
   });
 
   const mailOptions = {
-    from: `"FarmFuzion <MAIL_USER>"`,
+    from: `"FarmFuzion" <${MAIL_USER}>`,
     to: email,
     subject: "Your FarmFuzion OTP Code",
     // Add plain text version for better deliverability
