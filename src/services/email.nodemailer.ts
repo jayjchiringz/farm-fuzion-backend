@@ -23,21 +23,23 @@ export const sendOtpByEmail = async (
 
   console.log(`📧 Attempting to send OTP to ${email} using Brevo...`);
 
-  // ✅ CORRECTED: Use official Brevo SMTP settings (port 587)
+  // Create transporter with Brevo SMTP settings (port 2525 for Render compatibility)
   const transporter = nodemailer.createTransport({
     host: "smtp-relay.brevo.com",
     port: 587,
-    secure: true, // TLS for port 587
+    secure: false, // false for port 2525
     auth: {
       user: MAIL_USER,
       pass: MAIL_PASS,
     },
-    connectionTimeout: 15000,
+    connectionTimeout: 15000, // 15 seconds
     greetingTimeout: 15000,
     socketTimeout: 20000,
+    // Add TLS options for better compatibility
     tls: {
       rejectUnauthorized: false,
     },
+    // Enable debug in development only
     ...(process.env.NODE_ENV === "development" && {
       debug: true,
       logger: true,
@@ -48,6 +50,7 @@ export const sendOtpByEmail = async (
     from: `"FarmFuzion" <${MAIL_USER}>`,
     to: email,
     subject: "Your FarmFuzion OTP Code",
+    // Add plain text version for better deliverability
     text: `Your FarmFuzion OTP is: ${otp}. This code is valid for 5 minutes. Do not share this code with anyone.`,
     html: `
       <!DOCTYPE html>
@@ -59,28 +62,38 @@ export const sendOtpByEmail = async (
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0; background-color: #f4f4f4;">
         <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <!-- Header -->
           <div style="background-color: #8dc71d; padding: 30px 20px; text-align: center;">
             <h1 style="color: #ffffff; margin: 0; font-size: 32px;">🌱 FarmFuzion</h1>
             <p style="color: #ffffff; margin: 10px 0 0 0; opacity: 0.9;">Sustained Agri-Business</p>
           </div>
+          
+          <!-- Content -->
           <div style="padding: 40px 30px;">
             <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Hello 👨‍🌾,</p>
+            
             <p style="font-size: 16px; color: #333; margin-bottom: 15px;">Your One-Time Password (OTP) for login is:</p>
+            
             <div style="background-color: #f8f9fa; padding: 25px; text-align: center; border-radius: 8px; margin: 25px 0; border: 2px dashed #8dc71d;">
               <h2 style="font-size: 48px; letter-spacing: 8px; margin: 0; color: #333; font-weight: bold;">${otp}</h2>
             </div>
+            
             <div style="background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 15px; margin: 20px 0;">
               <p style="font-size: 14px; color: #856404; margin: 0;">
                 <strong>⏰ Valid for 5 minutes only</strong><br>
                 🔒 Never share this code with anyone
               </p>
             </div>
+            
             <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+            
             <p style="font-size: 12px; color: #999; text-align: center; margin: 0;">
               If you didn't request this OTP, please ignore this email.<br>
               &copy; ${new Date().getFullYear()} FarmFuzion. All rights reserved.
             </p>
           </div>
+          
+          <!-- Footer -->
           <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e0e0e0;">
             <p style="font-size: 12px; color: #999; margin: 0;">
               FarmFuzion - Sustained Agri-Business
@@ -90,6 +103,7 @@ export const sendOtpByEmail = async (
       </body>
       </html>
     `,
+    // Add headers to improve deliverability
     headers: {
       "X-Priority": "1",
       "X-MSMail-Priority": "High",
@@ -122,6 +136,7 @@ export const sendOtpByEmail = async (
       to: email,
     });
 
+    // Provide specific error messages
     if (errorCode === "ETIMEDOUT") {
       throw new Error("Email service timeout - please try again");
     } else if (errorCode === "EAUTH") {
