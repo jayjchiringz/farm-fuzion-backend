@@ -5,7 +5,7 @@ import https from 'https';
 // Brevo API Configuration - All from environment variables
 const BREVO_API_KEY = process.env.BREVO_API_KEY || process.env.MAIL_PASS;
 // ✅ Now uses BREVO_FROM_EMAIL environment variable
-const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || 'jayjchiringz@gmail.com'; // Fallback to your Gmail
+const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL; // Fallback to your Gmail
 const BREVO_FROM_NAME = process.env.BREVO_FROM_NAME || 'FarmFuzion';
 
 // Log configuration on startup (helps with debugging)
