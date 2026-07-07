@@ -26,7 +26,7 @@ export const sendOtpByEmail = async (
   // Create transporter with Brevo SMTP settings (port 2525 for Render compatibility)
   const transporter = nodemailer.createTransport({
     host: "smtp-relay.brevo.com",
-    port: 587,
+    port: 2525,
     secure: false, // false for port 2525
     auth: {
       user: MAIL_USER,
