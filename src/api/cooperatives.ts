@@ -883,6 +883,33 @@ export const getCooperativesRouter = (config: AppConfig) => {
       const productId = req.params.id;
       const {published_to_global, global_product_id, global_price, global_min_quantity} = req.body;
 
+      // Get the product details
+      const product = await pool.query(
+        `SELECT 
+          cp.id,
+          cp.product_name,
+          cp.category,
+          cp.quantity,
+          cp.unit,
+          cp.price_per_unit,
+          cp.certification,
+          cp.description,
+          cp.group_id,
+          g.name as cooperative_name
+        FROM cooperative_products cp
+        LEFT JOIN groups g ON cp.group_id = g.id
+        WHERE cp.id = $1`,
+        [productId]
+      );
+
+      if (product.rows.length === 0) {
+        res.status(404).json({error: "Product not found"});
+        return;
+      }
+
+      const p = product.rows[0];
+
+      // Update local cooperative product
       await pool.query(
         `UPDATE cooperative_products 
         SET published_to_global = $1, 
@@ -893,6 +920,41 @@ export const getCooperativesRouter = (config: AppConfig) => {
         WHERE id = $5`,
         [published_to_global, global_product_id, global_price, global_min_quantity, productId]
       );
+
+      // ✅ SYNC TO PUBLIC API TABLE
+      // Insert/Update into marketplace_products (public schema)
+      const publicDbUrl = process.env.PUBLIC_DATABASE_URL || process.env.DATABASE_URL;
+      if (publicDbUrl) {
+        // Using the same pool but different schema
+        await pool.query(
+          `INSERT INTO public_marketplace.marketplace_products (
+            id, product_name, category, quantity, unit, price_per_unit, 
+            available, certification, description, created_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+          ON CONFLICT (id) DO UPDATE SET
+            product_name = EXCLUDED.product_name,
+            category = EXCLUDED.category,
+            quantity = EXCLUDED.quantity,
+            unit = EXCLUDED.unit,
+            price_per_unit = EXCLUDED.price_per_unit,
+            available = EXCLUDED.available,
+            certification = EXCLUDED.certification,
+            description = EXCLUDED.description`,
+          [
+            p.id,
+            p.product_name,
+            p.category,
+            p.quantity,
+            p.unit,
+            p.price_per_unit,
+            true,
+            p.certification || null,
+            p.description || null
+          ]
+        );
+        
+        console.log(`✅ Product ${p.id} synced to public marketplace`);
+      }
 
       res.json({message: "Product published to global marketplace"});
     } catch (error) {
