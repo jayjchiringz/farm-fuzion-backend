@@ -420,6 +420,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
           hasWallet: true,
           needsSetup: false,
           needsPin: false,
+          requiresOTP: false,
           farmerId: resolvedId,
           phone: phone,
         });
@@ -430,6 +431,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       let needsSetup = true;
       let needsPin = false;
       let authenticated = false;
+      let requiresOTP = false;
 
       try {
         const tempUnipesa = new UnipesaService(unipesaConfig);
@@ -447,6 +449,8 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
           needsSetup = true;
           needsPin = false;
           authenticated = false;
+          requiresOTP = false;
+          console.log(`📝 Farmer ${resolvedId} has no wallet. Needs setup.`);
         } catch (registerError: any) {
           // 409 means user already exists (has wallet)
           if (registerError.message?.includes('409') ||
@@ -456,8 +460,10 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
             needsSetup = false;
             needsPin = true;
             authenticated = false;
+            requiresOTP = true;  // ✅ Signal OTP flow
+            console.log(`✅ Farmer ${resolvedId} has a Unipesa wallet. Needs OTP.`);
 
-            // ✅ Try sandbox PINs for auto-auth
+            // ✅ Try sandbox PINs for auto-auth (if any work, skip OTP)
             if (process.env.NODE_ENV !== 'production') {
               const testPins = ['1234', '0000', '1111', '4321', '0928'];
               for (const testPin of testPins) {
@@ -477,6 +483,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
                       hasWallet: true,
                       needsSetup: false,
                       needsPin: false,
+                      requiresOTP: false,
                       farmerId: resolvedId,
                       phone: phone,
                       userId: account.id,
@@ -488,12 +495,16 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
                   continue;
                 }
               }
+              console.log(`⚠️ Sandbox: No test PIN worked for farmer ${resolvedId}. Using OTP flow.`);
             }
           } else {
+            // Some other error
             hasWallet = false;
             needsSetup = true;
             needsPin = false;
             authenticated = false;
+            requiresOTP = false;
+            console.error("💥 Register check error:", registerError);
           }
         }
       } catch (err) {
@@ -502,6 +513,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
         needsSetup = true;
         needsPin = false;
         authenticated = false;
+        requiresOTP = false;
       }
 
       return res.json({
@@ -510,9 +522,9 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
         hasWallet: hasWallet,
         needsSetup: needsSetup,
         needsPin: needsPin,
+        requiresOTP: requiresOTP,
         farmerId: resolvedId,
         phone: phone,
-        requiresOTP: hasWallet && !authenticated,
       });
 
     } catch (err) {
@@ -613,6 +625,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
         walletId: walletId,
         needsSetup: !hasWallet && !!phone,
         needsPin: hasWallet && !isAuthenticated,
+        requiresOTP: hasWallet && !isAuthenticated,
       });
     } catch (err) {
       console.error("💥 Status check error:", err);
