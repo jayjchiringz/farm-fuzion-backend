@@ -1,3 +1,4 @@
+// src/main.ts
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable import/no-duplicates */
@@ -74,9 +75,19 @@ export interface AppConfig extends DbConfig {
   SILICONFLOW_API_KEY?: string;
 }
 
-// Extend Express Request to include dbConfig
+// Unipesa config interface
+export interface UnipesaConfig {
+  baseUrl: string;
+  apiKey: string;
+  apiSecret: string;
+  merchantId: string;
+  terminalId?: string;
+}
+
+// Extend Express Request to include dbConfig and unipesaConfig
 interface RequestWithConfig extends express.Request {
-  dbConfig?: DbConfig; // Use DbConfig here, not AppConfig
+  dbConfig?: DbConfig;
+  unipesaConfig?: UnipesaConfig;
 }
 
 // Define error interface for error handler
@@ -181,6 +192,16 @@ export const createMainApp = (config: AppConfig) => {
         PGDB: config.PGDB,
         PGPORT: config.PGPORT,
       };
+
+      // Store Unipesa config on the request
+      req.unipesaConfig = {
+        baseUrl: process.env.UNIPESA_BASE_URL || 'https://wallet-sandbox.unipesa.io/v1',
+        apiKey: process.env.UNIPESA_API_KEY || '',
+        apiSecret: process.env.UNIPESA_API_SECRET || '',
+        merchantId: process.env.UNIPESA_MERCHANT_ID || '',
+        terminalId: process.env.UNIPESA_TERMINAL_ID || '',
+      };
+
       next();
     } catch (err: unknown) {
       const error = err as Error;
@@ -207,7 +228,7 @@ export const createMainApp = (config: AppConfig) => {
           throw new Error("Database configuration not available");
         }
         // Use the full AppConfig - you have it from the outer scope
-        const router = getRouter(config); // This is fine
+        const router = getRouter(config);
         router(req as any, res, next);
       } catch (err) {
         next(err);
@@ -215,17 +236,21 @@ export const createMainApp = (config: AppConfig) => {
     });
   };
 
-  // ADD THIS - Helper function to mount async routers under /api
+  // Helper function to mount async routers under /api - FIXED to pass unipesaConfig
   const registerAsyncRouter = (
     path: string,
-    getRouter: (config: DbConfig) => Promise<express.Router>
+    getRouter: (dbConfig: DbConfig, unipesaConfig: UnipesaConfig) => Promise<express.Router>
   ): void => {
     app.use(`/api${path}`, async (req: RequestWithConfig, res, next) => {
       try {
         if (!req.dbConfig) {
           throw new Error("Database configuration not available");
         }
-        const router = await getRouter(req.dbConfig);
+        if (!req.unipesaConfig) {
+          throw new Error("Unipesa configuration not available");
+        }
+        // ✅ Pass both dbConfig and unipesaConfig
+        const router = await getRouter(req.dbConfig, req.unipesaConfig);
         router(req as any, res, next);
       } catch (err) {
         next(err);
@@ -260,7 +285,10 @@ export const createMainApp = (config: AppConfig) => {
   registerSyncRouter("/marketplace", getMarketplaceRouter);
   registerSyncRouter("/knowledge", getKnowledgeRouter);
   registerSyncRouter("/group-admins", getGroupAdminsRouter);
+  
+  // ✅ This now passes both dbConfig and unipesaConfig
   registerAsyncRouter("/wallet", getWalletRouter);
+  
   registerSyncRouter("/cooperatives", getCooperativesRouter);
 
   // Error handling middleware with proper typing
@@ -313,6 +341,16 @@ if (require.main === module) {
     }
   }
 
+  // Validate Unipesa config (optional in development, required in production)
+  const requiredUnipesaVars = ["UNIPESA_API_KEY", "UNIPESA_API_SECRET", "UNIPESA_MERCHANT_ID"];
+  if (process.env.NODE_ENV === "production") {
+    for (const varName of requiredUnipesaVars) {
+      if (!process.env[varName]) {
+        console.warn(`⚠️ Missing Unipesa environment variable: ${varName} - Wallet features may not work`);
+      }
+    }
+  }
+
   const app = createMainApp(config);
   const port = process.env.PORT || 3001;
 
@@ -320,5 +358,6 @@ if (require.main === module) {
     console.log(`🚀 Server running on port ${port}`);
     console.log(`📧 Mail configured: ${!!(config.MAIL_USER && config.MAIL_PASS)}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+    console.log(`💰 Unipesa configured: ${!!process.env.UNIPESA_API_KEY}`);
   });
 }

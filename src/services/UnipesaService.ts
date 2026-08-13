@@ -1,6 +1,6 @@
 // src/services/UnipesaService.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosRequestHeaders } from 'axios';
 
 export interface UnipesaConfig {
   baseUrl: string;
@@ -56,10 +56,9 @@ export class UnipesaService {
           // Retry the original request
           const originalRequest = error.config;
           if (originalRequest) {
-            originalRequest.headers = {
-              ...originalRequest.headers,
-              Authorization: `Bearer ${this.accessToken}`,
-            };
+            if (originalRequest.headers) {
+              (originalRequest.headers as any).Authorization = `Bearer ${this.accessToken}`;
+            }
             return this.client.request(originalRequest);
           }
         }
@@ -80,13 +79,13 @@ export class UnipesaService {
         pin,
       });
 
-      this.accessToken = response.data.accessToken;
-      this.refreshToken = response.data.refreshToken;
+      this.accessToken = response.data.accessToken || null;
+      this.refreshToken = response.data.refreshToken || null;
       this.tokenExpiry = new Date(Date.now() + (response.data.expiresIn || 3600) * 1000);
 
       return {
-        accessToken: this.accessToken,
-        refreshToken: this.refreshToken,
+        accessToken: this.accessToken as string,
+        refreshToken: this.refreshToken as string,
       };
     } catch (error) {
       console.error('Unipesa sign-in error:', error);
@@ -107,10 +106,10 @@ export class UnipesaService {
         refreshToken: this.refreshToken,
       });
 
-      this.accessToken = response.data.accessToken;
+      this.accessToken = response.data.accessToken || null;
       this.tokenExpiry = new Date(Date.now() + (response.data.expiresIn || 3600) * 1000);
 
-      return this.accessToken;
+      return this.accessToken as string;
     } catch (error) {
       console.error('Token refresh error:', error);
       throw this.handleError(error);
@@ -181,6 +180,7 @@ export class UnipesaService {
   }
 
   // ==================== USER MANAGEMENT (Wallet API v1) ====================
+
   /**
    * Get current user profile
    */
@@ -266,9 +266,6 @@ export class UnipesaService {
       throw this.handleError(error);
     }
   }
-
-
-  // ==================== USER MANAGEMENT (Wallet API v1) ====================
 
   /**
    * Register a user and create a wallet (merchant-facing)
@@ -430,9 +427,9 @@ export class UnipesaService {
    */
   async createTopup(data: {
     userId: string;
-    amount: string; // "150.00"
+    amount: string;
     currency: 'KES';
-    method: string; // Provider ID from /providers
+    method: string;
     msisdn?: string;
   }): Promise<any> {
     try {
@@ -458,9 +455,9 @@ export class UnipesaService {
     currency: 'KES';
     to: {
       type: 'wallet' | 'external';
-      userId?: string; // For wallet type
-      providerId?: string; // For external type
-      account?: string; // For external type
+      userId?: string;
+      providerId?: string;
+      account?: string;
     };
   }): Promise<any> {
     try {
@@ -560,17 +557,16 @@ export class UnipesaService {
     }
   }
 
-
-  // ==================== PAYMENTS ====================
+  // ==================== PAYMENTS (Legacy - keep for compatibility) ====================
 
   /**
-   * Create a new payment transaction
+   * Create a new payment transaction (legacy)
    */
   async createPayment(data: {
     amount: number;
     currency: string;
-    source: string; // farmer ID or phone number
-    destination: string; // farmer ID or phone number
+    source: string;
+    destination: string;
     description?: string;
     metadata?: Record<string, any>;
   }): Promise<UnipesaTransaction> {
@@ -588,7 +584,7 @@ export class UnipesaService {
   }
 
   /**
-   * Get all available payment providers
+   * Get all available payment providers (legacy)
    */
   async getPaymentProviders(): Promise<{
     [category: string]: Array<{
@@ -652,7 +648,7 @@ export class UnipesaService {
   }
 
   /**
-   * List transactions with filters
+   * List transactions with filters (legacy)
    */
   async listTransactions(filters?: {
     startDate?: Date;
@@ -833,21 +829,26 @@ export class UnipesaService {
 
   // ==================== HELPERS ====================
 
-  private getAuthHeaders(): { Authorization: string } {
+  /**
+   * Get authentication headers for API requests
+   */
+  private getAuthHeaders(): AxiosRequestHeaders {
     if (!this.accessToken) {
       throw new Error('Not authenticated. Call signInWithPin first.');
     }
 
-    // Check if token is expired
     if (this.tokenExpiry && new Date() >= this.tokenExpiry) {
       throw new Error('Token expired. Call refreshAccessToken.');
     }
 
     return {
-      Authorization: `Bearer ${this.accessToken}`,
-    };
+      'Authorization': `Bearer ${this.accessToken}`,
+    } as AxiosRequestHeaders;
   }
 
+  /**
+   * Handle API errors consistently
+   */
   private handleError(error: any): Error {
     if (axios.isAxiosError(error)) {
       const message = error.response?.data?.message || error.message;
