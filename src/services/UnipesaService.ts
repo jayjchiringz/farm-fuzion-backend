@@ -180,6 +180,98 @@ export class UnipesaService {
     }
   }
 
+
+  // ==================== AUTHENTICATION (OTP Flow) ====================
+  /**
+   * Request OTP for authentication
+   * POST /identity/Otp/Send/SMS
+   */
+  async requestAuthOTP(phoneNumber: string): Promise<{ otpId: string; expiresIn: number }> {
+    try {
+      const response = await this.client.post('/identity/Otp/Send/SMS', {
+        phoneNumber,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Request auth OTP error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Verify OTP and complete authentication
+   * POST /identity/Otp/Verify/SMS
+   * This should return access tokens
+   */
+  async verifyAuthOTP(otpId: string, code: string): Promise<{ 
+    verified: boolean; 
+    accessToken?: string; 
+    refreshToken?: string;
+    expiresIn?: number;
+  }> {
+    try {
+      const response = await this.client.post('/identity/Otp/Verify/SMS', {
+        otpId,
+        code,
+      });
+      
+      // Store tokens if returned
+      if (response.data.accessToken) {
+        this.accessToken = response.data.accessToken || null;
+        this.refreshToken = response.data.refreshToken || null;
+        this.tokenExpiry = new Date(Date.now() + (response.data.expiresIn || 3600) * 1000);
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Verify auth OTP error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Sign in using OTP (complete flow)
+   * This sends OTP, waits for user to enter it, then verifies
+   */
+  async signInWithOTP(phoneNumber: string, otp: string): Promise<{ 
+    accessToken: string; 
+    refreshToken: string;
+    verified: boolean;
+  }> {
+    try {
+      // Step 1: Send OTP
+      const otpResponse = await this.requestAuthOTP(phoneNumber);
+      
+      // Step 2: Verify OTP
+      const verification = await this.verifyAuthOTP(otpResponse.otpId, otp);
+      
+      if (!verification.verified) {
+        throw new Error('OTP verification failed');
+      }
+      
+      // If tokens were returned in the verification response
+      if (verification.accessToken && verification.refreshToken) {
+        return {
+          accessToken: verification.accessToken,
+          refreshToken: verification.refreshToken,
+          verified: true,
+        };
+      }
+      
+      // If no tokens returned, we might need to call a separate sign-in endpoint
+      // For now, we'll return what we have
+      return {
+        accessToken: this.accessToken as string,
+        refreshToken: this.refreshToken as string,
+        verified: true,
+      };
+    } catch (error) {
+      console.error('OTP sign-in error:', error);
+      throw this.handleError(error);
+    }
+  }  
+
+
   // ==================== USER MANAGEMENT (Wallet API v1) ====================
 
   /**

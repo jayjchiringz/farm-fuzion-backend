@@ -102,13 +102,17 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
 
   const unipesa = new UnipesaService(unipesaConfig);
 
-  // ==================== AUTHENTICATION ENDPOINTS ====================
+  // ==================== AUTHENTICATION ENDPOINTS (OTP Flow) ====================
 
-  router.post("/auth/pin", async (req, res) => {
-    const { farmerId, pin } = req.body;
+  /**
+   * Request OTP for wallet authentication
+   * POST /wallet/auth/otp/request
+   */
+  router.post("/auth/otp/request", async (req, res) => {
+    const { farmerId } = req.body;
 
-    if (!farmerId || !pin) {
-      return res.status(400).json({ error: "Farmer ID and PIN required" });
+    if (!farmerId) {
+      return res.status(400).json({ error: "Farmer ID required" });
     }
 
     try {
@@ -119,9 +123,58 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
         return res.status(404).json({ error: "Farmer phone number not found" });
       }
 
-      const tokens = await unipesa.signInWithPin(phone, pin);
+      // Send OTP via Unipesa
+      const result = await unipesa.requestAuthOTP(phone);
+
+      return res.json({
+        success: true,
+        otpId: result.otpId,
+        expiresIn: result.expiresIn,
+        message: "OTP sent to your phone",
+      });
+    } catch (err) {
+      console.error("💥 Request OTP error:", err);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to send OTP",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  });
+
+  /**
+   * Verify OTP and authenticate wallet
+   * POST /wallet/auth/otp/verify
+   */
+  router.post("/auth/otp/verify", async (req, res) => {
+    const { farmerId, otpId, code } = req.body;
+
+    if (!farmerId || !otpId || !code) {
+      return res.status(400).json({ error: "Farmer ID, OTP ID, and code required" });
+    }
+
+    try {
+      const resolvedId = await resolveFarmerId(db, farmerId);
+      const phone = await getFarmerPhone(db, resolvedId);
+
+      if (!phone) {
+        return res.status(404).json({ error: "Farmer phone number not found" });
+      }
+
+      // Verify OTP
+      const verification = await unipesa.verifyAuthOTP(otpId, code);
+
+      if (!verification.verified) {
+        return res.status(401).json({
+          success: false,
+          error: "Invalid OTP code",
+        });
+      }
+
+      // Get account info to get user ID
       const account = await unipesa.getAccountInfo();
 
+      // Store session
       userSessions.set(resolvedId, {
         unipesa: unipesa,
         farmerId: resolvedId,
@@ -131,17 +184,17 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       return res.json({
         success: true,
         message: "Authenticated successfully",
-        tokens: {
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken,
-        },
         user: {
           unipesaUserId: account.id,
           phone: phone,
         },
+        tokens: {
+          accessToken: unipesa.getAccessToken(),
+          refreshToken: unipesa.getRefreshToken(),
+        },
       });
     } catch (err) {
-      console.error("💥 Auth error:", err);
+      console.error("💥 Verify OTP error:", err);
       return res.status(401).json({
         success: false,
         error: "Authentication failed",
@@ -150,6 +203,10 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     }
   });
 
+  /**
+   * Send OTP for PIN setup/reset (kept for compatibility)
+   * POST /wallet/auth/otp/send
+   */
   router.post("/auth/otp/send", async (req, res) => {
     const { farmerId } = req.body;
 
@@ -177,6 +234,10 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     }
   });
 
+  /**
+   * Verify OTP and set PIN (kept for compatibility)
+   * POST /wallet/auth/otp/verify-and-set-pin
+   */
   router.post("/auth/otp/verify-and-set-pin", async (req, res) => {
     const { otpId, code, newPin } = req.body;
 
@@ -210,6 +271,10 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     }
   });
 
+  /**
+   * Change PIN using current PIN (kept for compatibility)
+   * PUT /wallet/auth/pin/change
+   */
   router.put("/auth/pin/change", async (req, res) => {
     const { farmerId, currentPin, newPin } = req.body;
 
@@ -226,10 +291,22 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
         if (!phone) {
           return res.status(404).json({ error: "Farmer phone number not found" });
         }
-        const tokens = await unipesa.signInWithPin(phone, currentPin);
-        const account = await unipesa.getAccountInfo();
-        session = { unipesa, farmerId: resolvedId, userId: account.id };
-        userSessions.set(resolvedId, session);
+        // Try PIN authentication - if it fails, suggest OTP
+        try {
+          const tokens = await unipesa.signInWithPin(phone, currentPin);
+          const account = await unipesa.getAccountInfo();
+          session = { unipesa, farmerId: resolvedId, userId: account.id };
+          userSessions.set(resolvedId, session);
+        } catch (pinError: any) {
+          if (pinError.message?.includes('404') || pinError.message?.includes('Not Found')) {
+            return res.status(400).json({
+              success: false,
+              error: "PIN authentication not available. Please use OTP flow.",
+              requiresOTP: true,
+            });
+          }
+          throw pinError;
+        }
       }
 
       await session.unipesa.changePin(currentPin, newPin);
@@ -248,6 +325,10 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     }
   });
 
+  /**
+   * Refresh access token
+   * POST /wallet/auth/refresh
+   */
   router.post("/auth/refresh", async (req, res) => {
     const { farmerId } = req.body;
 
@@ -275,6 +356,10 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     }
   });
 
+  /**
+   * Logout - clear session
+   * POST /wallet/auth/logout
+   */
   router.post("/auth/logout", async (req, res) => {
     const { farmerId } = req.body;
 
