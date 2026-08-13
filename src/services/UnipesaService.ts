@@ -43,6 +43,7 @@ export class UnipesaService {
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': config.apiKey,
+        'X-API-Secret': config.apiSecret,
       },
     });
 
@@ -269,7 +270,7 @@ export class UnipesaService {
 
   /**
    * Register a user and create a wallet (merchant-facing)
-   * POST /users
+   * POST /users - Uses API Key/Secret authentication, NOT user token
    */
   async registerUser(data: {
     phoneNumber: string;
@@ -295,10 +296,17 @@ export class UnipesaService {
     createdAt: string;
   }> {
     try {
+      // ✅ Use API Key/Secret headers (not user auth)
       const response = await this.client.post(
         '/users',
         data,
-        { headers: this.getAuthHeaders() }
+        {
+          headers: {
+            'X-API-Key': this.config.apiKey,
+            'X-API-Secret': this.config.apiSecret,
+            'Content-Type': 'application/json',
+          }
+        }
       );
       return response.data;
     } catch (error) {
@@ -830,7 +838,7 @@ export class UnipesaService {
   // ==================== HELPERS ====================
 
   /**
-   * Get authentication headers for API requests
+   * Get authentication headers for user-authenticated API requests
    */
   private getAuthHeaders(): AxiosRequestHeaders {
     if (!this.accessToken) {
