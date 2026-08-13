@@ -2,11 +2,12 @@
   "compilerOptions": {
     "module": "commonjs",
     "esModuleInterop": true,
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
     "noImplicitReturns": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "outDir": "lib",
+    "rootDir": "src",
     "sourceMap": true,
     "strict": true,
     "target": "es2020",
@@ -14,7 +15,8 @@
     "typeRoots": ["./node_modules/@types", "./src/types"],
     "types": ["node"],
     "skipLibCheck": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "ignoreDeprecations": "6.0"
   },
   "compileOnSave": true,
   "include": ["src/**/*"],

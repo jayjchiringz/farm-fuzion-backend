@@ -9,11 +9,17 @@ import { UnipesaService } from "../services/UnipesaService";
 
 const pgp = pgPromise();
 
+// ✅ Shared session store - persists across requests
+const userSessions = new Map<string, {
+  unipesa: UnipesaService;
+  farmerId: string;
+  userId?: string;
+}>();
+
 // Helper to resolve farmerId (accepts both UUID and numeric)
 async function resolveFarmerId(db: any, farmerId: string | number): Promise<string> {
   const normalized = String(farmerId);
 
-  // Check if it's a UUID
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (uuidRegex.test(normalized)) {
     const farmer = await db.oneOrNone(
@@ -23,7 +29,7 @@ async function resolveFarmerId(db: any, farmerId: string | number): Promise<stri
     if (farmer) {
       return String(farmer.id);
     }
-    return normalized; // ✅ Fixed missing return
+    return normalized;
   }
 
   if (!isNaN(Number(normalized))) {
@@ -62,12 +68,12 @@ async function getFarmerDetails(db: any, farmerId: string): Promise<any> {
 function mapUnipesaTransaction(tx: any) {
   return {
     id: tx.transactionId,
-    type: tx.type === 'topup' ? 'topup' : 
-          tx.type === 'transfer_wallet' ? 'transfer' : 
-          tx.type === 'transfer_external' ? 'withdraw' : 'payment',
+    type: tx.type === 'topup' ? 'topup' :
+      tx.type === 'transfer_wallet' ? 'transfer' :
+      tx.type === 'transfer_external' ? 'withdraw' : 'payment',
     amount: parseFloat(tx.amount),
-    transaction_type: tx.type === 'topup' ? 'Received' : 
-                      tx.type === 'transfer_wallet' ? 'Transfer' : 'Payment',
+    transaction_type: tx.type === 'topup' ? 'Received' :
+      tx.type === 'transfer_wallet' ? 'Transfer' : 'Payment',
     direction: tx.type === 'topup' ? 'in' : 'out',
     source: tx.counterparty?.source || 'unknown',
     destination: tx.counterparty?.destination || 'unknown',
@@ -95,13 +101,6 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
   });
 
   const unipesa = new UnipesaService(unipesaConfig);
-
-  // Store user sessions
-  const userSessions = new Map<string, { 
-    unipesa: UnipesaService; 
-    farmerId: string;
-    userId?: string;
-  }>();
 
   // ==================== AUTHENTICATION ENDPOINTS ====================
 
@@ -143,8 +142,8 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       });
     } catch (err) {
       console.error("💥 Auth error:", err);
-      return res.status(401).json({ 
-        success: false, 
+      return res.status(401).json({
+        success: false,
         error: "Authentication failed",
         details: err instanceof Error ? err.message : "Unknown error",
       });
@@ -187,16 +186,16 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
 
     try {
       const verification = await unipesa.verifyOTP(otpId, code);
-      
+
       if (!verification.verified) {
-        return res.status(400).json({ 
-          success: false, 
-          error: "Invalid OTP code" 
+        return res.status(400).json({
+          success: false,
+          error: "Invalid OTP code"
         });
       }
 
       await unipesa.setPin(otpId, newPin);
-      
+
       return res.json({
         success: true,
         message: "PIN set successfully",
@@ -220,7 +219,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
 
     try {
       const resolvedId = await resolveFarmerId(db, farmerId);
-      
+
       let session = userSessions.get(resolvedId);
       if (!session) {
         const phone = await getFarmerPhone(db, resolvedId);
@@ -234,7 +233,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       }
 
       await session.unipesa.changePin(currentPin, newPin);
-      
+
       return res.json({
         success: true,
         message: "PIN changed successfully",
@@ -261,7 +260,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       }
 
       const newToken = await session.unipesa.refreshAccessToken();
-      
+
       return res.json({
         success: true,
         accessToken: newToken,
@@ -282,7 +281,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     try {
       const resolvedId = await resolveFarmerId(db, farmerId);
       const session = userSessions.get(resolvedId);
-      
+
       if (session) {
         session.unipesa.logout();
         userSessions.delete(resolvedId);
@@ -301,8 +300,113 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     }
   });
 
+  // ==================== WALLET STATUS CHECK (Auto-Auth) ====================
+
+  /**
+   * Check wallet status for a farmer - DOES NOT register
+   * POST /wallet/auto-auth
+   */
+  router.post("/auto-auth", async (req, res) => {
+    const { farmerId } = req.body;
+
+    if (!farmerId) {
+      return res.status(400).json({ error: "Farmer ID required" });
+    }
+
+    try {
+      const resolvedId = await resolveFarmerId(db, farmerId);
+      const phone = await getFarmerPhone(db, resolvedId);
+
+      if (!phone) {
+        return res.status(404).json({
+          success: false,
+          error: "Farmer phone number not found",
+          needsSetup: true,
+        });
+      }
+
+      // Check if we already have an authenticated session
+      const existingSession = userSessions.get(resolvedId);
+      if (existingSession && existingSession.unipesa.isAuthenticated()) {
+        console.log(`✅ Already authenticated for farmer ${resolvedId}`);
+        return res.json({
+          success: true,
+          authenticated: true,
+          hasWallet: true,
+          needsSetup: false,
+          needsPin: false,
+          farmerId: resolvedId,
+          phone: phone,
+        });
+      }
+
+      // Check if farmer has a wallet
+      let hasWallet = false;
+      let needsSetup = true;
+      let needsPin = false;
+
+      try {
+        const tempUnipesa = new UnipesaService(unipesaConfig);
+
+        try {
+          // Try to register - if it succeeds, user has no wallet
+          await tempUnipesa.registerUser({
+            phoneNumber: phone,
+            firstName: 'Check',
+            lastName: 'Existing',
+            externalUserId: resolvedId,
+            countryCode: 'KE',
+          });
+          hasWallet = false;
+          needsSetup = true;
+          needsPin = false;
+        } catch (registerError: any) {
+          // 409 means user already exists (has wallet)
+          if (registerError.message?.includes('409') ||
+            registerError.message?.includes('already registered') ||
+            registerError.message?.includes('Conflict')) {
+            hasWallet = true;
+            needsSetup = false;
+            needsPin = true;
+          } else {
+            hasWallet = false;
+            needsSetup = true;
+            needsPin = false;
+          }
+        }
+      } catch (err) {
+        console.error("💥 Auto-auth check error:", err);
+        hasWallet = false;
+        needsSetup = true;
+        needsPin = false;
+      }
+
+      return res.json({
+        success: true,
+        authenticated: false,
+        hasWallet: hasWallet,
+        needsSetup: needsSetup,
+        needsPin: needsPin,
+        farmerId: resolvedId,
+        phone: phone,
+      });
+
+    } catch (err) {
+      console.error("💥 Auto-auth error:", err);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to check wallet status",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  });
+
   // ==================== USER REGISTRATION ====================
 
+  /**
+   * Register a farmer's wallet with Unipesa (creates wallet)
+   * POST /wallet/register
+   */
   router.post("/register", async (req, res) => {
     const { farmerId, pin } = req.body;
 
@@ -322,6 +426,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
         return res.status(400).json({ error: "Farmer has no phone number" });
       }
 
+      // Register user with Unipesa - THIS CREATES THE WALLET
       const user = await unipesa.registerUser({
         phoneNumber: farmer.mobile,
         firstName: farmer.first_name || 'FarmFuzion',
@@ -330,6 +435,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
         countryCode: 'KE',
       });
 
+      // Send OTP for PIN verification
       const otpResult = await unipesa.sendOTP(farmer.mobile);
 
       return res.json({
@@ -351,6 +457,47 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
   });
 
   // ==================== WALLET ENDPOINTS ====================
+
+  router.get("/:farmerId/status", async (req, res) => {
+    const { farmerId } = req.params;
+
+    try {
+      const resolvedId = await resolveFarmerId(db, farmerId);
+      const session = userSessions.get(resolvedId);
+      const phone = await getFarmerPhone(db, resolvedId);
+
+      const isAuthenticated = session && session.unipesa.isAuthenticated();
+      let hasWallet = false;
+      let walletId = null;
+
+      if (isAuthenticated && session.userId) {
+        try {
+          const balance = await session.unipesa.getWalletBalance(session.userId);
+          hasWallet = true;
+          walletId = balance.walletId;
+        } catch (err) {
+          hasWallet = true;
+        }
+      }
+
+      return res.json({
+        success: true,
+        farmerId: resolvedId,
+        phone: phone,
+        isAuthenticated: isAuthenticated,
+        hasWallet: hasWallet,
+        walletId: walletId,
+        needsSetup: !hasWallet && !!phone,
+        needsPin: hasWallet && !isAuthenticated,
+      });
+    } catch (err) {
+      console.error("💥 Status check error:", err);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to check wallet status",
+      });
+    }
+  });
 
   router.get("/:farmerId/balance", async (req, res) => {
     const { farmerId } = req.params;
@@ -378,7 +525,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       });
     } catch (err) {
       console.error("💥 [WALLET] Balance fetch error:", err);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: "Unable to fetch wallet balance",
         details: err instanceof Error ? err.message : "Unknown error",
       });
@@ -532,7 +679,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       if (toType === 'wallet') {
         const recipientId = await resolveFarmerId(db, destination);
         const recipientDetails = await getFarmerDetails(db, recipientId);
-        
+
         const recipientPhone = recipientDetails?.mobile;
         if (!recipientPhone) {
           return res.status(404).json({ error: "Recipient phone number not found" });
@@ -631,7 +778,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       });
     } catch (err) {
       console.error("💥 Transfer error:", err);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: "Transfer failed",
         details: err instanceof Error ? err.message : "Unknown error",
       });
@@ -654,9 +801,9 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       const session = userSessions.get(senderId);
 
       if (!session) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "Not authenticated with Unipesa" 
+        return res.status(401).json({
+          success: false,
+          error: "Not authenticated with Unipesa"
         });
       }
 
@@ -756,7 +903,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       });
     } catch (err) {
       console.error("💥 Get providers error:", err);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: "Failed to get providers",
         details: err instanceof Error ? err.message : "Unknown error",
       });
