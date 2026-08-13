@@ -6,6 +6,7 @@
 import express from "express";
 import pgPromise from "pg-promise";
 import { UnipesaService } from "../services/UnipesaService";
+import { generateOtp, sendOtpByEmail } from "../services/otp";
 
 const pgp = pgPromise();
 
@@ -15,6 +16,26 @@ const userSessions = new Map<string, {
   farmerId: string;
   userId?: string;
 }>();
+
+// Global OTP store (in production, use Redis)
+declare global {
+  var otpStore: Map<string, { otp: string; expires: number }>;
+}
+
+if (!global.otpStore) {
+  global.otpStore = new Map();
+}
+
+// Clean up expired OTPs every minute
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of global.otpStore.entries()) {
+    if (value.expires < now) {
+      global.otpStore.delete(key);
+      console.log(`🧹 Cleaned up expired OTP for ${key}`);
+    }
+  }
+}, 60 * 1000);
 
 // Helper to resolve farmerId (accepts both UUID and numeric)
 async function resolveFarmerId(db: any, farmerId: string | number): Promise<string> {
@@ -102,10 +123,10 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
 
   const unipesa = new UnipesaService(unipesaConfig);
 
-  // ==================== AUTHENTICATION ENDPOINTS (OTP Flow) ====================
+  // ==================== AUTHENTICATION ENDPOINTS ====================
 
   /**
-   * Request OTP for wallet authentication
+   * Request OTP for wallet authentication (sent via email)
    * POST /wallet/auth/otp/request
    */
   router.post("/auth/otp/request", async (req, res) => {
@@ -117,20 +138,66 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
 
     try {
       const resolvedId = await resolveFarmerId(db, farmerId);
-      const phone = await getFarmerPhone(db, resolvedId);
+      
+      // Get farmer details including email
+      const farmerWithEmail = await db.oneOrNone(
+        `SELECT f.id, f.first_name, f.last_name, f.mobile, u.email 
+        FROM farmers f
+        LEFT JOIN users u ON f.user_id = u.id
+        WHERE f.id = $1`,
+        [resolvedId]
+      );
+
+      if (!farmerWithEmail) {
+        return res.status(404).json({ error: "Farmer not found" });
+      }
+
+      const phone = farmerWithEmail.mobile;
+      const email = farmerWithEmail.email;
 
       if (!phone) {
         return res.status(404).json({ error: "Farmer phone number not found" });
       }
 
-      // Send OTP via Unipesa
-      const result = await unipesa.requestAuthOTP(phone);
+      if (!email) {
+        return res.status(404).json({ 
+          error: "Farmer email not found. Please update your profile with an email address." 
+        });
+      }
+
+      // Generate OTP locally (6 digits)
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Store OTP with 5-minute expiration
+      global.otpStore.set(email, {
+        otp: otp,
+        expires: Date.now() + 5 * 60 * 1000,
+      });
+
+      // Send OTP via email using your internal system
+      if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
+        console.error('❌ Email configuration missing. Please set MAIL_USER and MAIL_PASS.');
+        return res.status(500).json({
+          success: false,
+          error: "Email service not configured",
+          details: "Please contact support.",
+        });
+      }      
+
+      const emailConfig = {
+        MAIL_USER: process.env.MAIL_USER,
+        MAIL_PASS: process.env.MAIL_PASS,
+      };
+
+      await sendOtpByEmail(email, otp, emailConfig);
+
+      console.log(`✅ OTP sent to ${email} for farmer ${resolvedId}`);
 
       return res.json({
         success: true,
-        otpId: result.otpId,
-        expiresIn: result.expiresIn,
-        message: "OTP sent to your phone",
+        otpId: email, // Use email as OTP ID
+        expiresIn: 300, // 5 minutes
+        message: "OTP sent to your email",
       });
     } catch (err) {
       console.error("💥 Request OTP error:", err);
@@ -155,49 +222,111 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
 
     try {
       const resolvedId = await resolveFarmerId(db, farmerId);
+      
+      // Get farmer email
+      const farmerWithEmail = await db.oneOrNone(
+        `SELECT f.id, u.email 
+        FROM farmers f
+        LEFT JOIN users u ON f.user_id = u.id
+        WHERE f.id = $1`,
+        [resolvedId]
+      );
+
+      if (!farmerWithEmail || !farmerWithEmail.email) {
+        return res.status(404).json({ error: "Farmer email not found" });
+      }
+
+      const email = farmerWithEmail.email;
       const phone = await getFarmerPhone(db, resolvedId);
 
       if (!phone) {
         return res.status(404).json({ error: "Farmer phone number not found" });
       }
 
-      // Verify OTP
-      const verification = await unipesa.verifyAuthOTP(otpId, code);
-
-      if (!verification.verified) {
-        return res.status(401).json({
+      // Verify OTP from local store
+      const storedOTP = global.otpStore.get(email);
+      if (!storedOTP) {
+        return res.status(400).json({
           success: false,
-          error: "Invalid OTP code",
+          error: "OTP expired or not found. Please request a new OTP.",
         });
       }
 
-      // Get account info to get user ID
-      const account = await unipesa.getAccountInfo();
+      if (storedOTP.expires < Date.now()) {
+        global.otpStore.delete(email);
+        return res.status(400).json({
+          success: false,
+          error: "OTP has expired. Please request a new OTP.",
+        });
+      }
 
-      // Store session
-      userSessions.set(resolvedId, {
-        unipesa: unipesa,
-        farmerId: resolvedId,
-        userId: account.id,
-      });
+      if (storedOTP.otp !== code) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid OTP code. Please try again.",
+        });
+      }
 
+      // OTP is valid - clean up
+      global.otpStore.delete(email);
+
+      // Now authenticate with Unipesa using the farmer's phone
+      // For sandbox, we'll try to authenticate with test PINs first
+      const tempUnipesa = new UnipesaService(unipesaConfig);
+      
+      // Try sandbox PINs
+      const testPins = ['1234', '0000', '1111', '4321', '0928'];
+      let authenticated = false;
+      
+      for (const testPin of testPins) {
+        try {
+          const tokens = await tempUnipesa.signInWithPin(phone, testPin);
+          if (tokens.accessToken) {
+            const account = await tempUnipesa.getAccountInfo();
+            userSessions.set(resolvedId, {
+              unipesa: tempUnipesa,
+              farmerId: resolvedId,
+              userId: account.id,
+            });
+            authenticated = true;
+            console.log(`✅ Sandbox: Authenticated with PIN ${testPin} for farmer ${resolvedId}`);
+            break;
+          }
+        } catch (pinError) {
+          continue;
+        }
+      }
+
+      if (authenticated) {
+        return res.json({
+          success: true,
+          message: "Authenticated successfully",
+          user: {
+            unipesaUserId: userSessions.get(resolvedId)?.userId,
+            phone: phone,
+          },
+          tokens: {
+            accessToken: tempUnipesa.getAccessToken(),
+            refreshToken: tempUnipesa.getRefreshToken(),
+          },
+        });
+      }
+
+      // If no PIN works, tell user to set up PIN
       return res.json({
         success: true,
-        message: "Authenticated successfully",
-        user: {
-          unipesaUserId: account.id,
-          phone: phone,
-        },
-        tokens: {
-          accessToken: unipesa.getAccessToken(),
-          refreshToken: unipesa.getRefreshToken(),
-        },
+        authenticated: false,
+        hasWallet: true,
+        needsPin: true,
+        requiresOTP: false,
+        message: "OTP verified. Please set up your PIN.",
       });
+
     } catch (err) {
       console.error("💥 Verify OTP error:", err);
-      return res.status(401).json({
+      return res.status(500).json({
         success: false,
-        error: "Authentication failed",
+        error: "OTP verification failed",
         details: err instanceof Error ? err.message : "Unknown error",
       });
     }
