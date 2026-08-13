@@ -429,12 +429,13 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       let hasWallet = false;
       let needsSetup = true;
       let needsPin = false;
+      let authenticated = false;
 
       try {
         const tempUnipesa = new UnipesaService(unipesaConfig);
 
+        // Try to register - if it succeeds, user has no wallet
         try {
-          // Try to register - if it succeeds, user has no wallet
           await tempUnipesa.registerUser({
             phoneNumber: phone,
             firstName: 'Check',
@@ -445,6 +446,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
           hasWallet = false;
           needsSetup = true;
           needsPin = false;
+          authenticated = false;
         } catch (registerError: any) {
           // 409 means user already exists (has wallet)
           if (registerError.message?.includes('409') ||
@@ -453,10 +455,45 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
             hasWallet = true;
             needsSetup = false;
             needsPin = true;
+            authenticated = false;
+
+            // ✅ Try sandbox PINs for auto-auth
+            if (process.env.NODE_ENV !== 'production') {
+              const testPins = ['1234', '0000', '1111', '4321', '0928'];
+              for (const testPin of testPins) {
+                try {
+                  const tokens = await tempUnipesa.signInWithPin(phone, testPin);
+                  if (tokens.accessToken) {
+                    const account = await tempUnipesa.getAccountInfo();
+                    userSessions.set(resolvedId, {
+                      unipesa: tempUnipesa,
+                      farmerId: resolvedId,
+                      userId: account.id,
+                    });
+                    console.log(`✅ Sandbox: Auto-authenticated with PIN ${testPin} for farmer ${resolvedId}`);
+                    return res.json({
+                      success: true,
+                      authenticated: true,
+                      hasWallet: true,
+                      needsSetup: false,
+                      needsPin: false,
+                      farmerId: resolvedId,
+                      phone: phone,
+                      userId: account.id,
+                      message: "Sandbox auto-authentication successful",
+                    });
+                  }
+                } catch (pinError) {
+                  // Try next PIN
+                  continue;
+                }
+              }
+            }
           } else {
             hasWallet = false;
             needsSetup = true;
             needsPin = false;
+            authenticated = false;
           }
         }
       } catch (err) {
@@ -464,16 +501,18 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
         hasWallet = false;
         needsSetup = true;
         needsPin = false;
+        authenticated = false;
       }
 
       return res.json({
         success: true,
-        authenticated: false,
+        authenticated: authenticated,
         hasWallet: hasWallet,
         needsSetup: needsSetup,
         needsPin: needsPin,
         farmerId: resolvedId,
         phone: phone,
+        requiresOTP: hasWallet && !authenticated,
       });
 
     } catch (err) {
