@@ -328,38 +328,33 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       // OTP is valid - clean up
       global.otpStore.delete(email);
 
-      // Now authenticate with Unipesa using the farmer's phone
+      // ✅ Create a session directly after OTP verification
       const tempUnipesa = new UnipesaService(unipesaConfig);
       
-      // Try sandbox PINs
-      const testPins = ['1234', '0000', '1111', '4321', '0928'];
-      let authenticated = false;
-      
-      for (const testPin of testPins) {
-        try {
-          const tokens = await tempUnipesa.signInWithPin(phone, testPin);
-          if (tokens.accessToken) {
-            const account = await tempUnipesa.getAccountInfo();
-            userSessions.set(resolvedId, {
-              unipesa: tempUnipesa,
-              farmerId: resolvedId,
-              userId: account.id,
-            });
-            authenticated = true;
-            console.log(`✅ Sandbox: Authenticated with PIN ${testPin} for farmer ${resolvedId}`);
-            break;
-          }
-        } catch (pinError) {
-          continue;
-        }
-      }
-
-      if (authenticated) {
+      try {
+        // Try to get account info - this confirms the user has a wallet
+        // If this fails, the user might not have a wallet yet
+        const account = await tempUnipesa.getAccountInfo();
+        
+        // ✅ Store session with both UUID and numeric ID
+        userSessions.set(farmerId, {
+          unipesa: tempUnipesa,
+          farmerId: farmerId,
+          userId: account.id,
+        });
+        userSessions.set(resolvedId, {
+          unipesa: tempUnipesa,
+          farmerId: resolvedId,
+          userId: account.id,
+        });
+        
+        console.log(`✅ [OTP VERIFY] Session created for farmer ${resolvedId} (UUID: ${farmerId})`);
+        
         return res.json({
           success: true,
           message: "Authenticated successfully",
           user: {
-            unipesaUserId: userSessions.get(resolvedId)?.userId,
+            unipesaUserId: account.id,
             phone: phone,
           },
           tokens: {
@@ -367,17 +362,52 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
             refreshToken: tempUnipesa.getRefreshToken(),
           },
         });
+      } catch (accountError: any) {
+        // If getAccountInfo fails, the user might not have a wallet
+        console.log(`⚠️ [OTP VERIFY] Could not get account info: ${accountError.message}`);
+        
+        // Try to check if user has a wallet by attempting to get user info
+        try {
+          // For sandbox, we'll check if the user exists by trying to get their info
+          // This is a workaround since we can't directly check
+          const userInfo = await tempUnipesa.getUser(phone);
+          if (userInfo) {
+            userSessions.set(farmerId, {
+              unipesa: tempUnipesa,
+              farmerId: farmerId,
+              userId: userInfo.userId,
+            });
+            userSessions.set(resolvedId, {
+              unipesa: tempUnipesa,
+              farmerId: resolvedId,
+              userId: userInfo.userId,
+            });
+            
+            console.log(`✅ [OTP VERIFY] Session created with userInfo for farmer ${resolvedId}`);
+            
+            return res.json({
+              success: true,
+              message: "Authenticated successfully",
+              user: {
+                unipesaUserId: userInfo.userId,
+                phone: phone,
+              },
+            });
+          }
+        } catch (userError) {
+          console.log(`⚠️ [OTP VERIFY] Could not get user info: ${userError}`);
+        }
+        
+        // If all else fails, the user needs to set up their wallet
+        return res.json({
+          success: true,
+          authenticated: false,
+          hasWallet: false,
+          needsSetup: true,
+          requiresOTP: false,
+          message: "OTP verified. Please set up your wallet.",
+        });
       }
-
-      // If no PIN works, tell user to set up PIN
-      return res.json({
-        success: true,
-        authenticated: false,
-        hasWallet: true,
-        needsPin: true,
-        requiresOTP: false,
-        message: "OTP verified. Please set up your PIN.",
-      });
 
     } catch (err) {
       console.error("💥 Verify OTP error:", err);
@@ -651,54 +681,16 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
                             errorMsg.includes('already registered');
           
           if (isConflict) {
-            // User ALREADY HAS a wallet
+            // ✅ User ALREADY HAS a wallet
             hasWallet = true;
             needsSetup = false;
             needsPin = true;
             authenticated = false;
-            requiresOTP = true;
-            console.log(`✅ Farmer ${resolvedId} has a Unipesa wallet. Needs OTP.`);
-
-            // Try sandbox PINs for auto-auth
-            if (process.env.NODE_ENV !== 'production') {
-              const testPins = ['1234', '0000', '1111', '4321', '0928'];
-              for (const testPin of testPins) {
-                try {
-                  const tokens = await tempUnipesa.signInWithPin(phone, testPin);
-                  if (tokens.accessToken) {
-                    const account = await tempUnipesa.getAccountInfo();
-                    userSessions.set(farmerId, {
-                      unipesa: tempUnipesa,
-                      farmerId: farmerId,
-                      userId: account.id,
-                    });
-                    // Also store with numeric ID for backward compatibility
-                    userSessions.set(resolvedId, {
-                      unipesa: tempUnipesa,
-                      farmerId: resolvedId,
-                      userId: account.id,
-                    });
-                    console.log(`✅ Sandbox: Auto-authenticated with PIN ${testPin} for farmer ${resolvedId}`);
-                    return res.json({
-                      success: true,
-                      authenticated: true,
-                      hasWallet: true,
-                      needsSetup: false,
-                      needsPin: false,
-                      requiresOTP: false,
-                      farmerId: resolvedId,
-                      phone: phone,
-                      userId: account.id,
-                      message: "Sandbox auto-authentication successful",
-                    });
-                  }
-                } catch (pinError) {
-                  // Try next PIN
-                  continue;
-                }
-              }
-              console.log(`⚠️ Sandbox: No test PIN worked for farmer ${resolvedId}. Using OTP flow.`);
-            }
+            requiresOTP = true;  // ✅ Signal OTP flow
+            console.log(`✅ Farmer ${resolvedId} has a Unipesa wallet. Requires OTP.`);
+            
+            // ✅ REMOVED: No PIN testing - we use OTP flow exclusively
+            // The frontend will handle OTP flow
           } else {
             // Some other error - treat as no wallet
             hasWallet = false;
