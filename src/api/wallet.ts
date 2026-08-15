@@ -880,12 +880,23 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       }
 
       if (!session) {
+        console.log(`❌ [BALANCE] No session found for farmer: ${farmerId}`);
         return res.status(401).json({ error: "Not authenticated with Unipesa" });
       }
 
+      // ✅ Ensure userId is set
       if (!session.userId) {
-        const account = await session.unipesa.getAccountInfo();
-        session.userId = account.id;
+        try {
+          const account = await session.unipesa.getAccountInfo();
+          session.userId = account.id;
+          // Update the session with the userId
+          userSessions.set(farmerId, session);
+          const resolvedId = await resolveFarmerId(db, farmerId);
+          userSessions.set(resolvedId, session);
+        } catch (err) {
+          console.error("❌ [BALANCE] Failed to get account info:", err);
+          return res.status(401).json({ error: "Session expired. Please re-authenticate." });
+        }
       }
 
       const balance = await session.unipesa.getWalletBalance(session.userId);
@@ -920,12 +931,23 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       }
 
       if (!session) {
+        console.log(`❌ [TRANSACTIONS] No session found for farmer: ${farmerId}`);
         return res.status(401).json({ error: "Not authenticated with Unipesa" });
       }
 
+      // ✅ Ensure userId is set
       if (!session.userId) {
-        const account = await session.unipesa.getAccountInfo();
-        session.userId = account.id;
+        try {
+          const account = await session.unipesa.getAccountInfo();
+          session.userId = account.id;
+          // Update the session with the userId
+          userSessions.set(farmerId, session);
+          const resolvedId = await resolveFarmerId(db, farmerId);
+          userSessions.set(resolvedId, session);
+        } catch (err) {
+          console.error("❌ [TRANSACTIONS] Failed to get account info:", err);
+          return res.status(401).json({ error: "Session expired. Please re-authenticate." });
+        }
       }
 
       const result = await session.unipesa.getUserTransactions(session.userId, {
