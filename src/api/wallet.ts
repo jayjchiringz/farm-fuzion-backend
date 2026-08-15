@@ -596,8 +596,12 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
         });
       }
 
-      // Check if we already have an authenticated session
-      const existingSession = userSessions.get(resolvedId);
+      // ✅ Check if we already have an authenticated session - try both UUID and numeric
+      let existingSession = userSessions.get(farmerId);
+      if (!existingSession) {
+        existingSession = userSessions.get(resolvedId);
+      }
+      
       if (existingSession && existingSession.unipesa.isAuthenticated()) {
         console.log(`✅ Already authenticated for farmer ${resolvedId}`);
         return res.json({
@@ -663,6 +667,12 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
                   const tokens = await tempUnipesa.signInWithPin(phone, testPin);
                   if (tokens.accessToken) {
                     const account = await tempUnipesa.getAccountInfo();
+                    userSessions.set(farmerId, {
+                      unipesa: tempUnipesa,
+                      farmerId: farmerId,
+                      userId: account.id,
+                    });
+                    // Also store with numeric ID for backward compatibility
                     userSessions.set(resolvedId, {
                       unipesa: tempUnipesa,
                       farmerId: resolvedId,
@@ -860,8 +870,14 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     const { farmerId } = req.params;
 
     try {
-      const resolvedId = await resolveFarmerId(db, farmerId);
-      const session = userSessions.get(resolvedId);
+      // ✅ Try to get session with the ID as-is (UUID)
+      let session = userSessions.get(farmerId);
+      
+      // ✅ If not found, try resolving to numeric ID
+      if (!session) {
+        const resolvedId = await resolveFarmerId(db, farmerId);
+        session = userSessions.get(resolvedId);
+      }
 
       if (!session) {
         return res.status(401).json({ error: "Not authenticated with Unipesa" });
@@ -894,8 +910,14 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     const { limit = 50, offset = 0 } = req.query;
 
     try {
-      const resolvedId = await resolveFarmerId(db, farmerId);
-      const session = userSessions.get(resolvedId);
+      // ✅ Try to get session with the ID as-is (UUID)
+      let session = userSessions.get(farmerId);
+      
+      // ✅ If not found, try resolving to numeric ID
+      if (!session) {
+        const resolvedId = await resolveFarmerId(db, farmerId);
+        session = userSessions.get(resolvedId);
+      }
 
       if (!session) {
         return res.status(401).json({ error: "Not authenticated with Unipesa" });
