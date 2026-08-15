@@ -123,13 +123,15 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
 
   const unipesa = new UnipesaService(unipesaConfig);
 
-  // ==================== AUTHENTICATION ENDPOINTS ====================
+  // ============================================================
+  // ✅ ALL AUTHENTICATION ROUTES MUST COME FIRST
+  // ============================================================
 
   /**
    * Request OTP for wallet authentication (sent via email)
    * POST /wallet/auth/otp/request
    */
-  router.post("/auto-auth", async (req, res) => {
+  router.post("/auth/otp/request", async (req, res) => {
     const { farmerId } = req.body;
 
     if (!farmerId) {
@@ -137,145 +139,129 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     }
 
     try {
+      console.log(`📧 [OTP Request] Starting for farmer: ${farmerId}`);
+      
       const resolvedId = await resolveFarmerId(db, farmerId);
-      const phone = await getFarmerPhone(db, resolvedId);
+      console.log(`📧 [OTP Request] Resolved ID: ${resolvedId}`);
+      
+      // Get farmer details including email
+      const farmerWithEmail = await db.oneOrNone(
+        `SELECT f.id, f.first_name, f.last_name, f.mobile, u.email 
+        FROM farmers f
+        LEFT JOIN users u ON f.user_id = u.id
+        WHERE f.id = $1`,
+        [resolvedId]
+      );
+
+      if (!farmerWithEmail) {
+        console.log(`❌ [OTP Request] Farmer not found: ${resolvedId}`);
+        return res.status(404).json({ error: "Farmer not found" });
+      }
+
+      const phone = farmerWithEmail.mobile;
+      const email = farmerWithEmail.email;
+
+      console.log(`📧 [OTP Request] Farmer found:`, {
+        id: farmerWithEmail.id,
+        name: `${farmerWithEmail.first_name} ${farmerWithEmail.last_name}`,
+        phone: phone,
+        email: email,
+      });
 
       if (!phone) {
-        return res.status(404).json({
-          success: false,
-          error: "Farmer phone number not found",
-          needsSetup: true,
+        console.log(`❌ [OTP Request] No phone number for farmer: ${resolvedId}`);
+        return res.status(404).json({ error: "Farmer phone number not found" });
+      }
+
+      if (!email) {
+        console.log(`❌ [OTP Request] No email for farmer: ${resolvedId}`);
+        return res.status(404).json({ 
+          error: "Farmer email not found. Please update your profile with an email address." 
         });
       }
 
-      // Check if we already have an authenticated session
-      const existingSession = userSessions.get(resolvedId);
-      if (existingSession && existingSession.unipesa.isAuthenticated()) {
-        console.log(`✅ Already authenticated for farmer ${resolvedId}`);
-        return res.json({
-          success: true,
-          authenticated: true,
-          hasWallet: true,
-          needsSetup: false,
-          needsPin: false,
-          requiresOTP: false,
-          farmerId: resolvedId,
-          phone: phone,
-        });
-      }
+      // Generate OTP locally (6 digits)
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      console.log(`📧 [OTP Request] Generated OTP for ${email}: ${otp}`);
+      
+      // Store OTP with 5-minute expiration
+      global.otpStore.set(email, {
+        otp: otp,
+        expires: Date.now() + 5 * 60 * 1000,
+      });
+      console.log(`📧 [OTP Request] OTP stored with 5-minute expiry`);
 
-      // Check if farmer has a wallet
-      let hasWallet = false;
-      let needsSetup = true;
-      let needsPin = false;
-      let authenticated = false;
-      let requiresOTP = false;
+      // Check email configuration
+      console.log(`📧 [OTP Request] Checking email config:`);
+      console.log(`  - MAIL_USER: ${process.env.MAIL_USER ? '✅ Set' : '❌ Missing'}`);
+      console.log(`  - MAIL_PASS: ${process.env.MAIL_PASS ? '✅ Set' : '❌ Missing'}`);
+      console.log(`  - NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
 
-      try {
-        const tempUnipesa = new UnipesaService(unipesaConfig);
-
-        // Try to check if user exists by attempting registration
-        try {
-          // This will fail with 409 if user already exists
-          await tempUnipesa.registerUser({
-            phoneNumber: phone,
-            firstName: 'Check',
-            lastName: 'Existing',
-            externalUserId: resolvedId,
-            countryCode: 'KE',
+      // Send OTP via email using your internal system
+      if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
+        console.error('❌ Email configuration missing. Please set MAIL_USER and MAIL_PASS.');
+        
+        // For sandbox, return OTP for testing instead of failing
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`⚠️ [OTP Request] Sandbox mode: Returning OTP in response for testing`);
+          return res.json({
+            success: true,
+            otpId: email,
+            expiresIn: 300,
+            message: "OTP generated (email not configured - sandbox mode)",
+            debug_otp: otp,
+            debug_email: email,
           });
-          // If we get here, registration succeeded → user has NO wallet
-          hasWallet = false;
-          needsSetup = true;
-          needsPin = false;
-          authenticated = false;
-          requiresOTP = false;
-          console.log(`📝 Farmer ${resolvedId} has no wallet. Needs setup.`);
-        } catch (registerError: any) {
-          // Check for 409 Conflict - user already exists
-          const errorMsg = registerError.message || '';
-          const isConflict = errorMsg.includes('409') || 
-                            errorMsg.includes('Conflict') || 
-                            errorMsg.includes('already registered');
-          
-          if (isConflict) {
-            // ✅ User ALREADY HAS a wallet - this is the key fix!
-            hasWallet = true;
-            needsSetup = false;
-            needsPin = true;
-            authenticated = false;
-            requiresOTP = true;
-            console.log(`✅ Farmer ${resolvedId} has a Unipesa wallet. Needs OTP.`);
-
-            // Try sandbox PINs for auto-auth (if any work, skip OTP)
-            if (process.env.NODE_ENV !== 'production') {
-              const testPins = ['1234', '0000', '1111', '4321', '0928'];
-              for (const testPin of testPins) {
-                try {
-                  const tokens = await tempUnipesa.signInWithPin(phone, testPin);
-                  if (tokens.accessToken) {
-                    const account = await tempUnipesa.getAccountInfo();
-                    userSessions.set(resolvedId, {
-                      unipesa: tempUnipesa,
-                      farmerId: resolvedId,
-                      userId: account.id,
-                    });
-                    console.log(`✅ Sandbox: Auto-authenticated with PIN ${testPin} for farmer ${resolvedId}`);
-                    return res.json({
-                      success: true,
-                      authenticated: true,
-                      hasWallet: true,
-                      needsSetup: false,
-                      needsPin: false,
-                      requiresOTP: false,
-                      farmerId: resolvedId,
-                      phone: phone,
-                      userId: account.id,
-                      message: "Sandbox auto-authentication successful",
-                    });
-                  }
-                } catch (pinError) {
-                  // Try next PIN
-                  continue;
-                }
-              }
-              console.log(`⚠️ Sandbox: No test PIN worked for farmer ${resolvedId}. Using OTP flow.`);
-            }
-          } else {
-            // Some other error - treat as no wallet
-            hasWallet = false;
-            needsSetup = true;
-            needsPin = false;
-            authenticated = false;
-            requiresOTP = false;
-            console.error("💥 Register check error:", registerError);
-          }
         }
-      } catch (err) {
-        console.error("💥 Auto-auth check error:", err);
-        hasWallet = false;
-        needsSetup = true;
-        needsPin = false;
-        authenticated = false;
-        requiresOTP = false;
+        
+        return res.status(500).json({
+          success: false,
+          error: "Email service not configured",
+          details: "Please contact support.",
+        });
+      }
+
+      const emailConfig = {
+        MAIL_USER: process.env.MAIL_USER!,
+        MAIL_PASS: process.env.MAIL_PASS!,
+      };
+
+      console.log(`📧 [OTP Request] Attempting to send email to: ${email}`);
+      
+      try {
+        await sendOtpByEmail(email, otp, emailConfig);
+        console.log(`✅ [OTP Request] Email sent successfully to ${email}`);
+      } catch (emailError) {
+        console.error(`❌ [OTP Request] Failed to send email:`, emailError);
+        
+        // For sandbox, return OTP in response so testing can continue
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`⚠️ [OTP Request] Sandbox mode: Returning OTP despite email failure`);
+          return res.json({
+            success: true,
+            otpId: email,
+            expiresIn: 300,
+            message: "OTP generated (email send failed - sandbox mode)",
+            debug_otp: otp,
+            debug_email: email,
+            debug_email_error: emailError instanceof Error ? emailError.message : 'Unknown error',
+          });
+        }
+        
+        throw emailError;
       }
 
       return res.json({
         success: true,
-        authenticated: authenticated,
-        hasWallet: hasWallet,
-        needsSetup: needsSetup,
-        needsPin: needsPin,
-        requiresOTP: requiresOTP,
-        farmerId: resolvedId,
-        phone: phone,
+        otpId: email,
+        expiresIn: 300,
+        message: "OTP sent to your email",
       });
-
     } catch (err) {
-      console.error("💥 Auto-auth error:", err);
+      console.error("💥 [OTP Request] Error:", err);
       return res.status(500).json({
         success: false,
-        error: "Failed to check wallet status",
+        error: "Failed to send OTP",
         details: err instanceof Error ? err.message : "Unknown error",
       });
     }
@@ -343,7 +329,6 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       global.otpStore.delete(email);
 
       // Now authenticate with Unipesa using the farmer's phone
-      // For sandbox, we'll try to authenticate with test PINs first
       const tempUnipesa = new UnipesaService(unipesaConfig);
       
       // Try sandbox PINs
@@ -799,7 +784,35 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     }
   });
 
-  // ==================== WALLET ENDPOINTS ====================
+  // ============================================================
+  // ✅ DEBUG ROUTE
+  // ============================================================
+  router.get("/debug", (req, res) => {
+    return res.json({
+      status: "ok",
+      message: "Wallet router is working",
+      routes: [
+        "POST /auth/otp/request",
+        "POST /auth/otp/verify",
+        "POST /auto-auth",
+        "POST /register",
+        "GET /:farmerId/status",
+        "GET /:farmerId/balance",
+        "GET /:farmerId/transactions",
+        "POST /topup/:method",
+        "POST /transfer",
+        "POST /payment",
+        "GET /providers",
+        "GET /merchant/account",
+        "GET /health",
+      ],
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // ============================================================
+  // ⚠️ PARAMETERIZED ROUTES MUST COME LAST
+  // ============================================================
 
   router.get("/:farmerId/status", async (req, res) => {
     const { farmerId } = req.params;
