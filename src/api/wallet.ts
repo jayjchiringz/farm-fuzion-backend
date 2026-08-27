@@ -260,7 +260,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
       }
 
       if (!farmer.unipesa_user_id) {
-        // Try to register the user first
+        // Auto-register the user
         try {
           const registerResult = await unipesa.registerUser({
             phoneNumber: farmer.mobile,
@@ -270,19 +270,17 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
             countryCode: 'KE',
           });
           
-          // Store the ID
           await db.none(
             `UPDATE farmers SET unipesa_user_id = $1 WHERE id = $2`,
             [registerResult.userId, resolvedId]
           );
           
           farmer.unipesa_user_id = registerResult.userId;
+          console.log(`✅ Auto-registered farmer ${resolvedId} on balance check`);
         } catch (registerError: any) {
-          // If 409, user already has a wallet but we don't have the ID
           if (registerError.message?.includes('409') || 
               registerError.message?.includes('already registered')) {
-            // The user has a wallet but we can't get the ID
-            // Return a specific error to trigger registration flow
+            // User has a wallet but we don't have the ID - return error to trigger registration
             return res.status(400).json({
               error: "User has a wallet but the ID is not stored. Please register again.",
               needsRegistration: true,
@@ -449,12 +447,40 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
     try {
       const senderId = await resolveFarmerId(db, farmer_id);
       
-      const sender = await getFarmerWithUnipesaId(db, senderId);
+      // Get sender
+      let sender = await getFarmerWithUnipesaId(db, senderId);
 
+      // If sender has no wallet, auto-register them
       if (!sender || !sender.unipesa_user_id) {
-        return res.status(404).json({ 
-          error: "Sender has no Unipesa wallet. Please register first." 
-        });
+        const senderDetails = await getFarmerDetails(db, senderId);
+        if (senderDetails && senderDetails.mobile) {
+          try {
+            const newUser = await unipesa.registerUser({
+              phoneNumber: senderDetails.mobile,
+              firstName: senderDetails.first_name || 'FarmFuzion',
+              lastName: senderDetails.last_name || 'User',
+              externalUserId: senderId,
+              countryCode: 'KE',
+            });
+            
+            await db.none(
+              `UPDATE farmers SET unipesa_user_id = $1 WHERE id = $2`,
+              [newUser.userId, senderId]
+            );
+            
+            sender = { unipesa_user_id: newUser.userId };
+            console.log(`✅ Auto-registered sender ${senderId} with Unipesa ID ${newUser.userId}`);
+          } catch (regError) {
+            console.error(`❌ Failed to auto-register sender ${senderId}:`, regError);
+            return res.status(404).json({ 
+              error: "Sender has no Unipesa wallet. Please register first." 
+            });
+          }
+        } else {
+          return res.status(404).json({ 
+            error: "Sender has no Unipesa wallet. Please register first." 
+          });
+        }
       }
 
       const toType = to_type || 'wallet';
@@ -469,18 +495,46 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
 
       if (toType === 'wallet') {
         const recipientId = await resolveFarmerId(db, destination);
-        const recipient = await getFarmerWithUnipesaId(db, recipientId);
+        
+        // Try to get recipient
+        let recipient = await getFarmerWithUnipesaId(db, recipientId);
+        let recipientDetails = await getFarmerDetails(db, recipientId);
 
+        // ✅ If recipient has no wallet, auto-register them
         if (!recipient || !recipient.unipesa_user_id) {
-          return res.status(404).json({ 
-            error: "Recipient has no Unipesa wallet. Please register first." 
-          });
+          if (recipientDetails && recipientDetails.mobile) {
+            try {
+              const newUser = await unipesa.registerUser({
+                phoneNumber: recipientDetails.mobile,
+                firstName: recipientDetails.first_name || 'FarmFuzion',
+                lastName: recipientDetails.last_name || 'User',
+                externalUserId: recipientId,
+                countryCode: 'KE',
+              });
+              
+              await db.none(
+                `UPDATE farmers SET unipesa_user_id = $1 WHERE id = $2`,
+                [newUser.userId, recipientId]
+              );
+              
+              recipient = { unipesa_user_id: newUser.userId };
+              console.log(`✅ Auto-registered recipient ${recipientId} with Unipesa ID ${newUser.userId}`);
+            } catch (regError) {
+              console.error(`❌ Failed to auto-register recipient ${recipientId}:`, regError);
+              return res.status(404).json({ 
+                error: `Recipient ${recipientDetails?.first_name || ''} ${recipientDetails?.last_name || ''} has no Unipesa wallet. Please ask them to register first.` 
+              });
+            }
+          } else {
+            return res.status(404).json({ 
+              error: "Recipient has no Unipesa wallet. Please register first." 
+            });
+          }
         }
 
         transferData.to.userId = recipient.unipesa_user_id;
 
         if (!confirm) {
-          const recipientDetails = await getFarmerDetails(db, recipientId);
           return res.json({
             preview: true,
             from: senderId,
@@ -838,6 +892,7 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
         "GET /:farmerId/transactions",
         "POST /topup/:method",
         "POST /transfer",
+        "POST /withdraw/:method",
         "POST /payment",
         "GET /providers",
         "GET /merchant/account",
