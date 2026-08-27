@@ -579,6 +579,95 @@ export const getWalletRouter = async (dbConfig: any, unipesaConfig: any) => {
   });
 
   /**
+   * Withdraw from a wallet to external provider
+   * POST /wallet/withdraw/:method
+   * This is a wrapper around /transfers with to.type = "external"
+   */
+  router.post("/withdraw/:method", async (req, res) => {
+    const { method } = req.params;
+    const { farmer_id, amount, destination } = req.body;
+    const amt = Number(amount);
+
+    if (!farmer_id || isNaN(amt) || amt <= 0 || !destination) {
+      return res.status(400).json({ error: "Invalid withdrawal request" });
+    }
+
+    try {
+      const resolvedId = await resolveFarmerId(db, farmer_id);
+      
+      const farmer = await db.oneOrNone(
+        `SELECT unipesa_user_id FROM farmers WHERE id = $1`,
+        [resolvedId]
+      );
+
+      if (!farmer || !farmer.unipesa_user_id) {
+        return res.status(404).json({ 
+          error: "User has no Unipesa wallet. Please register first." 
+        });
+      }
+
+      // Map method to provider ID
+      const providerMap: Record<string, string> = {
+        'mpesa': 'MPESA',
+        'airtel': 'AIRTEL_MONEY',
+      };
+      const providerId = providerMap[method.toLowerCase()] || 'MPESA';
+
+      // ✅ This is the same as the payment endpoint!
+      // We're just calling /transfers with external type
+      const transfer = await unipesa.createTransfer({
+        fromUserId: farmer.unipesa_user_id,
+        amount: amt.toFixed(2),
+        currency: 'KES',
+        to: {
+          type: 'external',
+          providerId: providerId,
+          account: destination,
+        },
+      });
+
+      // Record in local DB
+      const reference_no = transfer.transactionId;
+      await db.none(
+        `INSERT INTO wallet_transactions
+          (farmer_id, type, amount, destination, direction, method, status, meta, reference_no)
+        VALUES ($1, 'withdraw', $2, $3, 'out', $4, $5, $6, $7)`,
+        [
+          resolvedId,
+          amt,
+          destination,
+          method,
+          transfer.status,
+          JSON.stringify({
+            unipesaTransactionId: transfer.transactionId,
+            method,
+            provider: providerId,
+          }),
+          reference_no,
+        ]
+      );
+
+      return res.json({
+        success: true,
+        transaction: {
+          reference: reference_no,
+          unipesaId: transfer.transactionId,
+          amount: amt,
+          destination: destination,
+          status: transfer.status,
+        },
+      });
+    } catch (err) {
+      console.error("💥 Withdrawal error:", err);
+      return res.status(500).json({
+        success: false,
+        error: "Withdrawal failed",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  });
+
+  /**
    * Make a payment to a merchant (PayBill/Till)
    * POST /wallet/payment
    */
