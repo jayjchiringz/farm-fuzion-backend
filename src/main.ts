@@ -34,6 +34,7 @@ import {getLoanRepaymentsRouter} from "./api/loan_repayments";
 import {getDocumentTypesRouter} from "./api/document_types";
 import {getStatsRouter} from "./api/stats";
 import {getWalletRouter} from "./api/wallet";
+import {getGroupWalletRouter} from "./api/group-wallet";
 import {getMarketPricesRouter} from "./api/market_prices";
 import {getMarketplaceRouter} from "./api/marketplace";
 import {getFarmActivitiesRouter} from "./api/farm_activities";
@@ -260,6 +261,7 @@ export const createMainApp = (config: AppConfig) => {
 
   // Only truly async routers go here
   registerAsyncRouter("/wallet", getWalletRouter);
+  registerAsyncRouter("/wallet/group", getGroupWalletRouter);
 
   // Error handling middleware with proper typing
   app.use((err: AppError, req: express.Request, res: express.Response, _next: express.NextFunction) => {
