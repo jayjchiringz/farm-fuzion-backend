@@ -35,6 +35,7 @@ import {getLoanRepaymentsRouter} from "./api/loan_repayments";
 import {getDocumentTypesRouter} from "./api/document_types";
 import {getStatsRouter} from "./api/stats";
 import {getWalletRouter} from "./api/wallet";
+import {getGroupWalletRouter} from "./api/group-wallet";
 import {getMarketPricesRouter} from "./api/market_prices";
 import {getMarketplaceRouter} from "./api/marketplace";
 import {getFarmActivitiesRouter} from "./api/farm_activities";
@@ -287,6 +288,7 @@ export const createMainApp = (config: AppConfig) => {
   registerSyncRouter("/group-admins", getGroupAdminsRouter);
   
   // ✅ This now passes both dbConfig and unipesaConfig
+  registerAsyncRouter("/wallet/group", getGroupWalletRouter);
   registerAsyncRouter("/wallet", getWalletRouter);
   
   registerSyncRouter("/cooperatives", getCooperativesRouter);
