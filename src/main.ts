@@ -181,6 +181,23 @@ export const createMainApp = (config: AppConfig) => {
   app.use(safeLogger as express.RequestHandler);
   app.options("*", cors());
 
+  app.use("/api/auth", getAuthRouter(config));
+  app.use("/api/farmers", getFarmersRouter(config));
+  app.use("/api/wallet", async (req, res, next) => {
+    try {
+      const walletRouter = await getWalletRouter(config, {
+        baseUrl: process.env.UNIPESA_BASE_URL || "https://wallet-sandbox.unipesa.io/v1",
+        apiKey: process.env.UNIPESA_API_KEY || "",
+        apiSecret: process.env.UNIPESA_API_SECRET || "",
+        merchantId: process.env.UNIPESA_MERCHANT_ID || "",
+        terminalId: process.env.UNIPESA_TERMINAL_ID || "",
+      });
+      walletRouter(req, res, next);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.use((req: RequestWithConfig, res, next) => {
     if (req.is("application/json")) {
       express.json()(req, res, next);
