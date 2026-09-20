@@ -290,8 +290,6 @@ export const createMainApp = (config: AppConfig) => {
   // ✅ This now passes both dbConfig and unipesaConfig
   registerAsyncRouter("/wallet/group", getGroupWalletRouter);
   registerAsyncRouter("/wallet", getWalletRouter);
-  
-  registerSyncRouter("/cooperatives", getCooperativesRouter);
 
   // Error handling middleware with proper typing
   app.use((err: AppError, req: express.Request, res: express.Response, _next: express.NextFunction) => {
