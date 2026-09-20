@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "lib",
     "sourceMap": false,
-    "removeComments": true
+    "removeComments": true,
+    "ignoreDeprecations": "6.0"
   },
   "exclude": ["node_modules", "lib", "**/*.test.ts"]
 }
