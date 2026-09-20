@@ -13,10 +13,9 @@
     "target": "es2020",
     "forceConsistentCasingInFileNames": true,
     "typeRoots": ["./node_modules/@types", "./src/types"],
-    "types": ["node"],
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "ignoreDeprecations": "5.0"
+    "ignoreDeprecations": "6.0"
   },
   "compileOnSave": true,
   "include": ["src/**/*"],
