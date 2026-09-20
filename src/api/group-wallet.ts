@@ -137,8 +137,8 @@ export const getGroupWalletRouter = async (dbConfig: any, unipesaConfig: any) =>
       const result = await groupWallet.registerGroupWallet(groupId);
 
       return res.json({
-        success: true,
         ...result,
+        success: true,
       });
     } catch (err) {
       console.error("💥 Group registration error:", err);
