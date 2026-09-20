@@ -49,13 +49,15 @@ import {getRolesRouter} from "./api/roles";
 import {getGroupAdminsRouter} from "./api/group-admins";
 import {getCooperativesRouter} from "./api/cooperatives";
 
-// Update allowed origins to include Vercel frontend
-const allowedOrigins = [
-  "https://farm-fuzion-abdf3.web.app",
-  "https://farm-fuzion-frontend-vercel.vercel.app",
-  "http://localhost:3000",
-  "http://localhost:5173",
-];
+// Get allowed origins from environment variable, or fall back to localhost for development
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  : [
+      "http://localhost:3000",
+      "http://localhost:5173",
+    ];
+
+console.log('🔒 CORS allowed origins:', allowedOrigins);
 
 // Database config (required for all routers)
 export interface DbConfig {
@@ -137,7 +139,18 @@ export const createMainApp = (config: AppConfig) => {
 
   app.use(
     cors({
-      origin: allowedOrigins,
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or Postman)
+        if (!origin) return callback(null, true);
+        
+        // Check if the origin is in the allowed list
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          console.warn(`🚫 CORS blocked for origin: ${origin}`);
+          callback(new Error(`Origin ${origin} not allowed by CORS`));
+        }
+      },
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
