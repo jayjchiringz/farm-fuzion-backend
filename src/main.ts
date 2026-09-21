@@ -316,6 +316,7 @@ export const createMainApp = (config: AppConfig) => {
   registerSyncRouter("/marketplace", getMarketplaceRouter);
   registerSyncRouter("/knowledge", getKnowledgeRouter);
   registerSyncRouter("/group-admins", getGroupAdminsRouter);
+  registerSyncRouter("/cooperatives", getCooperativesRouter);
   
   // ✅ This now passes both dbConfig and unipesaConfig
   registerAsyncRouter("/wallet/group", getGroupWalletRouter);
