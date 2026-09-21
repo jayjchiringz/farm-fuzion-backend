@@ -68,6 +68,13 @@ interface AIResponse {
   sources: Array<{ title: string; source: string }>;
 }
 
+interface FreeFlowResponse {
+  content: string;
+  provider: string;
+  model: string;
+  usage?: Record<string, unknown>;
+}
+
 export const getKnowledgeRouter = (config: {
   PGUSER: string;
   PGPASS: string;
@@ -106,19 +113,6 @@ export const getKnowledgeRouter = (config: {
     // Define a proper type for the query result
     interface DocumentQueryResult {
       rows: KnowledgeDocument[];
-    }
-
-    // Define proper type for FreeFlow response
-    interface FreeFlowResponse {
-      content: string;
-      provider: string;
-      model: string;
-      usage?: {
-        prompt_tokens?: number;
-        completion_tokens?: number;
-        total_tokens?: number;
-        [key: string]: unknown; // Allow for additional provider-specific fields
-      };
     }
 
     // Declare docs with proper type
@@ -294,6 +288,233 @@ export const getKnowledgeRouter = (config: {
     } catch (error) {
       console.error("Feedback error:", error);
       return res.status(500).json({error: "Failed to save feedback"});
+    }
+  });
+
+  // ============================================================
+  // HERO INSIGHTS — rotating marketplace intelligence
+  // ============================================================
+  const INSIGHT_SYSTEM_PROMPT = `You are Mkulima Halisi, the AI agronomist for FarmFuzion — a Kenyan agricultural marketplace connecting cooperatives to global buyers.
+
+  Generate 4 short, timely, action-oriented insights for the global marketplace hero section. Each insight must be:
+  - One sentence, max 160 characters
+  - Concrete and specific (mention crops, regions, prices, weather, or seasons)
+  - Relevant to Kenyan agriculture right now (weather patterns, planting/harvest windows, price trends, export opportunities, pest risks)
+  - Useful to BOTH farmers and international bulk buyers
+
+  Prioritize these topics in order:
+  1. Weather risks (El Niño/La Niña, drought, floods) and their agricultural impact
+  2. Market price movements or demand signals
+  3. Seasonal planting or harvest advisories
+  4. Export opportunities or trade developments
+  5. Pest/disease alerts
+
+  Output ONLY valid JSON, no markdown fences, no extra text:
+  {
+    "insights": [
+      {"type": "weather", "severity": "warning", "text": "..."},
+      {"type": "market", "severity": "info", "text": "..."},
+      {"type": "advisory", "severity": "info", "text": "..."},
+      {"type": "opportunity", "severity": "info", "text": "..."}
+    ]
+  }
+
+  Types allowed: weather, market, advisory, opportunity, alert
+  Severity allowed: info, warning, critical`;
+
+  interface HeroInsight {
+    type: "weather" | "market" | "advisory" | "opportunity" | "alert";
+    severity: "info" | "warning" | "critical";
+    text: string;
+  }
+
+  interface ParsedInsight {
+    type?: string;
+    severity?: string;
+    text: string;
+  }
+
+  interface ParsedInsights {
+    insights: ParsedInsight[];
+  }
+
+  interface InsightsPayload {
+    insights: HeroInsight[];
+    source: string;
+    generated_at: string;
+    cached?: boolean;
+    cache_age_seconds?: number;
+    fallback_reason?: string;
+  }
+
+  // In-memory cache — one payload per server instance, refreshed hourly
+  let insightsCache: { data: InsightsPayload; ts: number } | null = null;
+  const INSIGHTS_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+  async function gatherMarketContext(pool: Pool): Promise<Record<string, unknown>> {
+    const month = new Date().toLocaleString("en-US", { month: "long" });
+    const year = new Date().getFullYear();
+
+    let products: Array<{ name: string; category?: string; unit?: string }> = [];
+    try {
+      const r = await pool.query(
+        `SELECT product_name AS name, category, unit
+        FROM cooperative_products
+        WHERE available = TRUE AND quantity > 0
+        ORDER BY created_at DESC
+        LIMIT 10`
+      );
+      products = r.rows;
+    } catch (e) {
+      console.warn("⚠️ Context: cooperative_products unavailable:", e);
+    }
+
+    let counties: Array<{ county: string; groups: number }> = [];
+    try {
+      const r = await pool.query(
+        `SELECT MIN(TRIM(county)) AS county, COUNT(*)::int AS groups
+        FROM groups
+        WHERE status = 'active'
+          AND county IS NOT NULL
+          AND TRIM(county) <> ''
+        GROUP BY LOWER(TRIM(county))
+        ORDER BY groups DESC
+        LIMIT 6`
+      );
+      counties = r.rows;
+    } catch (e) {
+      console.warn("⚠️ Context: groups unavailable:", e);
+    }
+
+    return { products, counties, month, year };
+  }
+
+  function getFallbackInsights(): InsightsPayload {
+    return {
+      insights: [
+        {
+          type: "weather",
+          severity: "warning",
+          text: "Monitor seasonal rainfall forecasts — short rains typically begin in October across most Kenyan counties.",
+        },
+        {
+          type: "market",
+          severity: "info",
+          text: "Cross-border demand for Kenyan avocados, French beans and mangoes remains strong in EU and Gulf markets.",
+        },
+        {
+          type: "advisory",
+          severity: "info",
+          text: "Coffee and tea harvesting in Central Kenya — good window for buyers to secure cooperative contracts.",
+        },
+        {
+          type: "opportunity",
+          severity: "info",
+          text: "Verified cooperatives now listing directly — transparent pricing, export-ready documentation.",
+        },
+      ],
+      source: "curated",
+      generated_at: new Date().toISOString(),
+    };
+  }
+
+  function parseInsights(raw: string): InsightsPayload {
+    let cleaned = (raw || "").trim();
+    if (cleaned.startsWith("```")) {
+      cleaned = cleaned.split("```")[1];
+      if (cleaned.startsWith("json")) cleaned = cleaned.slice(4);
+      cleaned = cleaned.trim();
+    }
+
+    try {
+      const parsed: ParsedInsights = JSON.parse(cleaned);
+      if (!parsed || !Array.isArray(parsed.insights)) {
+        throw new Error("Missing 'insights' array");
+      }
+
+      const validTypes = new Set(["weather", "market", "advisory", "opportunity", "alert"]);
+      const validSeverities = new Set(["info", "warning", "critical"]);
+
+      const insights: HeroInsight[] = parsed.insights
+        .slice(0, 6)
+        .filter((i: ParsedInsight): i is ParsedInsight =>
+          typeof i === "object" && i !== null && typeof (i as any).text === "string"
+        )
+        .map((i: any) => ({
+          type: validTypes.has(i.type) ? i.type : "advisory",
+          severity: validSeverities.has(i.severity) ? i.severity : "info",
+          text: String(i.text).trim().slice(0, 200),
+        }))
+        .filter((i: HeroInsight): boolean => i.text.length > 0);
+
+      if (insights.length === 0) throw new Error("No valid insights after parsing");
+
+      return {
+        insights,
+        source: "mkulima_halisi",
+        generated_at: new Date().toISOString(),
+      };
+    } catch (e) {
+      console.error("⚠️ Insight parse error:", e);
+      console.error("   Raw response preview:", cleaned.slice(0, 300));
+      return getFallbackInsights();
+    }
+  }
+
+  // ============================================================
+  // GET /knowledge/insights — rotating hero insights for marketplace
+  // ============================================================
+  router.get("/insights", async (_req: Request, res: Response) => {
+    try {
+      // Serve from cache when fresh
+      if (insightsCache && Date.now() - insightsCache.ts < INSIGHTS_TTL_MS) {
+        return res.json({
+          ...insightsCache.data,
+          cached: true,
+          cache_age_seconds: Math.floor((Date.now() - insightsCache.ts) / 1000),
+        });
+      }
+
+      // Gather grounding context from the live DB
+      const context = await gatherMarketContext(pool);
+
+      // Ask Mkulima Halisi via FreeFlow
+      console.log("🤖 Generating hero insights via Mkulima Halisi…");
+      const response = await axios.post<FreeFlowResponse>(
+        `${FREE_FLOW_URL}/chat`,
+        {
+          messages: [
+            { role: "system", content: INSIGHT_SYSTEM_PROMPT },
+            {
+              role: "user",
+              content:
+                `Current market context (JSON):\n${JSON.stringify(context)}\n\n` +
+                "Generate the 4 insights now. Respond with JSON only.",
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 600,
+        },
+        {
+          timeout: 30000,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      const parsed = parseInsights(response.data.content);
+      insightsCache = { data: parsed, ts: Date.now() };
+
+      return res.json({ ...parsed, cached: false });
+    } catch (error: unknown) {
+      console.error("❌ Insights endpoint error:", error);
+
+      // Never 500 — return fallback so the hero still renders
+      const fallback = getFallbackInsights();
+      return res.json({
+        ...fallback,
+        cached: false,
+        fallback_reason: "ai_unavailable",
+      });
     }
   });
 
