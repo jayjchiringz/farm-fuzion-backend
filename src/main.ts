@@ -48,6 +48,7 @@ import {adminRouter} from "./api/admin";
 import {getRolesRouter} from "./api/roles";
 import {getGroupAdminsRouter} from "./api/group-admins";
 import {getCooperativesRouter} from "./api/cooperatives";
+import {getPublicMarketplaceRouter} from "./api/public-marketplace";
 
 // Get allowed origins from environment variable, or fall back to localhost for development
 const allowedOrigins = process.env.FRONTEND_URL
@@ -317,6 +318,7 @@ export const createMainApp = (config: AppConfig) => {
   registerSyncRouter("/knowledge", getKnowledgeRouter);
   registerSyncRouter("/group-admins", getGroupAdminsRouter);
   registerSyncRouter("/cooperatives", getCooperativesRouter);
+  registerSyncRouter("/v1", getPublicMarketplaceRouter);
   
   // ✅ This now passes both dbConfig and unipesaConfig
   registerAsyncRouter("/wallet/group", getGroupWalletRouter);
