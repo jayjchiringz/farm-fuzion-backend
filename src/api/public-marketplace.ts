@@ -116,39 +116,126 @@ export const getPublicMarketplaceRouter = (config: AppConfig) => {
   });
 
   // ============================================================
-  // GET /v1/stats — real counts for the hero / sidebar
+  // GET /v1/stats — real network stats (counties, group types, farmers)
   // ============================================================
   router.get("/stats", async (_req: Request, res: Response) => {
     try {
       const result = await pool.query(`
         SELECT
+          -- Active lots available for purchase
           (SELECT COUNT(*)::int
-             FROM cooperative_products
+            FROM cooperative_products
             WHERE available = TRUE AND quantity > 0)                       AS total_products,
+
+          -- Active cooperatives (all statuses = 'active')
           (SELECT COUNT(*)::int
-             FROM groups
+            FROM groups
             WHERE status = 'active')                                        AS total_cooperatives,
+
+          -- Registered farmers
           (SELECT COUNT(*)::int
-             FROM farmers)                                                  AS total_farmers,
+            FROM farmers)                                                  AS total_farmers,
+
+          -- Active farmers = linked to a cooperative/group
           (SELECT COUNT(*)::int
-             FROM bulk_orders)                                              AS total_orders,
-          (SELECT COUNT(DISTINCT LOWER(TRIM(buyer_country)))::int
-             FROM bulk_orders
-            WHERE buyer_country IS NOT NULL
-              AND TRIM(buyer_country) <> '')                                AS countries_reached
+            FROM farmers
+            WHERE group_id IS NOT NULL)                                     AS active_farmers,
+
+          -- Distinct counties covered by ACTIVE groups
+          (SELECT COUNT(DISTINCT LOWER(TRIM(county)))::int
+            FROM groups
+            WHERE status = 'active'
+              AND county IS NOT NULL
+              AND TRIM(county) <> '')                                       AS counties_reached,
+
+          -- Orders placed (kept for reference)
+          (SELECT COUNT(*)::int
+            FROM bulk_orders)                                              AS total_orders
       `);
 
       return res.json(result.rows[0]);
     } catch (err) {
       console.error("💥 Public stats error:", err);
-      // Don't 500 — return honest zeros so the hero still renders.
       return res.json({
         total_products: 0,
         total_cooperatives: 0,
         total_farmers: 0,
+        active_farmers: 0,
+        counties_reached: 0,
         total_orders: 0,
-        countries_reached: 0,
       });
+    }
+  });
+  
+  // ============================================================
+  // GET /v1/counties — distribution of active groups by county
+  // ============================================================
+  router.get("/counties", async (_req: Request, res: Response) => {
+    try {
+      const result = await pool.query(`
+        SELECT
+          TRIM(county)                AS county,
+          COUNT(*)::int               AS group_count,
+          COUNT(*) FILTER (
+            WHERE wallet_status = 'active'
+          )::int                      AS active_wallets,
+          COUNT(DISTINCT group_type_id)::int AS group_type_count
+        FROM groups
+        WHERE status = 'active'
+          AND county IS NOT NULL
+          AND TRIM(county) <> ''
+        GROUP BY TRIM(county)
+        ORDER BY group_count DESC, county ASC
+      `);
+
+      return res.json({
+        data: result.rows,
+        total_counties: result.rows.length,
+        total_groups: result.rows.reduce((s, r) => s + r.group_count, 0),
+      });
+    } catch (err) {
+      console.error("💥 Counties error:", err);
+      return res.json({ data: [], total_counties: 0, total_groups: 0 });
+    }
+  });
+
+  // ============================================================
+  // GET /v1/group-types — distribution of active groups by type
+  // ============================================================
+  router.get("/group-types", async (_req: Request, res: Response) => {
+    try {
+      const result = await pool.query(`
+        SELECT
+          gt.id,
+          gt.name                          AS group_type,
+          gt.is_active                     AS type_active,
+          COUNT(g.id)::int                 AS group_count,
+          COUNT(g.id) FILTER (
+            WHERE g.wallet_status = 'active'
+          )::int                           AS active_wallets
+        FROM group_types gt
+        LEFT JOIN groups g
+          ON g.group_type_id = gt.id
+        AND g.status = 'active'
+        WHERE gt.is_active = TRUE
+        GROUP BY gt.id, gt.name, gt.is_active
+        ORDER BY group_count DESC, gt.name ASC
+      `);
+
+      const totalGroups = result.rows.reduce((s, r) => s + r.group_count, 0);
+
+      return res.json({
+        data: result.rows.map((r) => ({
+          ...r,
+          percentage: totalGroups > 0
+            ? Math.round((r.group_count / totalGroups) * 100)
+            : 0,
+        })),
+        total_groups: totalGroups,
+      });
+    } catch (err) {
+      console.error("💥 Group types error:", err);
+      return res.json({ data: [], total_groups: 0 });
     }
   });
 
