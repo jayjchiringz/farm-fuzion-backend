@@ -786,5 +786,172 @@ export const getGroupWalletRouter = async (dbConfig: any, unipesaConfig: any) =>
     }
   });
 
+  // ============================================================
+  // GLOBAL MARKETPLACE — BULK PURCHASE SETTLEMENT
+  // POST /purchase/checkout
+  // ============================================================
+  /**
+   * Settle a global marketplace bulk order.
+   *
+   * For each cooperative in the breakdown:
+   *   1. Look up the group (by id if provided, else by name)
+   *   2. If wallet is active → initiate a `bulk_sale_receipt` transaction
+   *      that requires multi-sig approval before funds hit the group wallet
+   *   3. If wallet is not active → record the purchase as pending reconciliation
+   *
+   * Returns a settlement summary the frontend shows on the success screen.
+   */
+  router.post("/purchase/checkout", async (req, res) => {
+    try {
+      const {
+        buyer_id,
+        buyer_email,
+        order_ids = [],
+        total_amount,
+        cooperative_breakdown = [],
+        metadata = {},
+      } = req.body;
+
+      if (!buyer_email || !Array.isArray(cooperative_breakdown) || cooperative_breakdown.length === 0) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          required: ["buyer_email", "cooperative_breakdown[]"],
+        });
+      }
+
+      if (typeof total_amount !== "number" || total_amount <= 0) {
+        return res.status(400).json({ error: "total_amount must be a positive number" });
+      }
+
+      const results: any[] = [];
+
+      for (const entry of cooperative_breakdown) {
+        const { cooperative_name, group_id, amount } = entry;
+
+        if (!amount || amount <= 0) {
+          results.push({
+            cooperative_name,
+            status: "skipped",
+            reason: "Invalid amount",
+          });
+          continue;
+        }
+
+        // --- Resolve the group ---------------------------------------------
+        let group: any = null;
+
+        if (group_id) {
+          group = await db.oneOrNone(
+            `SELECT id, name, wallet_status, unipesa_wallet_id
+             FROM groups WHERE id = $1`,
+            [group_id]
+          );
+        }
+
+        if (!group && cooperative_name) {
+          // Case-insensitive match as a fallback. The trade desk can reconcile
+          // manually if the name doesn't resolve.
+          group = await db.oneOrNone(
+            `SELECT id, name, wallet_status, unipesa_wallet_id
+             FROM groups WHERE LOWER(name) = LOWER($1) LIMIT 1`,
+            [cooperative_name]
+          );
+        }
+
+        if (!group) {
+          results.push({
+            cooperative_name,
+            status: "unresolved",
+            reason: "No matching group — trade desk will reconcile",
+            amount,
+          });
+          continue;
+        }
+
+        // --- Wallet not active → queue for reconciliation ------------------
+        if (group.wallet_status !== "active" || !group.unipesa_wallet_id) {
+          results.push({
+            group_id: group.id,
+            cooperative_name: group.name,
+            status: "pending_wallet",
+            reason: "Cooperative wallet not active — trade desk will follow up",
+            amount,
+          });
+          continue;
+        }
+
+        // --- Initiate bulk_sale_receipt transaction ------------------------
+        // This enters the multi-sig approval workflow. Funds land in the group
+        // wallet only after the required admins approve.
+        try {
+          const transaction = await groupWallet.initiateTransaction({
+            groupId: group.id,
+            transactionType: "bulk_sale_receipt",
+            amount: parseFloat(amount),
+            initiatedBy: buyer_id || null,
+            description: `Global marketplace bulk order${
+              buyer_email ? ` from ${buyer_email}` : ""
+            }`,
+            metadata: {
+              ...metadata,
+              source: "public_marketplace",
+              buyer_id: buyer_id || null,
+              buyer_email,
+              order_ids,
+              parent_total: total_amount,
+            },
+          });
+
+          results.push({
+            group_id: group.id,
+            cooperative_name: group.name,
+            status: "initiated",
+            request_id: transaction?.request?.requestId || transaction?.request?.id,
+            amount,
+          });
+        } catch (txErr) {
+          console.error(`💥 Could not initiate receipt for ${group.name}:`, txErr);
+          results.push({
+            group_id: group.id,
+            cooperative_name: group.name,
+            status: "failed",
+            reason: txErr instanceof Error ? txErr.message : "Unknown error",
+            amount,
+          });
+        }
+      }
+
+      const succeeded = results.filter((r) => r.status === "initiated").length;
+      const pending = results.filter(
+        (r) => r.status === "pending_wallet" || r.status === "unresolved"
+      ).length;
+
+      return res.json({
+        success: true,
+        settled: succeeded > 0,
+        total_amount,
+        buyer_email,
+        order_ids,
+        summary: {
+          initiated: succeeded,
+          pending_reconciliation: pending,
+          failed: results.filter((r) => r.status === "failed").length,
+          skipped: results.filter((r) => r.status === "skipped").length,
+        },
+        results,
+        message:
+          succeeded > 0
+            ? `Initiated ${succeeded} cooperative receipt${succeeded !== 1 ? "s" : ""}. Awaiting multi-sig approval.`
+            : "No group wallets were credited. Trade desk will follow up.",
+      });
+    } catch (err) {
+      console.error("💥 Purchase checkout error:", err);
+      return res.status(500).json({
+        error: "Purchase settlement failed",
+        details: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  });
+
   return router;
 };
