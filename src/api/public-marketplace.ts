@@ -85,7 +85,7 @@ export const getPublicMarketplaceRouter = (config: AppConfig) => {
            cp.unit,
            cp.price_per_unit,
            cp.currency,
-           (cp.quantity * cp.price_per_unit) AS total_price,
+           cp.total_price,
            cp.available,
            cp.certification,
            cp.description,
