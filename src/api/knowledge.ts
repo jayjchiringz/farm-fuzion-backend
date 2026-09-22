@@ -7,6 +7,35 @@ import {initDbPool} from "../utils/db";
 import {Pool} from "pg";
 import multer from "multer";
 import axios, {isAxiosError} from "axios";
+import axiosRetry from "axios-retry";
+
+// Dedicated axios instance with retry/backoff for FreeFlow
+const freeflowClient = axios.create({ timeout: 30000 });
+
+axiosRetry(freeflowClient, {
+  retries: 3,
+  retryDelay: (retryCount, error) => {
+    // Respect Retry-After when the provider sends it
+    const retryAfter = error.response?.headers?.["retry-after"];
+    if (retryAfter) {
+      const seconds = parseInt(retryAfter, 10);
+      if (Number.isFinite(seconds)) return seconds * 1000;
+    }
+    // Exponential backoff: 2s, 4s, 8s
+    return Math.min(1000 * Math.pow(2, retryCount), 8000);
+  },
+  retryCondition: (error) => {
+    const status = error.response?.status;
+    return (
+      axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+      status === 429 ||
+      status === 503
+    );
+  },
+  onRetry: (retryCount, error) => {
+    console.warn(`🔁 FreeFlow retry ${retryCount} (status: ${error.response?.status || error.code})`);
+  },
+});
 
 // Extend Express Request to include multer file
 interface MulterRequest extends Request {
@@ -232,7 +261,7 @@ ${context}`;
       console.log("🤖 Calling FreeFlow LLM service at:", FREE_FLOW_URL);
       console.log(`🌍 Language: ${language} · Guest: ${isGuest}`);
 
-      const response = await axios.post<FreeFlowResponse>(
+      const response = await freeflowClient.post<FreeFlowResponse>(
         `${FREE_FLOW_URL}/chat`,
         {
           messages: [
@@ -628,7 +657,7 @@ Severity allowed: info, warning, critical`;
       let freeflowProviders: string[] = [];
 
       try {
-        const ffResponse = await axios.get(`${FREE_FLOW_URL}/health`, {timeout: 5000});
+        const ffResponse = await freeflowClient.get(`${FREE_FLOW_URL}/health`, {timeout: 5000});
         freeflowStatus = ffResponse.data.status;
         freeflowProviders = ffResponse.data.providers_available || [];
       } catch (ffError) {
