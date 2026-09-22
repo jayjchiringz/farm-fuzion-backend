@@ -7,6 +7,35 @@ import {initDbPool} from "../utils/db";
 import {Pool} from "pg";
 import multer from "multer";
 import axios, {isAxiosError} from "axios";
+import axiosRetry from "axios-retry";
+
+// Dedicated axios instance with retry/backoff for FreeFlow
+const freeflowClient = axios.create({ timeout: 30000 });
+
+axiosRetry(freeflowClient, {
+  retries: 3,
+  retryDelay: (retryCount, error) => {
+    // Respect Retry-After when the provider sends it
+    const retryAfter = error.response?.headers?.["retry-after"];
+    if (retryAfter) {
+      const seconds = parseInt(retryAfter, 10);
+      if (Number.isFinite(seconds)) return seconds * 1000;
+    }
+    // Exponential backoff: 2s, 4s, 8s
+    return Math.min(1000 * Math.pow(2, retryCount), 8000);
+  },
+  retryCondition: (error) => {
+    const status = error.response?.status;
+    return (
+      axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+      status === 429 ||
+      status === 503
+    );
+  },
+  onRetry: (retryCount, error) => {
+    console.warn(`🔁 FreeFlow retry ${retryCount} (status: ${error.response?.status || error.code})`);
+  },
+});
 
 // Extend Express Request to include multer file
 interface MulterRequest extends Request {
@@ -56,6 +85,33 @@ async function resolveFarmerId(db: Pool, farmerId: string | number): Promise<num
   throw new Error(`Could not resolve farmer ID: ${normalized}`);
 }
 
+// ============================================================
+// 🌍 Language helpers
+// ============================================================
+type Lang = "sw" | "en";
+
+const normalizeLang = (raw: unknown): Lang => {
+  const s = String(raw || "").trim().toLowerCase();
+  if (s === "en" || s === "english") return "en";
+  return "sw"; // default
+};
+
+const languageDirective = (lang: Lang): string =>
+  lang === "en"
+    ? `LANGUAGE: Respond primarily in English. If the user writes in Swahili, you may reply in Swahili, but default to English for all other cases.`
+    : `LUGHA: Jibu kwa Kiswahili hasa. Kama mtumiaji anaandika kwa Kiingereza, unaweza kujibu kwa Kiingereza, lakini kwa hali nyingine zote tumia Kiswahili.`;
+
+const errorMessages = (lang: Lang) => ({
+  unreachable:
+    lang === "en"
+      ? "Sorry, the AI service is currently unavailable. Please try again later."
+      : "Samahani, huduma ya AI kwa sasa haiko tayari. Tafadhali jaribu tena baadaye.",
+  technical:
+    lang === "en"
+      ? "Sorry, there's a technical issue. Please try again later."
+      : "Samahani, kuna tatizo la kiufundi. Tafadhali jaribu tena baadaye.",
+});
+
 // Define types for our knowledge system
 interface KnowledgeDocument {
   content: string;
@@ -66,6 +122,13 @@ interface KnowledgeDocument {
 interface AIResponse {
   answer: string;
   sources: Array<{ title: string; source: string }>;
+}
+
+interface FreeFlowResponse {
+  content: string;
+  provider: string;
+  model: string;
+  usage?: Record<string, unknown>;
 }
 
 export const getKnowledgeRouter = (config: {
@@ -83,18 +146,40 @@ export const getKnowledgeRouter = (config: {
     farmerId: string,
     query: string,
     response: string,
-    sources: unknown[]
+    sources: unknown[],
+    language: Lang
   ): Promise<void> => {
     try {
-      // First resolve the farmer ID to numeric
+      // Skip guests — they don't have a resolvable farmer ID
+      const normalized = String(farmerId).trim().toLowerCase();
+      if (normalized === "guest" || normalized === "anonymous" || normalized === "") {
+        console.log("⏭️ [storeConversation] Skipping guest/anonymous");
+        return;
+      }
+
       const numericFarmerId = await resolveFarmerId(pool, farmerId);
 
-      await pool.query(
-        `INSERT INTO knowledge_conversations 
-         (farmer_id, query, response, sources) 
-         VALUES ($1, $2, $3, $4)`,
-        [numericFarmerId, query, response, JSON.stringify(sources)]
-      );
+      // Attempt to insert; include language if the column exists
+      try {
+        await pool.query(
+          `INSERT INTO knowledge_conversations 
+           (farmer_id, query, response, sources, language) 
+           VALUES ($1, $2, $3, $4, $5)`,
+          [numericFarmerId, query, response, JSON.stringify(sources), language]
+        );
+      } catch (colErr: any) {
+        // Fallback: language column may not exist yet
+        if (colErr?.code === "42703") {
+          await pool.query(
+            `INSERT INTO knowledge_conversations 
+             (farmer_id, query, response, sources) 
+             VALUES ($1, $2, $3, $4)`,
+            [numericFarmerId, query, response, JSON.stringify(sources)]
+          );
+        } else {
+          throw colErr;
+        }
+      }
     } catch (error) {
       console.error("Error storing conversation:", error);
       // Don't throw - we don't want to fail the response if storage fails
@@ -102,26 +187,16 @@ export const getKnowledgeRouter = (config: {
   };
 
   // Query knowledge base with RAG
-  const queryWithRAG = async (query: string, category?: string): Promise<AIResponse> => {
-    // Define a proper type for the query result
+  const queryWithRAG = async (
+    query: string,
+    category: string | undefined,
+    language: Lang,
+    isGuest: boolean
+  ): Promise<AIResponse> => {
     interface DocumentQueryResult {
       rows: KnowledgeDocument[];
     }
 
-    // Define proper type for FreeFlow response
-    interface FreeFlowResponse {
-      content: string;
-      provider: string;
-      model: string;
-      usage?: {
-        prompt_tokens?: number;
-        completion_tokens?: number;
-        total_tokens?: number;
-        [key: string]: unknown; // Allow for additional provider-specific fields
-      };
-    }
-
-    // Declare docs with proper type
     let docs: DocumentQueryResult = {rows: []};
 
     try {
@@ -138,31 +213,71 @@ export const getKnowledgeRouter = (config: {
       console.log(`📖 Found ${docs.rows.length} relevant documents`);
 
       // 2. Build context from documents
-      const context = docs.rows.map((d: KnowledgeDocument) => d.content).join("\n\n");
+      const context = docs.rows.length > 0
+        ? docs.rows.map((d: KnowledgeDocument) => d.content).join("\n\n")
+        : "(No specific documents matched this query.)";
 
-      // 3. Create system prompt with context
-      const systemPrompt = `You are Mkulima Halisi, a helpful farming assistant for Kenyan farmers. 
-  Answer in Swahili or English as appropriate. Provide practical, local farming advice based on Kenyan agriculture.
+      // 3. Compose the system prompt with:
+      //    - Persona
+      //    - Language directive
+      //    - Project context (marketplace, cooperatives, signup nudge)
+      //    - RAG context
+      const systemPrompt = `You are **Mkulima Halisi** (the "genuine farmer"), the AI agronomist and market advisor for **FarmFuzion** — a Kenyan platform connecting cooperatives and farmers to global bulk buyers.
 
-  Use this context from agricultural research when relevant:
-  ${context}`;
+${languageDirective(language)}
+
+# YOUR ROLE
+Help farmers, cooperative admins, and international buyers with practical, locally-relevant advice about:
+- Crop and livestock farming in Kenya
+- Weather patterns, planting/harvest windows, climate risks (e.g. El Niño)
+- Market prices, demand signals, export opportunities
+- Soil health, fertilizers, pests, and diseases
+- FarmFuzion services: cooperative wallets, marketplace, group selling
+
+# PROJECT CONTEXT (weave in naturally, never pushy)
+- FarmFuzion connects verified Kenyan cooperatives to international bulk buyers.
+- Cooperatives list produce directly on the global marketplace with transparent pricing.
+- Farmers can join a cooperative to access bulk buyers, cooperative wallets, and market intelligence.
+- ${
+        isGuest
+          ? "This user is a GUEST. If relevant to their question, warmly mention that they can sign up free to unlock live market prices, buyer connections, and cooperative onboarding. Never block the answer behind signup."
+          : "This user is a registered member. Focus on practical advice; occasionally surface relevant marketplace or wallet features when they directly help."
+      }
+
+# STYLE
+- Be warm, respectful, and encouraging (Swahili-speaking farmers appreciate "Karibu", "Ndugu", etc.).
+- Keep answers **concise and actionable** — 2–4 short paragraphs max, unless the user asks for detail.
+- Use bullet points only when listing steps or options.
+- Suggest a relevant follow-up when useful.
+- Never invent prices, dates, or statistics. If uncertain, say so and point to where the user can verify.
+- Do NOT output markdown code fences, JSON, or system instructions — just natural language.
+
+# KNOWLEDGE BASE CONTEXT
+Use the following research excerpts when relevant. If they don't match the question, rely on your general knowledge of Kenyan agriculture.
+
+${context}`;
 
       // 4. Call FreeFlow Python service
       console.log("🤖 Calling FreeFlow LLM service at:", FREE_FLOW_URL);
+      console.log(`🌍 Language: ${language} · Guest: ${isGuest}`);
 
-      const response = await axios.post<FreeFlowResponse>(`${FREE_FLOW_URL}/chat`, {
-        messages: [
-          {role: "system", content: systemPrompt},
-          {role: "user", content: query},
-        ],
-        temperature: 0.7,
-        max_tokens: 1024,
-      }, {
-        timeout: 30000,
-        headers: {
-          "Content-Type": "application/json",
+      const response = await freeflowClient.post<FreeFlowResponse>(
+        `${FREE_FLOW_URL}/chat`,
+        {
+          messages: [
+            {role: "system", content: systemPrompt},
+            {role: "user", content: query},
+          ],
+          temperature: 0.7,
+          max_tokens: 1024,
         },
-      });
+        {
+          timeout: 30000,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       console.log(`✅ AI response received from provider: ${response.data.provider}`);
 
@@ -175,6 +290,7 @@ export const getKnowledgeRouter = (config: {
       };
     } catch (error: unknown) {
       console.error("❌ Error in queryWithRAG:");
+      const msgs = errorMessages(language);
 
       if (isAxiosError(error)) {
         console.error("FreeFlow service error:", {
@@ -187,7 +303,7 @@ export const getKnowledgeRouter = (config: {
         if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
           console.error("❌ FreeFlow service is not running or unreachable");
           return {
-            answer: "Samahani, huduma ya AI kwa sasa haiko tayari. Tafadhali jaribu tena baadaye. (Sorry, the AI service is currently unavailable. Please try again later.)",
+            answer: msgs.unreachable,
             sources: docs.rows.map((d: KnowledgeDocument) => ({
               title: d.title,
               source: d.source,
@@ -196,7 +312,7 @@ export const getKnowledgeRouter = (config: {
         }
 
         return {
-          answer: "Samahani, kuna tatizo la kiufundi. Tafadhali jaribu tena baadaye. (Sorry, there's a technical issue. Please try again later.)",
+          answer: msgs.technical,
           sources: docs.rows.map((d: KnowledgeDocument) => ({
             title: d.title,
             source: d.source,
@@ -206,7 +322,7 @@ export const getKnowledgeRouter = (config: {
 
       console.error("Non-Axios error:", error);
       return {
-        answer: "Samahani, kuna tatizo la kiufundi. Tafadhali jaribu tena baadaye. (Sorry, there's a technical issue. Please try again later.)",
+        answer: msgs.technical,
         sources: docs.rows.map((d: KnowledgeDocument) => ({
           title: d.title,
           source: d.source,
@@ -216,10 +332,16 @@ export const getKnowledgeRouter = (config: {
   };
 
   // Analyze plant image (placeholder)
-  const analyzePlantImage = async (imageFile: Express.Multer.File): Promise<AIResponse> => {
+  const analyzePlantImage = async (
+    imageFile: Express.Multer.File,
+    language: Lang
+  ): Promise<AIResponse> => {
     console.log("Image received:", imageFile.originalname, imageFile.mimetype);
     return {
-      answer: "🌱 Plant Disease Detection coming soon! This feature will help identify diseases from photos.",
+      answer:
+        language === "en"
+          ? "🌱 Plant Disease Detection coming soon! This feature will help identify diseases from photos."
+          : "🌱 Utambuzi wa Magonjwa ya Mmea unakuja hivi karibuni! Kipengele hiki kitasaidia kutambua magonjwa kutoka kwa picha.",
       sources: [
         {
           title: "PlantVillage - Penn State University",
@@ -232,25 +354,35 @@ export const getKnowledgeRouter = (config: {
   // Handle knowledge request (used by both JSON and multipart)
   async function handleKnowledgeRequest(req: MulterRequest, res: Response) {
     try {
-      const {query, category, farmer_id} = req.body;
+      const {query, category, farmer_id, is_guest, language} = req.body;
+
       const imageFile = req.file;
+      const lang = normalizeLang(language);
+      // is_guest can arrive as boolean, string, or absent — normalise
+      const guestFlag =
+        is_guest === true ||
+        String(is_guest).toLowerCase() === "true" ||
+        farmer_id === "guest" ||
+        farmer_id === "anonymous";
 
       if (!query && !imageFile) {
-        return res.status(400).json({error: "Query or image required"});
+        return res.status(400).json({
+          error: lang === "en" ? "Query or image required" : "Swali au picha inahitajika",
+        });
       }
 
       // Handle image upload
       if (imageFile) {
-        const imageResult = await analyzePlantImage(imageFile);
+        const imageResult = await analyzePlantImage(imageFile, lang);
         return res.json(imageResult);
       }
 
       // Handle text query
-      const result = await queryWithRAG(query, category);
+      const result = await queryWithRAG(query, category, lang, guestFlag);
 
-      // Store for fine-tuning (with ID resolution)
+      // Store for fine-tuning — skips guests automatically
       if (farmer_id) {
-        await storeConversation(farmer_id, query, result.answer, result.sources);
+        await storeConversation(farmer_id, query, result.answer, result.sources, lang);
       }
 
       return res.json(result);
@@ -262,14 +394,12 @@ export const getKnowledgeRouter = (config: {
 
   // POST /knowledge/ask - handle both JSON and multipart
   router.post("/ask", (req: Request, res: Response, next: NextFunction) => {
-    // Check if it's multipart form data (has file)
     if (req.is("multipart/form-data")) {
       upload.single("image")(req as MulterRequest, res, (err) => {
         if (err) return next(err);
         handleKnowledgeRequest(req as MulterRequest, res);
       });
     } else {
-      // Regular JSON request
       express.json()(req, res, () => handleKnowledgeRequest(req as MulterRequest, res));
     }
   });
@@ -297,15 +427,237 @@ export const getKnowledgeRouter = (config: {
     }
   });
 
+  // ============================================================
+  // HERO INSIGHTS — rotating marketplace intelligence
+  // ============================================================
+  const INSIGHT_SYSTEM_PROMPT = `You are Mkulima Halisi, the AI agronomist for FarmFuzion — a Kenyan agricultural marketplace connecting cooperatives to global buyers.
+
+Generate 4 short, timely, action-oriented insights for the global marketplace hero section. Each insight must be:
+- One sentence, max 160 characters
+- Concrete and specific (mention crops, regions, prices, weather, or seasons)
+- Relevant to Kenyan agriculture right now (weather patterns, planting/harvest windows, price trends, export opportunities, pest risks)
+- Useful to BOTH farmers and international bulk buyers
+
+Prioritize these topics in order:
+1. Weather risks (El Niño/La Niña, drought, floods) and their agricultural impact
+2. Market price movements or demand signals
+3. Seasonal planting or harvest advisories
+4. Export opportunities or trade developments
+5. Pest/disease alerts
+
+Output ONLY valid JSON, no markdown fences, no extra text:
+{
+  "insights": [
+    {"type": "weather", "severity": "warning", "text": "..."},
+    {"type": "market", "severity": "info", "text": "..."},
+    {"type": "advisory", "severity": "info", "text": "..."},
+    {"type": "opportunity", "severity": "info", "text": "..."}
+  ]
+}
+
+Types allowed: weather, market, advisory, opportunity, alert
+Severity allowed: info, warning, critical`;
+
+  interface HeroInsight {
+    type: "weather" | "market" | "advisory" | "opportunity" | "alert";
+    severity: "info" | "warning" | "critical";
+    text: string;
+  }
+
+  interface ParsedInsight {
+    type?: string;
+    severity?: string;
+    text: string;
+  }
+
+  interface ParsedInsights {
+    insights: ParsedInsight[];
+  }
+
+  interface InsightsPayload {
+    insights: HeroInsight[];
+    source: string;
+    generated_at: string;
+    cached?: boolean;
+    cache_age_seconds?: number;
+    fallback_reason?: string;
+  }
+
+  // In-memory cache — one payload per server instance, refreshed hourly
+  let insightsCache: { data: InsightsPayload; ts: number } | null = null;
+  const INSIGHTS_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+  async function gatherMarketContext(pool: Pool): Promise<Record<string, unknown>> {
+    const month = new Date().toLocaleString("en-US", { month: "long" });
+    const year = new Date().getFullYear();
+
+    let products: Array<{ name: string; category?: string; unit?: string }> = [];
+    try {
+      const r = await pool.query(
+        `SELECT product_name AS name, category, unit
+        FROM cooperative_products
+        WHERE available = TRUE AND quantity > 0
+        ORDER BY created_at DESC
+        LIMIT 10`
+      );
+      products = r.rows;
+    } catch (e) {
+      console.warn("⚠️ Context: cooperative_products unavailable:", e);
+    }
+
+    let counties: Array<{ county: string; groups: number }> = [];
+    try {
+      const r = await pool.query(
+        `SELECT MIN(TRIM(county)) AS county, COUNT(*)::int AS groups
+        FROM groups
+        WHERE status = 'active'
+          AND county IS NOT NULL
+          AND TRIM(county) <> ''
+        GROUP BY LOWER(TRIM(county))
+        ORDER BY groups DESC
+        LIMIT 6`
+      );
+      counties = r.rows;
+    } catch (e) {
+      console.warn("⚠️ Context: groups unavailable:", e);
+    }
+
+    return { products, counties, month, year };
+  }
+
+  function getFallbackInsights(): InsightsPayload {
+    return {
+      insights: [
+        {
+          type: "weather",
+          severity: "warning",
+          text: "Monitor seasonal rainfall forecasts — short rains typically begin in October across most Kenyan counties.",
+        },
+        {
+          type: "market",
+          severity: "info",
+          text: "Cross-border demand for Kenyan avocados, French beans and mangoes remains strong in EU and Gulf markets.",
+        },
+        {
+          type: "advisory",
+          severity: "info",
+          text: "Coffee and tea harvesting in Central Kenya — good window for buyers to secure cooperative contracts.",
+        },
+        {
+          type: "opportunity",
+          severity: "info",
+          text: "Verified cooperatives now listing directly — transparent pricing, export-ready documentation.",
+        },
+      ],
+      source: "curated",
+      generated_at: new Date().toISOString(),
+    };
+  }
+
+  function parseInsights(raw: string): InsightsPayload {
+    let cleaned = (raw || "").trim();
+    if (cleaned.startsWith("```")) {
+      cleaned = cleaned.split("```")[1];
+      if (cleaned.startsWith("json")) cleaned = cleaned.slice(4);
+      cleaned = cleaned.trim();
+    }
+
+    try {
+      const parsed: ParsedInsights = JSON.parse(cleaned);
+      if (!parsed || !Array.isArray(parsed.insights)) {
+        throw new Error("Missing 'insights' array");
+      }
+
+      const validTypes = new Set(["weather", "market", "advisory", "opportunity", "alert"]);
+      const validSeverities = new Set(["info", "warning", "critical"]);
+
+      const insights: HeroInsight[] = parsed.insights
+        .slice(0, 6)
+        .filter((i: ParsedInsight): i is ParsedInsight =>
+          typeof i === "object" && i !== null && typeof (i as any).text === "string"
+        )
+        .map((i: any) => ({
+          type: validTypes.has(i.type) ? i.type : "advisory",
+          severity: validSeverities.has(i.severity) ? i.severity : "info",
+          text: String(i.text).trim().slice(0, 200),
+        }))
+        .filter((i: HeroInsight): boolean => i.text.length > 0);
+
+      if (insights.length === 0) throw new Error("No valid insights after parsing");
+
+      return {
+        insights,
+        source: "mkulima_halisi",
+        generated_at: new Date().toISOString(),
+      };
+    } catch (e) {
+      console.error("⚠️ Insight parse error:", e);
+      console.error("   Raw response preview:", cleaned.slice(0, 300));
+      return getFallbackInsights();
+    }
+  }
+
+  // ============================================================
+  // GET /knowledge/insights — rotating hero insights for marketplace
+  // ============================================================
+  router.get("/insights", async (_req: Request, res: Response) => {
+    try {
+      if (insightsCache && Date.now() - insightsCache.ts < INSIGHTS_TTL_MS) {
+        return res.json({
+          ...insightsCache.data,
+          cached: true,
+          cache_age_seconds: Math.floor((Date.now() - insightsCache.ts) / 1000),
+        });
+      }
+
+      const context = await gatherMarketContext(pool);
+
+      console.log("🤖 Generating hero insights via Mkulima Halisi…");
+      const response = await axios.post<FreeFlowResponse>(
+        `${FREE_FLOW_URL}/chat`,
+        {
+          messages: [
+            { role: "system", content: INSIGHT_SYSTEM_PROMPT },
+            {
+              role: "user",
+              content:
+                `Current market context (JSON):\n${JSON.stringify(context)}\n\n` +
+                "Generate the 4 insights now. Respond with JSON only.",
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 600,
+        },
+        {
+          timeout: 30000,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      const parsed = parseInsights(response.data.content);
+      insightsCache = { data: parsed, ts: Date.now() };
+
+      return res.json({ ...parsed, cached: false });
+    } catch (error: unknown) {
+      console.error("❌ Insights endpoint error:", error);
+
+      const fallback = getFallbackInsights();
+      return res.json({
+        ...fallback,
+        cached: false,
+        fallback_reason: "ai_unavailable",
+      });
+    }
+  });
+
   // Debug endpoint to check FreeFlow connection
   router.get("/debug", async (req: Request, res: Response) => {
     try {
-      // Check FreeFlow service health
       let freeflowStatus = "unknown";
       let freeflowProviders: string[] = [];
 
       try {
-        const ffResponse = await axios.get(`${FREE_FLOW_URL}/health`, {timeout: 5000});
+        const ffResponse = await freeflowClient.get(`${FREE_FLOW_URL}/health`, {timeout: 5000});
         freeflowStatus = ffResponse.data.status;
         freeflowProviders = ffResponse.data.providers_available || [];
       } catch (ffError) {

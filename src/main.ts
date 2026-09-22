@@ -1,3 +1,4 @@
+// src/main.ts
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable import/no-duplicates */
@@ -45,14 +46,19 @@ import {getKnowledgeRouter} from "./api/knowledge";
 import {getServicesRouter} from "./api/services";
 import {adminRouter} from "./api/admin";
 import {getRolesRouter} from "./api/roles";
+import {getGroupAdminsRouter} from "./api/group-admins";
+import {getCooperativesRouter} from "./api/cooperatives";
+import {getPublicMarketplaceRouter} from "./api/public-marketplace";
 
-// Update allowed origins to include Vercel frontend
-const allowedOrigins = [
-  "https://farm-fuzion-abdf3.web.app",
-  "https://farm-fuzion-frontend-vercel.vercel.app",
-  "http://localhost:3000",
-  "http://localhost:5173",
-];
+// Get allowed origins from environment variable, or fall back to localhost for development
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  : [
+      "http://localhost:3000",
+      "http://localhost:5173",
+    ];
+
+console.log('🔒 CORS allowed origins:', allowedOrigins);
 
 // Database config (required for all routers)
 export interface DbConfig {
@@ -73,9 +79,19 @@ export interface AppConfig extends DbConfig {
   SILICONFLOW_API_KEY?: string;
 }
 
-// Extend Express Request to include dbConfig
+// Unipesa config interface
+export interface UnipesaConfig {
+  baseUrl: string;
+  apiKey: string;
+  apiSecret: string;
+  merchantId: string;
+  terminalId?: string;
+}
+
+// Extend Express Request to include dbConfig and unipesaConfig
 interface RequestWithConfig extends express.Request {
-  dbConfig?: DbConfig; // Use DbConfig here, not AppConfig
+  dbConfig?: DbConfig;
+  unipesaConfig?: UnipesaConfig;
 }
 
 // Define error interface for error handler
@@ -124,7 +140,18 @@ export const createMainApp = (config: AppConfig) => {
 
   app.use(
     cors({
-      origin: allowedOrigins,
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or Postman)
+        if (!origin) return callback(null, true);
+        
+        // Check if the origin is in the allowed list
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          console.warn(`🚫 CORS blocked for origin: ${origin}`);
+          callback(new Error(`Origin ${origin} not allowed by CORS`));
+        }
+      },
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
@@ -152,8 +179,25 @@ export const createMainApp = (config: AppConfig) => {
   app.use(sanitizeInput);
   app.use("/api", apiLimiter);
   app.use("/auth", authLimiter);
-  app.use(safeLogger);
+  app.use(safeLogger as express.RequestHandler);
   app.options("*", cors());
+
+  app.use("/api/auth", getAuthRouter(config));
+  app.use("/api/farmers", getFarmersRouter(config));
+  app.use("/api/wallet", async (req, res, next) => {
+    try {
+      const walletRouter = await getWalletRouter(config, {
+        baseUrl: process.env.UNIPESA_BASE_URL || "https://wallet-sandbox.unipesa.io/v1",
+        apiKey: process.env.UNIPESA_API_KEY || "",
+        apiSecret: process.env.UNIPESA_API_SECRET || "",
+        merchantId: process.env.UNIPESA_MERCHANT_ID || "",
+        terminalId: process.env.UNIPESA_TERMINAL_ID || "",
+      });
+      walletRouter(req, res, next);
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.use((req: RequestWithConfig, res, next) => {
     if (req.is("application/json")) {
@@ -180,6 +224,16 @@ export const createMainApp = (config: AppConfig) => {
         PGDB: config.PGDB,
         PGPORT: config.PGPORT,
       };
+
+      // Store Unipesa config on the request
+      req.unipesaConfig = {
+        baseUrl: process.env.UNIPESA_BASE_URL || 'https://wallet-sandbox.unipesa.io/v1',
+        apiKey: process.env.UNIPESA_API_KEY || '',
+        apiSecret: process.env.UNIPESA_API_SECRET || '',
+        merchantId: process.env.UNIPESA_MERCHANT_ID || '',
+        terminalId: process.env.UNIPESA_TERMINAL_ID || '',
+      };
+
       next();
     } catch (err: unknown) {
       const error = err as Error;
@@ -206,7 +260,7 @@ export const createMainApp = (config: AppConfig) => {
           throw new Error("Database configuration not available");
         }
         // Use the full AppConfig - you have it from the outer scope
-        const router = getRouter(config); // This is fine
+        const router = getRouter(config);
         router(req as any, res, next);
       } catch (err) {
         next(err);
@@ -214,17 +268,21 @@ export const createMainApp = (config: AppConfig) => {
     });
   };
 
-  // ADD THIS - Helper function to mount async routers under /api
+  // Helper function to mount async routers under /api - FIXED to pass unipesaConfig
   const registerAsyncRouter = (
     path: string,
-    getRouter: (config: DbConfig) => Promise<express.Router>
+    getRouter: (dbConfig: DbConfig, unipesaConfig: UnipesaConfig) => Promise<express.Router>
   ): void => {
     app.use(`/api${path}`, async (req: RequestWithConfig, res, next) => {
       try {
         if (!req.dbConfig) {
           throw new Error("Database configuration not available");
         }
-        const router = await getRouter(req.dbConfig);
+        if (!req.unipesaConfig) {
+          throw new Error("Unipesa configuration not available");
+        }
+        // ✅ Pass both dbConfig and unipesaConfig
+        const router = await getRouter(req.dbConfig, req.unipesaConfig);
         router(req as any, res, next);
       } catch (err) {
         next(err);
@@ -258,10 +316,13 @@ export const createMainApp = (config: AppConfig) => {
   registerSyncRouter("/roles", getRolesRouter);
   registerSyncRouter("/marketplace", getMarketplaceRouter);
   registerSyncRouter("/knowledge", getKnowledgeRouter);
-
-  // Only truly async routers go here
-  registerAsyncRouter("/wallet", getWalletRouter);
+  registerSyncRouter("/group-admins", getGroupAdminsRouter);
+  registerSyncRouter("/cooperatives", getCooperativesRouter);
+  registerSyncRouter("/v1", getPublicMarketplaceRouter);
+  
+  // ✅ This now passes both dbConfig and unipesaConfig
   registerAsyncRouter("/wallet/group", getGroupWalletRouter);
+  registerAsyncRouter("/wallet", getWalletRouter);
 
   // Error handling middleware with proper typing
   app.use((err: AppError, req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -313,6 +374,16 @@ if (require.main === module) {
     }
   }
 
+  // Validate Unipesa config (optional in development, required in production)
+  const requiredUnipesaVars = ["UNIPESA_API_KEY", "UNIPESA_API_SECRET", "UNIPESA_MERCHANT_ID"];
+  if (process.env.NODE_ENV === "production") {
+    for (const varName of requiredUnipesaVars) {
+      if (!process.env[varName]) {
+        console.warn(`⚠️ Missing Unipesa environment variable: ${varName} - Wallet features may not work`);
+      }
+    }
+  }
+
   const app = createMainApp(config);
   const port = process.env.PORT || 3001;
 
@@ -320,5 +391,6 @@ if (require.main === module) {
     console.log(`🚀 Server running on port ${port}`);
     console.log(`📧 Mail configured: ${!!(config.MAIL_USER && config.MAIL_PASS)}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+    console.log(`💰 Unipesa configured: ${!!process.env.UNIPESA_API_KEY}`);
   });
 }

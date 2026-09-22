@@ -11,7 +11,7 @@ import {initDbPool} from "../utils/db";
 import {MarketPriceSchema} from "../validation/marketPriceSchema";
 import {OpenAPIRegistry} from "@asteasolutions/zod-to-openapi";
 import {fetchCommodityPrice} from "../services/intelligentFetcher";
-import {IntelligentMarketEngine, FarmerContext}
+import {IntelligentMarketEngine, FarmerContext, IntelligentPriceRecommendation}
   from "../services/intelligentPriceEngine";
 import {FarmIntelligenceEngine} from "../services/farmIntelligence";
 import {CurrencyRates, CurrencyService} from "../services/currencyService";
@@ -445,27 +445,42 @@ export const getMarketPricesRouter = (config: {
 
   router.post("/intelligent-recommendations", async (req, res) => {
     try {
+      const body = req.body || {};
+      const rawInventory: any[] = Array.isArray(body.inventory)
+        ? body.inventory
+        : Array.isArray(body.currentInventory)
+          ? body.currentInventory
+          : [];
+
       const farmerContext: FarmerContext = {
-        location: req.body.location,
-        farmSize: req.body.farmSize,
-        currentInventory: req.body.currentInventory.map((item: any) => ({
+        location: body.location || "Kenya",
+        farmSize: body.farmSize,
+        currentInventory: rawInventory.map((item) => ({
           ...item,
-          harvestDate: new Date(item.harvestDate),
+          harvestDate: item.harvestDate ? new Date(item.harvestDate) : new Date(),
         })),
-        storageCapacity: req.body.storageCapacity,
-        capitalAvailable: req.body.capitalAvailable,
+        storageCapacity: body.storageCapacity,
+        capitalAvailable: body.capitalAvailable,
       };
 
       const engine = new IntelligentMarketEngine(pool);
-      const recommendations =
-        await engine.getIntelligentRecommendations(farmerContext);
+      const recommendations = await engine.getIntelligentRecommendations(farmerContext);
 
-      res.json({
-        recommendations,
-      });
+      // 👇 also return marketInsights so the frontend's third card renders
+      const insights = deriveMarketInsights(recommendations);
+
+      return res.json({ recommendations, marketInsights: insights });
     } catch (error) {
       console.error("Intelligent recommendations error:", error);
-      res.status(500).json({error: "Failed to generate recommendations"});
+      // Never 500 — return an empty shape the frontend can render
+      return res.json({
+        recommendations: [],
+        marketInsights: {
+          riskLevel: "LOW",
+          bestPerformingProduct: null,
+          overallTrend: "No data yet",
+        },
+      });
     }
   });
 
@@ -1000,4 +1015,32 @@ async function generatePricePredictions(
   } finally {
     client.release();
   }
+}
+
+function deriveMarketInsights(recommendations: any[]) {
+  if (!Array.isArray(recommendations) || recommendations.length === 0) {
+    return {
+      riskLevel: "LOW",
+      bestPerformingProduct: null,
+      overallTrend: "No data yet",
+    };
+  }
+
+  const hasRisk = recommendations.some((r) => (r.riskFactors?.length ?? 0) > 0);
+  const avgConfidence =
+    recommendations.reduce((s, r) => s + (r.confidenceScore || 0), 0) /
+    recommendations.length;
+
+  const ups = recommendations.filter((r) => r.recommendedAction === "SELL").length;
+  const downs = recommendations.filter((r) => r.recommendedAction === "BUY").length;
+
+  return {
+    riskLevel: hasRisk ? "MEDIUM" : "LOW",
+    bestPerformingProduct: recommendations[0]?.product ?? null,
+    overallTrend:
+      ups > downs ? "up over 30 days"
+      : downs > ups ? "down over 30 days"
+      : "stable over 30 days",
+    averageConfidence: Math.round(avgConfidence),
+  };
 }
